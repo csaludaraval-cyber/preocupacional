@@ -2,6 +2,7 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { FileText, Shield, User as UserIcon, LogOut } from 'lucide-react';
 
@@ -25,8 +26,8 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-card/80 backdrop-blur-sm">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <FileText className="h-7 w-7 text-primary" />
+        <Link href="/" className="flex items-center gap-3">
+          <Image src="/images/logo.png" alt="Araval Logo" width={32} height={32} />
           <span className="font-headline text-xl font-bold text-foreground">
             Araval Cotizaciones
           </span>

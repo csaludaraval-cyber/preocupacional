@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useSearchParams } from 'next/navigation';
 import React, { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { Printer, FileText, Building, User } from 'lucide-react';
 import type { Cotizacion, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -71,8 +72,8 @@ export function VistaCotizacion() {
         <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
             <div className="grid grid-cols-2 gap-8">
                 <div className="flex items-center gap-4">
-                    <div className="bg-white p-3 rounded-md">
-                        <FileText className="h-8 w-8 text-primary" />
+                    <div className="bg-white p-2 rounded-md">
+                        <Image src="/images/logo.png" alt="Araval Logo" width={40} height={40} className="text-primary"/>
                     </div>
                     <div>
                         <h1 className="font-headline text-2xl font-bold">ARAVAL</h1>
