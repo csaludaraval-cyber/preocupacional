@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download, Mail, Building, User, Users, Phone, Clock, MapPin } from 'lucide-react';
+import { Download, Mail, Building, User, Users, Phone, Clock, MapPin, Loader2 } from 'lucide-react';
 import type { Cotizacion, Examen, SolicitudTrabajador } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,24 +15,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function VistaCotizacion() {
   const [quote, setQuote] = useState<Cotizacion | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingPdf, setLoadingPdf] = useState(false);
   const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const data = searchParams.get('data');
-    if (data) {
-      try {
-        const parsedData = JSON.parse(decodeURIComponent(data));
-        setQuote(parsedData);
-      } catch (error) {
-        console.error("Error parsing quote data:", error);
-      }
-    }
-  }, [searchParams]);
 
   const allExams = useMemo(() => {
     if (!quote?.solicitudes) return [];
-    // Use a Map to get unique exams based on ID, preserving the exam object.
     const uniqueExams = new Map<string, Examen>();
     quote.solicitudes.flatMap(s => s.examenes).forEach(exam => {
         if (!uniqueExams.has(exam.id)) {
@@ -54,59 +41,70 @@ export function VistaCotizacion() {
     }, {} as Record<string, Examen[]>);
   }, [allExams]);
 
-  const mailToLink = useMemo(() => {
-    if (!quote?.solicitante?.mail) return '#';
-
-    return `mailto:${quote.solicitante.mail}?subject=${encodeURIComponent(`Cotización de Servicios Araval Nº ${quote.id?.slice(-6)}`)}&body=${encodeURIComponent(`Estimado(a) ${quote.solicitante.nombre},\n\nAdjunto encontrará la cotización Nº ${quote.id?.slice(-6)} solicitada.\n\nPor favor, recuerde adjuntar el archivo PDF antes de enviar.\n\nSaludos cordiales,\nEquipo Araval.`)}`;
-  }, [quote]);
+  useEffect(() => {
+    const data = searchParams.get('data');
+    if (data) {
+      try {
+        const parsedData = JSON.parse(decodeURIComponent(data));
+        setQuote(parsedData);
+      } catch (error) {
+        console.error("Error parsing quote data:", error);
+      }
+    }
+  }, [searchParams]);
 
   const handleExportPDF = async () => {
     if (!quote) return;
-    setLoading(true);
-    const quoteElement = document.getElementById('printable-area');
-    if (!quoteElement) {
-        setLoading(false);
-        return;
-    }
+    setLoadingPdf(true);
 
-    const buttonContainer = document.getElementById('button-container');
-    if(buttonContainer) buttonContainer.style.display = 'none';
-
-    const canvas = await html2canvas(quoteElement, {
-        scale: 2,
-        windowWidth: quoteElement.scrollWidth,
-        windowHeight: quoteElement.scrollHeight
-    });
-
-    if(buttonContainer) buttonContainer.style.display = 'flex';
-
-    const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'pt',
-        format: 'a4',
+      orientation: 'p',
+      unit: 'pt',
+      format: 'letter',
     });
-
+    
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-    const ratio = canvasHeight / canvasWidth;
-    let imgHeight = pdfWidth * ratio;
-    
-    let heightLeft = imgHeight;
-    let position = 0;
 
-    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-    heightLeft -= pdfHeight;
+    // Hide buttons during canvas operations
+    const buttonContainer = document.getElementById('button-container');
+    if (buttonContainer) buttonContainer.style.visibility = 'hidden';
 
-    while (heightLeft > 0) {
-        position = - (imgHeight - heightLeft);
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
+    // 1. Process Main Quote
+    const quoteElement = document.getElementById('printable-quote');
+    if (quoteElement) {
+        const canvas = await html2canvas(quoteElement, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasHeight / canvasWidth;
+        const imgHeight = pdfWidth * ratio;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
     }
+    
+    // 2. Process Annexes (Order Forms) one by one
+    if (quote.solicitudes) {
+      for (let i = 0; i < quote.solicitudes.length; i++) {
+        const orderElementId = `order-page-${i}`;
+        const orderElement = document.getElementById(orderElementId);
 
+        if (orderElement) {
+          pdf.addPage();
+          const canvas = await html2canvas(orderElement, { scale: 2 });
+          const imgData = canvas.toDataURL('image/png');
+          const canvasWidth = canvas.width;
+          const canvasHeight = canvas.height;
+          const ratio = canvasHeight / canvasWidth;
+          const imgHeight = pdfWidth * ratio;
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight > pdfHeight ? pdfHeight : imgHeight);
+        }
+      }
+    }
+    
+    // Show buttons again
+    if (buttonContainer) buttonContainer.style.visibility = 'visible';
+
+    // 3. Save PDF
     const date = new Date();
     const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
     const month = monthNames[date.getMonth()];
@@ -115,7 +113,7 @@ export function VistaCotizacion() {
     const fileName = `Cot-${month}${day}-${correlative}.pdf`;
 
     pdf.save(fileName);
-    setLoading(false);
+    setLoadingPdf(false);
   };
   
   const formatCurrency = (value: number) => {
@@ -131,6 +129,7 @@ export function VistaCotizacion() {
     );
   }
 
+  const mailToLink = `mailto:${quote.solicitante.mail}?subject=${encodeURIComponent(`Cotización de Servicios Araval Nº ${quote.id?.slice(-6)}`)}&body=${encodeURIComponent(`Estimado(a) ${quote.solicitante.nombre},\n\nAdjunto encontrará la cotización Nº ${quote.id?.slice(-6)} solicitada.\n\nPor favor, recuerde adjuntar el archivo PDF antes de enviar.\n\nSaludos cordiales,\nEquipo Araval.`)}`;
   const neto = quote.total;
   const iva = neto * 0.19;
   const totalFinal = neto + iva;
@@ -138,26 +137,24 @@ export function VistaCotizacion() {
   return (
     <>
       <div id="button-container" className="flex justify-end gap-2 mb-4 print:hidden">
-        <a href={mailToLink} className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2 ${!quote.solicitante?.mail && 'pointer-events-none opacity-50'}`}>
+        <Button asChild variant="secondary">
+          <a href={mailToLink}>
             <Mail className="mr-2 h-4 w-4" />
             Enviar por Email
-        </a>
-        <Button onClick={handleExportPDF} disabled={loading}>
-          {loading ? (
-            <>
-              <Download className="mr-2 h-4 w-4 animate-pulse" />
-              Exportando...
-            </>
+          </a>
+        </Button>
+        <Button onClick={handleExportPDF} disabled={loadingPdf}>
+          {loadingPdf ? (
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Exportando...</>
           ) : (
-            <>
-              <Download className="mr-2 h-4 w-4" />
-              Exportar a PDF
-            </>
+            <><Download className="mr-2 h-4 w-4" /> Exportar a PDF</>
           )}
         </Button>
       </div>
       
-      <div id="printable-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
+      {/* This container is for on-screen display and PDF generation */}
+      <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
+        
         {/* --- MAIN QUOTE --- */}
         <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none">
           <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
@@ -278,12 +275,12 @@ export function VistaCotizacion() {
           </footer>
         </div>
 
-        {/* --- ANNEXES: EXAMINATION ORDERS --- */}
+        {/* --- ANNEXES: EXAMINATION ORDERS (These are separate for PDF generation logic) --- */}
         {quote.solicitudes && quote.solicitudes.length > 0 && (
-          <div className="annex-section">
+          <div className="annex-container" style={{ position: 'absolute', left: '-9999px', top: 0 }}>
             {quote.solicitudes.map((solicitud, index) => (
-              <div key={solicitud.id || index} className="order-page-container max-w-4xl mx-auto bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:border-t-2 print:border-dashed print:mt-8 print:rounded-none">
-                <header className="bg-gray-100 p-6 rounded-t-lg print:rounded-none">
+              <div id={`order-page-${index}`} key={solicitud.id || index} className="order-page-container max-w-4xl mx-auto bg-white p-8" style={{width: '8.5in', height: '11in'}}>
+                <header className="bg-gray-100 p-6 rounded-t-lg">
                   <div className="flex justify-between items-center">
                     <div>
                       <h3 className="text-2xl font-bold font-headline text-primary">Orden de Examen</h3>
@@ -359,20 +356,20 @@ export function VistaCotizacion() {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          #printable-area {
+          #button-container, .annex-container {
+            display: none !important;
+          }
+          #pdf-content-area {
             padding: 0;
             margin: 0;
           }
-          .annex-section {
-            padding-top: 40px; /* Add some space at the top of the first annex page */
-          }
           .order-page-container {
-            page-break-before: always;
-            box-shadow: none !important;
-            border: none !important;
+             page-break-before: always;
           }
         }
       `}</style>
     </>
   );
 }
+
+    
