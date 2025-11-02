@@ -123,6 +123,10 @@ export function VistaCotizacion() {
     }, {} as Record<string, Examen[]>);
   }, [allExams]);
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+  };
+
   const handleExportPDF = async () => {
     const quoteElement = document.getElementById('printable-quote');
     if (!quoteElement || !quote) return;
@@ -385,5 +389,3 @@ export function VistaCotizacion() {
     </>
   );
 }
-
-    
