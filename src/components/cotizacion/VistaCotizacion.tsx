@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download, FileText, Building, User } from 'lucide-react';
+import { Download, Mail, Building, User } from 'lucide-react';
 import type { Cotizacion, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -49,16 +49,16 @@ export function VistaCotizacion() {
         return;
     }
 
-    // Hide button before taking screenshot
-    const printButton = document.getElementById('print-button-container');
-    if(printButton) printButton.style.display = 'none';
+    // Hide buttons before taking screenshot
+    const buttonContainer = document.getElementById('button-container');
+    if(buttonContainer) buttonContainer.style.display = 'none';
 
     const canvas = await html2canvas(quoteElement, {
         scale: 2, // Increase scale for better resolution
     });
 
-    // Show button again
-    if(printButton) printButton.style.display = 'flex';
+    // Show buttons again
+    if(buttonContainer) buttonContainer.style.display = 'flex';
 
     const imgData = canvas.toDataURL('image/png');
     
@@ -113,6 +113,8 @@ export function VistaCotizacion() {
       </div>
     );
   }
+  
+  const mailToLink = `mailto:${quote.trabajador.mail}?subject=${encodeURIComponent(`Cotización de Servicios Araval Nº ${quote.id?.slice(-6)}`)}&body=${encodeURIComponent(`Estimado(a) ${quote.trabajador.nombre},\n\nAdjunto encontrará la cotización Nº ${quote.id?.slice(-6)} solicitada.\n\nPor favor, recuerde adjuntar el archivo PDF antes de enviar.\n\nSaludos cordiales,\nEquipo Araval.`)}`;
 
   const neto = quote.total;
   const iva = neto * 0.19;
@@ -120,7 +122,11 @@ export function VistaCotizacion() {
 
   return (
     <>
-      <div id="print-button-container" className="flex justify-end mb-4 print:hidden">
+      <div id="button-container" className="flex justify-end gap-2 mb-4 print:hidden">
+        <a href={mailToLink} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2">
+            <Mail className="mr-2 h-4 w-4" />
+            Enviar por Email
+        </a>
         <Button onClick={handleExportPDF} disabled={loading}>
           {loading ? (
             <>
@@ -146,7 +152,7 @@ export function VistaCotizacion() {
                       width={150} 
                       height={40} 
                       priority 
-                      unoptimized 
+                      unoptimized
                     />
                 </div>
                 <div className="text-right">
