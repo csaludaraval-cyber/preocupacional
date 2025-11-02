@@ -1,13 +1,15 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { collection, deleteDoc, doc } from 'firebase/firestore';
-import { Eye, Inbox, Loader2, Search, Shield, Trash2, XCircle } from 'lucide-react';
+import { Eye, Inbox, Loader2, Search, Shield, Trash2, XCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
-import type { SolicitudPublica } from '@/lib/types';
+import type { SolicitudPublica, Cotizacion } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -84,6 +86,24 @@ export function AdminSolicitudes() {
       return new Date(timestamp.seconds * 1000).toLocaleDateString('es-CL');
   }
 
+  const prepareQuoteForProcessing = (request: WithId<SolicitudPublica>, solicitudIndex: number): string => {
+    const solicitudTrabajador = request.solicitudes[solicitudIndex];
+    if (!solicitudTrabajador) return '';
+    
+    // We create a partial Cotizacion object to pass to the creation page.
+    const quoteData: Partial<Cotizacion> & {
+      empresa: any, 
+      trabajador: any, 
+      examenes: any
+    } = {
+      empresa: request.empresa,
+      trabajador: solicitudTrabajador.trabajador,
+      examenes: solicitudTrabajador.examenes,
+    };
+    return encodeURIComponent(JSON.stringify(quoteData));
+  };
+
+
   if (authLoading || isLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -121,7 +141,7 @@ export function AdminSolicitudes() {
             Solicitudes de Exámenes Recibidas
         </CardTitle>
         <CardDescription>
-          Revise y gestione las solicitudes enviadas por los clientes.
+          Revise las solicitudes enviadas por clientes y procéselas para generar una cotización formal.
         </CardDescription>
         <div className="relative pt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -148,63 +168,76 @@ export function AdminSolicitudes() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredSolicitudes.length > 0 ? filteredSolicitudes.map((req) => {
-                      return (
-                        <TableRow key={req.id} className="hover:bg-accent/50">
-                            <TableCell className="font-mono text-xs">
-                                <Badge variant="secondary">{req.id.slice(-6)}</Badge>
-                            </TableCell>
-                            <TableCell>{formatDate(req.fechaCreacion)}</TableCell>
-                            <TableCell className="font-medium">{req.empresa.razonSocial}</TableCell>
-                            <TableCell className="text-muted-foreground">{req.solicitudes.length}</TableCell>
-                            <TableCell><Badge variant={req.estado === 'pendiente' ? 'default' : 'secondary'}>{req.estado}</Badge></TableCell>
-                            <TableCell className="text-center">
-                                <div className='flex items-center justify-center gap-1'>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" disabled>
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Ver Detalle (Próximamente)</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                           <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" onClick={() => setItemToDelete(req)}>
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Esta acción no se puede deshacer. Esto eliminará permanentemente la solicitud
-                                                            <span className='font-bold'> N° {req.id.slice(-6)} </span>
-                                                            de los servidores.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel onClick={() => setItemToDelete(null)}>Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                                                            Eliminar
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Eliminar Solicitud</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                      )
-                    }) : (
+                    {filteredSolicitudes.length > 0 ? filteredSolicitudes.map((req) => (
+                        <React.Fragment key={req.id}>
+                          <TableRow className="hover:bg-accent/50 bg-accent/20">
+                              <TableCell className="font-mono text-xs font-bold">
+                                  <Badge variant="secondary">{req.id.slice(-6)}</Badge>
+                              </TableCell>
+                              <TableCell className='font-bold'>{formatDate(req.fechaCreacion)}</TableCell>
+                              <TableCell className="font-medium font-bold">{req.empresa.razonSocial}</TableCell>
+                              <TableCell className="text-muted-foreground font-bold">{req.solicitudes.length}</TableCell>
+                              <TableCell><Badge variant={req.estado === 'pendiente' ? 'default' : 'secondary'}>{req.estado}</Badge></TableCell>
+                              <TableCell className="text-center">
+                                  <Tooltip>
+                                      <TooltipTrigger asChild>
+                                         <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                                  <Button variant="ghost" size="icon" onClick={() => setItemToDelete(req)}>
+                                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                                  </Button>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                                  <AlertDialogHeader>
+                                                      <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                                      <AlertDialogDescription>
+                                                          Esta acción no se puede deshacer. Esto eliminará permanentemente la solicitud
+                                                          <span className='font-bold'> N° {req.id.slice(-6)} </span>
+                                                          de los servidores.
+                                                      </AlertDialogDescription>
+                                                  </AlertDialogHeader>
+                                                  <AlertDialogFooter>
+                                                      <AlertDialogCancel onClick={() => setItemToDelete(null)}>Cancelar</AlertDialogCancel>
+                                                      <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                                                          Eliminar
+                                                      </AlertDialogAction>
+                                                  </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                          </AlertDialog>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                          <p>Eliminar Solicitud Completa</p>
+                                      </TooltipContent>
+                                  </Tooltip>
+                              </TableCell>
+                          </TableRow>
+                          {req.solicitudes.map((solicitud, index) => {
+                            const quoteQuery = prepareQuoteForProcessing(req, index);
+                            return (
+                              <TableRow key={`${req.id}-${index}`} className="hover:bg-accent/50 text-sm">
+                                <TableCell colSpan={3} className='pl-12'>
+                                  <span className='font-medium'>{solicitud.trabajador.nombre}</span> ({solicitud.examenes.length} exámenes)
+                                </TableCell>
+                                <TableCell colSpan={2}></TableCell>
+                                <TableCell className='text-center'>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button asChild variant="outline" size="sm">
+                                        <Link href={`/?solicitud=${quoteQuery}`}>
+                                          Procesar <ArrowRight className="ml-2 h-4 w-4"/>
+                                        </Link>
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Convertir en cotización para este trabajador</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </React.Fragment>
+                    )) : (
                         <TableRow>
                             <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                                 No se encontraron solicitudes.

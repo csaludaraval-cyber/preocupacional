@@ -1,7 +1,8 @@
+
 "use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -28,8 +29,32 @@ export function CrearCotizacion() {
   const [trabajador, setTrabajador] = useState<Trabajador>(initialTrabajador);
   const [selectedExams, setSelectedExams] = useState<Examen[]>([]);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const solicitudData = searchParams.get('solicitud');
+    if (solicitudData) {
+      try {
+        const parsedData = JSON.parse(decodeURIComponent(solicitudData));
+        setEmpresa(parsedData.empresa || initialEmpresa);
+        setTrabajador(parsedData.trabajador || initialTrabajador);
+        setSelectedExams(parsedData.examenes || []);
+        toast({
+            title: "Solicitud Cargada",
+            description: "Los datos de la solicitud se han cargado en el formulario."
+        })
+      } catch (error) {
+        console.error("Error parsing solicitud data:", error);
+        toast({
+            title: "Error al cargar solicitud",
+            description: "No se pudieron cargar los datos. Por favor, inténtelo manualmente.",
+            variant: "destructive"
+        })
+      }
+    }
+  }, [searchParams, toast]);
 
   const totalSteps = 2;
   const progress = (step / totalSteps) * 100;
