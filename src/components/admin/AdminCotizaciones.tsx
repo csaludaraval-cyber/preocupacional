@@ -7,6 +7,7 @@ import { History, Loader2, Search, Shield, Trash2, XCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
+import { useMemoFirebase } from '@/firebase/provider';
 import type { CotizacionFirestore } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -34,7 +35,7 @@ export function AdminCotizaciones() {
   const [quoteToDelete, setQuoteToDelete] = useState<WithId<CotizacionFirestore> | null>(null);
 
   // Memoize the query to prevent re-renders
-  const cotizacionesQuery = useMemo(() => collection(firestore, 'cotizaciones'), []);
+  const cotizacionesQuery = useMemoFirebase(() => collection(firestore, 'cotizaciones'), [firestore]);
 
   const { data: cotizaciones, isLoading, error } = useCollection<CotizacionFirestore>(cotizacionesQuery);
   
