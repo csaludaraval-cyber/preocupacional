@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '../ui/badge';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface Props {
   selectedExams: Examen[];
@@ -78,11 +79,14 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle }: 
 
   return (
     <Tabs defaultValue={examCategories[0]} className="w-full">
-      <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-        {examCategories.map(category => (
-          <TabsTrigger key={category} value={category}>{category}</TabsTrigger>
-        ))}
-      </TabsList>
+      <ScrollArea className="w-full whitespace-nowrap rounded-md">
+        <TabsList className="inline-flex h-auto">
+          {examCategories.map(category => (
+            <TabsTrigger key={category} value={category} className="text-xs sm:text-sm">{category}</TabsTrigger>
+          ))}
+        </TabsList>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
       
       {examCategories.map(category => (
         <TabsContent key={category} value={category}>
