@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { collection, deleteDoc, doc } from 'firebase/firestore';
 import { Eye, Inbox, Loader2, Search, Shield, Trash2, XCircle, ArrowRight } from 'lucide-react';
