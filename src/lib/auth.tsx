@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
     setUser(null);
     router.push('/login');
-    setLoading(false);
+    // No es necesario setLoading(false) aquí porque el onAuthStateChanged se encargará.
   };
   
   const value = useMemo(() => ({
@@ -81,8 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   }), [user, loading, logout]);
   
-  // Render a loading screen while checking auth state, unless on a public route
-  if (loading && !publicRoutes.includes(pathname)) {
+  const isPublicRoute = publicRoutes.includes(pathname);
+
+  if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -90,19 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  // Allow access to public routes even while loading or if no user
-  if (publicRoutes.includes(pathname)) {
-      return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
-      );
-  }
-
-  // If not loading and no user, the effect will have already triggered redirect.
-  // But as a fallback, we can prevent rendering the children.
-  if (!user && !publicRoutes.includes(pathname)) {
-      return null;
+  if (!isPublicRoute && !user) {
+    // No renderiza nada mientras redirige para evitar flashes de contenido.
+    return null;
   }
 
   return (
