@@ -118,7 +118,7 @@ export function VistaCotizacion() {
                                 Object.entries(examsByCategory).map(([category, exams]) => (
                                     <React.Fragment key={category}>
                                         <TableRow className="bg-gray-100/70">
-                                            <TableCell colSpan={2} className="font-headline font-semibold text-primary">
+                                            <TableCell colSpan={2} className="font-headline font-semibold text-foreground">
                                                 {category}
                                             </TableCell>
                                         </TableRow>

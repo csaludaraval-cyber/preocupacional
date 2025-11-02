@@ -135,7 +135,7 @@ export function AdminCatalogo() {
 
                 return (
                 <AccordionItem value={category} key={category}>
-                    <AccordionTrigger className="text-xl font-headline hover:no-underline">
+                    <AccordionTrigger className="text-xl font-headline hover:no-underline text-foreground">
                         <div className="flex items-center gap-2">
                             <span>{category}</span>
                             {count > 0 && <span className="text-sm font-normal text-muted-foreground">({count})</span>}
@@ -190,5 +190,3 @@ export function AdminCatalogo() {
     </Card>
   );
 }
-
-    
