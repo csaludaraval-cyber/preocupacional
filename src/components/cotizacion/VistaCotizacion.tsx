@@ -73,12 +73,12 @@ export function VistaCotizacion() {
             <div className="grid grid-cols-2 gap-8">
                 <div className="flex items-center">
                     <Image 
-                      src="/images/logo.png" 
+                      src="/images/logo2.png" 
                       alt="Araval Logo" 
                       width={150} 
                       height={40} 
                       priority 
-                      unoptimized
+                      unoptimized 
                     />
                 </div>
                 <div className="text-right">
