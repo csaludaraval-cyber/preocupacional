@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Badge } from '../ui/badge';
 
 interface Props {
   selectedExams: Examen[];
@@ -40,15 +42,19 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle }: 
     loadExams();
   }, [toast]);
 
-  const examsByCategory = useMemo(() => {
+  const examsByMainCategory = useMemo(() => {
     return allExams.reduce((acc, exam) => {
-      const category = exam.categoria;
-      if (!acc[category]) {
-        acc[category] = [];
+      const mainCategory = exam.categoria;
+      if (!acc[mainCategory]) {
+        acc[mainCategory] = {};
       }
-      acc[category].push(exam);
+      const subCategory = exam.subcategoria;
+      if(!acc[mainCategory][subCategory]) {
+        acc[mainCategory][subCategory] = [];
+      }
+      acc[mainCategory][subCategory].push(exam);
       return acc;
-    }, {} as Record<string, Examen[]>);
+    }, {} as Record<string, Record<string, Examen[]>>);
   }, [allExams]);
   
   const selectedExamIds = new Set(selectedExams.map(e => e.id));
@@ -72,7 +78,7 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle }: 
 
   return (
     <Tabs defaultValue={examCategories[0]} className="w-full">
-      <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+      <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
         {examCategories.map(category => (
           <TabsTrigger key={category} value={category}>{category}</TabsTrigger>
         ))}
@@ -81,30 +87,42 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle }: 
       {examCategories.map(category => (
         <TabsContent key={category} value={category}>
           <Card>
-            <CardContent className="p-4 pt-6">
-              <div className="space-y-4">
-                {(examsByCategory[category] || []).map(exam => (
-                  <div key={exam.id} className="flex items-center space-x-3 rounded-md p-2 transition-colors hover:bg-accent/50">
-                    <Checkbox
-                      id={exam.id}
-                      checked={selectedExamIds.has(exam.id)}
-                      onCheckedChange={(checked) => onExamToggle(exam, !!checked)}
-                    />
-                    <Label htmlFor={exam.id} className="flex-grow font-normal cursor-pointer">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium text-foreground">{exam.nombre}</p>
-                          <p className="text-xs text-muted-foreground">{exam.descripcion}</p>
+            <CardContent className="p-0">
+               <Accordion type="multiple" className="w-full">
+                {Object.entries(examsByMainCategory[category] || {}).map(([subCategory, exams]) => (
+                  <AccordionItem value={subCategory} key={subCategory}>
+                    <AccordionTrigger className="px-4 hover:no-underline">
+                        <div className='flex items-center gap-2'>
+                           <Badge variant="secondary">{subCategory}</Badge>
+                           <span className='text-sm text-muted-foreground'>({exams.length} exámenes)</span>
                         </div>
-                        <p className="font-semibold text-primary whitespace-nowrap">{formatCurrency(exam.valor)}</p>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-2 p-4 border-t">
+                        {exams.map(exam => (
+                          <div key={exam.id} className="flex items-start space-x-3 rounded-md p-2 transition-colors hover:bg-accent/50">
+                            <Checkbox
+                              id={exam.id}
+                              checked={selectedExamIds.has(exam.id)}
+                              onCheckedChange={(checked) => onExamToggle(exam, !!checked)}
+                              className="mt-1"
+                            />
+                            <Label htmlFor={exam.id} className="flex-grow font-normal cursor-pointer">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-foreground leading-tight">{exam.nombre}</p>
+                                  {exam.descripcion && <p className="text-xs text-muted-foreground mt-1">{exam.descripcion}</p>}
+                                </div>
+                                <p className="font-semibold text-primary whitespace-nowrap ml-4">{formatCurrency(exam.valor)}</p>
+                              </div>
+                            </Label>
+                          </div>
+                        ))}
                       </div>
-                    </Label>
-                  </div>
+                    </AccordionContent>
+                  </AccordionItem>
                 ))}
-                {(examsByCategory[category] || []).length === 0 && (
-                    <p className="text-center text-muted-foreground py-4">No hay exámenes en esta categoría.</p>
-                )}
-              </div>
+              </Accordion>
             </CardContent>
           </Card>
         </TabsContent>

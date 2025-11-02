@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Shield, Loader2, Save } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { getExams, updateExamPrice } from '@/lib/data';
+import { getExams, updateExamPrice, examCategories } from '@/lib/data';
 import type { Examen } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 export function AdminCatalogo() {
@@ -49,6 +50,17 @@ export function AdminCatalogo() {
       fetchExams();
     }
   }, [user, authLoading, toast]);
+  
+  const examsByCategory = useMemo(() => {
+    return exams.reduce((acc, exam) => {
+      const category = exam.categoria;
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(exam);
+      return acc;
+    }, {} as Record<string, Examen[]>);
+  }, [exams]);
 
   const handlePriceChange = (id: string, value: string) => {
     setLocalPrices(prev => ({...prev, [id]: value}));
@@ -124,46 +136,55 @@ export function AdminCatalogo() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre del Examen</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead className="text-right">Precio (CLP)</TableHead>
-                <TableHead className="w-[100px] text-center">Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {exams.map((exam) => (
-                <TableRow key={exam.id} className="hover:bg-accent/50">
-                  <TableCell className="font-medium">{exam.nombre}</TableCell>
-                  <TableCell><Badge variant="secondary">{exam.categoria}</Badge></TableCell>
-                  <TableCell className="text-right">
-                    <div className="relative flex items-center justify-end">
-                      <span className="absolute left-3 text-muted-foreground">$</span>
-                      <Input
-                        type="text"
-                        className="w-32 text-right pr-4 pl-6"
-                        value={localPrices[exam.id] || ''}
-                        onChange={(e) => handlePriceChange(exam.id, e.target.value.replace(/[^0-9]/g, ''))}
-                        onBlur={() => handleSavePrice(exam.id)}
-                        disabled={updatingId === exam.id}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {updatingId === exam.id ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
-                    ) : (
-                        <Save className="h-5 w-5 text-muted-foreground mx-auto"/>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <Accordion type="multiple" className="w-full">
+            {examCategories.map(category => (
+                <AccordionItem value={category} key={category}>
+                    <AccordionTrigger className="text-xl font-headline hover:no-underline">{category}</AccordionTrigger>
+                    <AccordionContent>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Nombre del Examen</TableHead>
+                                        <TableHead>Subcategoría</TableHead>
+                                        <TableHead className="text-right">Precio (CLP)</TableHead>
+                                        <TableHead className="w-[100px] text-center">Estado</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {(examsByCategory[category] || []).map((exam) => (
+                                        <TableRow key={exam.id} className="hover:bg-accent/50">
+                                            <TableCell className="font-medium">{exam.nombre}</TableCell>
+                                            <TableCell><Badge variant="secondary">{exam.subcategoria}</Badge></TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="relative flex items-center justify-end">
+                                                    <span className="absolute left-3 text-muted-foreground">$</span>
+                                                    <Input
+                                                        type="text"
+                                                        className="w-32 text-right pr-4 pl-6"
+                                                        value={localPrices[exam.id] || ''}
+                                                        onChange={(e) => handlePriceChange(exam.id, e.target.value.replace(/[^0-9]/g, ''))}
+                                                        onBlur={() => handleSavePrice(exam.id)}
+                                                        disabled={updatingId === exam.id}
+                                                    />
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                {updatingId === exam.id ? (
+                                                <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
+                                                ) : (
+                                                    <Save className="h-5 w-5 text-muted-foreground mx-auto"/>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            ))}
+        </Accordion>
       </CardContent>
     </Card>
   );

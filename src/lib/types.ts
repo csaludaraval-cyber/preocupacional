@@ -4,6 +4,7 @@ export type Examen = {
   id: string;
   nombre: string;
   categoria: string;
+  subcategoria: string;
   valor: number;
   unidad: 'CLP';
   descripcion: string;
