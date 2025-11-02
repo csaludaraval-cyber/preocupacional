@@ -35,14 +35,11 @@ export function VistaCotizacion() {
 
     const workerExams: Record<string, { trabajador: Trabajador; examenes: Examen[] }> = {};
     
-    // This logic assumes a direct mapping. If a worker is in the list, they are associated with all exams
-    // This part is complex because the initial request links workers to specific exams, but the final quote consolidates them.
-    // For the order, we must show all exams for every worker involved in the quote.
     quote.trabajadores.forEach(worker => {
       if(worker.rut || worker.nombre) {
         workerExams[worker.rut || worker.nombre] = {
           trabajador: worker,
-          examenes: quote.examenes // Assign all exams from the consolidated quote
+          examenes: quote.examenes
         };
       }
     });
@@ -60,7 +57,7 @@ export function VistaCotizacion() {
       return acc;
     }, {} as Record<string, Examen[]>);
   }, [quote]);
-  
+
   const mailToLink = useMemo(() => {
     if (!quote?.solicitante?.mail) return '#';
 
@@ -69,9 +66,10 @@ export function VistaCotizacion() {
 
 
   const handleExportPDF = async () => {
+    if (!quote) return;
     setLoading(true);
     const quoteElement = document.getElementById('printable-area');
-    if (!quoteElement || !quote) {
+    if (!quoteElement) {
         setLoading(false);
         return;
     }
@@ -379,6 +377,3 @@ export function VistaCotizacion() {
     </>
   );
 }
-
-
-    
