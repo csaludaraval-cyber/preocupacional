@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { FileText, Shield, User as UserIcon, LogOut } from 'lucide-react';
+import { FileText, Shield, History } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,7 @@ export function Header() {
     );
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-card/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 w-full border-b bg-card/80 backdrop-blur-sm print:hidden">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/" className="flex items-center gap-3">
           <Image 
@@ -32,8 +32,8 @@ export function Header() {
             alt="Araval Logo" 
             width={150} 
             height={40} 
-            priority
-            unoptimized
+            priority 
+            unoptimized 
           />
         </Link>
         <nav className="hidden items-center gap-4 md:flex">
@@ -42,10 +42,16 @@ export function Header() {
             Crear Cotización
           </Link>
           {user?.role === 'admin' && (
-            <Link href="/admin" className={navLinkClasses('/admin')}>
-              <Shield className="h-4 w-4" />
-              Administrar Catálogo
-            </Link>
+            <>
+              <Link href="/cotizaciones-guardadas" className={navLinkClasses('/cotizaciones-guardadas')}>
+                  <History className="h-4 w-4" />
+                  Ver Cotizaciones
+              </Link>
+              <Link href="/admin" className={navLinkClasses('/admin')}>
+                <Shield className="h-4 w-4" />
+                Administrar Catálogo
+              </Link>
+            </>
           )}
         </nav>
         <div className="flex items-center gap-4">
@@ -57,7 +63,7 @@ export function Header() {
                     {user.email}
                 </span>
                 <Button variant="ghost" size="icon" onClick={logout}>
-                    <LogOut className="h-5 w-5 text-muted-foreground"/>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted-foreground lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                 </Button>
             </div>
           ) : null}

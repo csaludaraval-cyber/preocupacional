@@ -1,4 +1,5 @@
 import { type User as FirebaseUser } from 'firebase/auth';
+import { Timestamp } from 'firebase/firestore';
 
 export type Examen = {
   id: string;
@@ -25,7 +26,8 @@ export type Trabajador = {
   mail: string;
 };
 
-export type Cotizacion = {
+// This type is for the frontend display and URL passing
+export type CotizacionDisplay = {
   id?: string;
   empresa: Empresa;
   trabajador: Trabajador;
@@ -33,6 +35,20 @@ export type Cotizacion = {
   total: number;
   fecha: string;
 };
+
+// This is the type that is stored in Firestore
+export type CotizacionFirestore = {
+  id: string;
+  empresaId: string;
+  solicitanteId: string;
+  fechaCreacion: Timestamp;
+  examenIds: string[];
+  total: number;
+  empresaData: Empresa;
+  solicitanteData: Trabajador;
+  examenesData: Examen[];
+}
+
 
 export interface User extends FirebaseUser {
   role?: 'admin' | 'standard';
