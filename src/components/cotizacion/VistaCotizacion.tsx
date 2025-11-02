@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -16,74 +15,76 @@ import { useToast } from '@/hooks/use-toast';
 
 // Componente para la Orden de Examen (Anexo)
 const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
-    <div id={`annex-page-${index}`} className="order-page-container bg-white p-8 border rounded-lg">
-      <header className="bg-gray-50 p-6 rounded-t-lg">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="text-2xl font-bold font-headline text-primary">Orden de Examen</h3>
-            <p className="text-sm text-muted-foreground">Referencia Cotización Nº: {quoteId}</p>
-          </div>
-          <Image 
-            src="/images/logo.png" 
-            alt="Araval Logo" 
-            width={120} 
-            height={32} 
-            unoptimized
-          />
-        </div>
-      </header>
-      <main className="p-6">
-        <div className="grid grid-cols-2 gap-8 mb-6 text-base">
-          <div className="space-y-2">
-            <h4 className="font-semibold text-gray-700">Paciente:</h4>
-            <p className='text-lg'>{solicitud.trabajador.nombre}</p>
-            <p className="text-sm text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
-          </div>
-          <div className="space-y-2">
-            <h4 className="font-semibold text-gray-700">Empresa:</h4>
-            <p className='text-lg'>{empresa.razonSocial}</p>
-            <p className="text-sm text-muted-foreground">RUT: {empresa.rut}</p>
-          </div>
-        </div>
-
-        <h4 className="font-semibold text-gray-700 mb-2 text-base">Exámenes a Realizar:</h4>
-        <div className="border rounded-md p-4 bg-gray-50/50">
-          <ul className="space-y-2 list-disc list-inside text-gray-800 text-base">
-            {solicitud.examenes.map(exam => (
-              <li key={exam.id}>{exam.nombre}</li>
-            ))}
-          </ul>
-        </div>
-
-        <Separator className="my-6" />
-
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-4 text-center text-base">Información para el Paciente</h4>
-          <div className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50/50 text-blue-900">
-            <p className="font-bold text-xl text-center mb-3">Centro Médico Araval</p>
-            <div className='text-sm space-y-2'>
-              <div className="flex items-center gap-3">
-                <MapPin className="h-4 w-4 text-blue-600 shrink-0"/>
-                <span>Juan Martinez 235, Taltal, Chile</span>
+    <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto">
+      <div className="p-8 border rounded-lg max-w-2xl mx-auto">
+          <header className="bg-gray-50 p-6 rounded-t-lg">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-bold font-headline text-primary">Orden de Examen</h3>
+                <p className="text-sm text-muted-foreground">Referencia Cotización Nº: {quoteId}</p>
               </div>
-              <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-blue-600 shrink-0"/>
-                <span>+56 9 7541 1515</span>
+              <Image 
+                src="/images/logo.png" 
+                alt="Araval Logo" 
+                width={120} 
+                height={32} 
+                unoptimized
+              />
+            </div>
+          </header>
+          <main className="p-6">
+            <div className="grid grid-cols-2 gap-8 mb-6 text-base">
+              <div className="space-y-2">
+                <h4 className="font-semibold text-gray-700">Paciente:</h4>
+                <p className='text-lg'>{solicitud.trabajador.nombre}</p>
+                <p className="text-sm text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
               </div>
-              <div className="flex items-center gap-3">
-                <Clock className="h-4 w-4 text-blue-600 shrink-0"/>
-                <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
+              <div className="space-y-2">
+                <h4 className="font-semibold text-gray-700">Empresa:</h4>
+                <p className='text-lg'>{empresa.razonSocial}</p>
+                <p className="text-sm text-muted-foreground">RUT: {empresa.rut}</p>
               </div>
             </div>
-            <Separator className="my-4 bg-blue-200"/>
-            <p className="text-sm text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
-          </div>
-        </div>
-      </main>
+
+            <h4 className="font-semibold text-gray-700 mb-2 text-base">Exámenes a Realizar:</h4>
+            <div className="border rounded-md p-4 bg-gray-50/50">
+              <ul className="space-y-2 list-disc list-inside text-gray-800 text-base">
+                {solicitud.examenes.map(exam => (
+                  <li key={exam.id}>{exam.nombre}</li>
+                ))}
+              </ul>
+            </div>
+
+            <Separator className="my-6" />
+
+            <div>
+              <h4 className="font-semibold text-gray-700 mb-4 text-center text-base">Información para el Paciente</h4>
+              <div className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50/50 text-blue-900">
+                <p className="font-bold text-xl text-center mb-3">Centro Médico Araval</p>
+                <div className='text-sm space-y-2'>
+                  <div className="flex items-center gap-3">
+                    <MapPin className="h-4 w-4 text-blue-600 shrink-0"/>
+                    <span>Juan Martinez 235, Taltal, Chile</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-blue-600 shrink-0"/>
+                    <span>+56 9 7541 1515</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-4 w-4 text-blue-600 shrink-0"/>
+                    <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
+                  </div>
+                </div>
+                <Separator className="my-4 bg-blue-200"/>
+                <p className="text-sm text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
+              </div>
+            </div>
+          </main>
+      </div>
        <style jsx>{`
         .order-page-container {
-          margin-top: 1rem;
-          margin-bottom: 1rem;
+          margin-top: 2rem;
+          margin-bottom: 2rem;
         }
       `}</style>
     </div>
@@ -98,18 +99,21 @@ export function VistaCotizacion() {
 
   const allExams = useMemo(() => {
     if (!quote?.solicitudes) return [];
-    const uniqueExams = new Map<string, Examen>();
-    quote.solicitudes.flatMap(s => s.examenes).forEach(exam => {
-        if (!uniqueExams.has(exam.id)) {
-            uniqueExams.set(exam.id, exam);
-        }
-    });
-    return Array.from(uniqueExams.values());
+    // This creates a list of all exams requested across all workers, but doesn't unique them by ID.
+    // It's used for displaying the consolidated list of services.
+    return quote.solicitudes.flatMap(s => s.examenes);
   }, [quote]);
 
   const examsByMainCategory = useMemo(() => {
     if (!allExams) return {};
-    return allExams.reduce((acc, exam) => {
+    const uniqueExams = new Map<string, Examen>();
+    allExams.forEach(exam => {
+        if (!uniqueExams.has(exam.id)) {
+            uniqueExams.set(exam.id, exam);
+        }
+    });
+
+    return Array.from(uniqueExams.values()).reduce((acc, exam) => {
       const { categoria } = exam;
       if (!acc[categoria]) {
         acc[categoria] = [];
@@ -150,13 +154,13 @@ export function VistaCotizacion() {
     });
     const pdfWidth = pdf.internal.pageSize.getWidth();
     
-    // Temporarily make annexes visible for rendering but off-screen
+    // Hide buttons, show annexes off-screen for rendering
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
-
     annexContainer.style.position = 'fixed';
-    annexContainer.style.top = '0';
-    annexContainer.style.left = '-9999px';
+    annexContainer.style.left = '0';
+    annexContainer.style.top = '-9999px'; // Move off-screen
+    annexContainer.style.visibility = 'visible';
     annexContainer.style.opacity = '1';
 
 
@@ -192,8 +196,9 @@ export function VistaCotizacion() {
       // Restore everything
       if (buttonContainer) buttonContainer.style.display = 'flex';
       annexContainer.style.position = '';
-      annexContainer.style.top = '';
       annexContainer.style.left = '';
+      annexContainer.style.top = '';
+      annexContainer.style.visibility = '';
       annexContainer.style.opacity = '';
       setLoadingPdf(false);
 
@@ -242,28 +247,26 @@ export function VistaCotizacion() {
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-8 print:p-0 print:bg-white">
 
         {/* --- Main Quotation for Display and PDF --- */}
-        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none">
-           <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
-            <div className="grid grid-cols-2 gap-8">
-              <div className="flex items-center">
-                <Image
-                  src="/images/logo2.png"
+        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-8">
+           <header className="bg-gray-50 p-6 rounded-lg mb-8">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-3xl font-bold font-headline text-primary">COTIZACIÓN</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
+                <p className="mt-1 text-sm text-muted-foreground">Fecha: {quote.fecha}</p>
+              </div>
+               <Image
+                  src="/images/logo.png"
                   alt="Araval Logo"
                   width={150}
                   height={40}
                   priority
                   unoptimized
                 />
-              </div>
-              <div className="text-right">
-                <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
-                <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                <p className="mt-1 text-sm">Fecha: {quote.fecha}</p>
-              </div>
             </div>
           </header>
 
-          <main className="p-8">
+          <main>
             <section className="grid grid-cols-2 gap-8 mb-8">
               <div className="space-y-2">
                 <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><Building className="h-5 w-5 text-gray-500" />Datos Empresa</h3>
@@ -354,7 +357,7 @@ export function VistaCotizacion() {
             </section>
           </main>
 
-          <footer className="mt-4 p-8 text-center text-xs text-gray-500 border-t">
+          <footer className="mt-8 p-8 text-center text-xs text-gray-500 border-t">
             <p>Cotización válida por 30 días. Para agendar, por favor contacte a nuestro equipo.</p>
             <p className="font-semibold mt-1">contacto@araval.cl | +56 9 7541 1515</p>
           </footer>
@@ -362,7 +365,7 @@ export function VistaCotizacion() {
       </div>
 
       {/* --- Annex Container for PDF Generation ONLY --- */}
-      <div id="annex-container" className="hidden">
+      <div id="annex-container" style={{ visibility: 'hidden', position: 'absolute', left: '-9999px', top: '0' }}>
            {quote?.solicitudes.map((solicitud, index) => (
                 <OrdenDeExamen 
                     key={solicitud.id || index} 
