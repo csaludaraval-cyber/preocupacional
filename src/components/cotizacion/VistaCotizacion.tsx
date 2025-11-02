@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -13,9 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-// Componente para la Orden de Examen
-const OrdenDeExamen = ({ solicitud, empresa, quoteId }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string }) => (
-    <div className="order-page-container max-w-4xl mx-auto bg-white p-8">
+// Componente para la Orden de Examen (Anexo)
+const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
+    <div id={`annex-page-${index}`} className="order-page-container max-w-4xl mx-auto bg-white p-8">
       <header className="bg-gray-100 p-6 rounded-t-lg">
         <div className="flex justify-between items-center">
           <div>
@@ -79,6 +78,13 @@ const OrdenDeExamen = ({ solicitud, empresa, quoteId }: { solicitud: SolicitudTr
           </div>
         </div>
       </main>
+       <style jsx>{`
+        .order-page-container {
+          border: 1px solid #e5e7eb;
+          margin-top: 1rem;
+          margin-bottom: 1rem;
+        }
+      `}</style>
     </div>
 );
 
@@ -122,10 +128,11 @@ export function VistaCotizacion() {
       return acc;
     }, {} as Record<string, Examen[]>);
   }, [allExams]);
-
+  
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
   };
+
 
   const handleExportPDF = async () => {
     const quoteElement = document.getElementById('printable-quote');
@@ -134,9 +141,9 @@ export function VistaCotizacion() {
     setLoadingPdf(true);
 
     const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'pt',
-        format: 'letter',
+      orientation: 'p',
+      unit: 'pt',
+      format: 'letter',
     });
     const pdfWidth = pdf.internal.pageSize.getWidth();
 
@@ -145,79 +152,50 @@ export function VistaCotizacion() {
     if (buttonContainer) buttonContainer.style.display = 'none';
 
     try {
-        // 1. Process Main Quote
-        const mainCanvas = await html2canvas(quoteElement, { scale: 2 });
-        const mainImgData = mainCanvas.toDataURL('image/png');
-        const mainRatio = mainCanvas.height / mainCanvas.width;
-        const mainImgHeight = pdfWidth * mainRatio;
-        pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
+      // 1. Process Main Quote
+      const mainCanvas = await html2canvas(quoteElement, { scale: 2 });
+      const mainImgData = mainCanvas.toDataURL('image/png');
+      const mainRatio = mainCanvas.height / mainCanvas.width;
+      const mainImgHeight = pdfWidth * mainRatio;
+      pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
 
-        // 2. Process Annexes
-        if (quote.solicitudes) {
-            for (let i = 0; i < quote.solicitudes.length; i++) {
-                const solicitud = quote.solicitudes[i];
-                const annexId = `annex-temp-${i}`;
-                
-                // Create a temporary container for rendering the annex
-                const tempContainer = document.createElement('div');
-                tempContainer.id = annexId;
-                tempContainer.style.position = 'absolute';
-                tempContainer.style.left = '-9999px'; // Move it off-screen
-                document.body.appendChild(tempContainer);
-                
-                // We need to use React's rendering to get the annex content
-                const { createRoot } = await import('react-dom/client');
-                const root = createRoot(tempContainer);
-                
-                // Render the component to the temporary container
-                await new Promise<void>(resolve => {
-                    root.render(
-                        <div style={{width: `${quoteElement.offsetWidth}px`}}>
-                            <OrdenDeExamen 
-                                solicitud={solicitud} 
-                                empresa={quote.empresa} 
-                                quoteId={quote.id ? quote.id.slice(-6) : 'N/A'}
-                            />
-                        </div>
-                    );
-                    setTimeout(resolve, 100); // Give it a moment to render
-                });
-
-                const annexCanvas = await html2canvas(tempContainer.firstChild as HTMLElement, { scale: 2 });
+      // 2. Process Annexes
+      if (quote.solicitudes) {
+          for (let i = 0; i < quote.solicitudes.length; i++) {
+              const annexElement = document.getElementById(`annex-page-${i}`);
+              if (annexElement) {
+                const annexCanvas = await html2canvas(annexElement, { scale: 2 });
                 const annexImgData = annexCanvas.toDataURL('image/png');
                 const annexRatio = annexCanvas.height / annexCanvas.width;
                 const annexImgHeight = pdfWidth * annexRatio;
 
                 pdf.addPage();
                 pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
-                
-                // Clean up
-                root.unmount();
-                document.body.removeChild(tempContainer);
-            }
-        }
+              }
+          }
+      }
 
     } catch (error) {
-        console.error("Error generating PDF:", error);
+      console.error("Error generating PDF:", error);
     } finally {
-        if (buttonContainer) buttonContainer.style.display = 'flex';
-        setLoadingPdf(false);
+      if (buttonContainer) buttonContainer.style.display = 'flex';
+      setLoadingPdf(false);
 
-        const date = new Date();
-        const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-        const month = monthNames[date.getMonth()];
-        const day = date.getDate();
-        const correlative = quote.id ? quote.id.slice(-6) : "000000";
-        const fileName = `Cot-${month}${day}-${correlative}.pdf`;
-        pdf.save(fileName);
+      const date = new Date();
+      const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+      const month = monthNames[date.getMonth()];
+      const day = date.getDate();
+      const correlative = quote.id ? quote.id.slice(-6) : "000000";
+      const fileName = `Cot-${month}${day}-${correlative}.pdf`;
+      pdf.save(fileName);
     }
-};
+  };
 
   if (!quote) {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md flex items-center justify-center">
-          <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
-          <h2 className="text-xl font-semibold">Cargando cotización...</h2>
+        <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
+        <h2 className="text-xl font-semibold">Cargando cotización...</h2>
       </div>
     );
   }
@@ -226,7 +204,7 @@ export function VistaCotizacion() {
   const neto = quote.total;
   const iva = neto * 0.19;
   const totalFinal = neto + iva;
-  
+
   return (
     <>
       <div id="button-container" className="flex justify-end gap-2 mb-4 print:hidden">
@@ -244,131 +222,144 @@ export function VistaCotizacion() {
           )}
         </Button>
       </div>
-      
-      {/* Container for on-screen display. The annexes are now generated dynamically for the PDF */}
+
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
-        
+
+        {/* --- Main Quotation for Display and PDF --- */}
         <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none">
           <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
-              <div className="grid grid-cols-2 gap-8">
-                  <div className="flex items-center">
-                      <Image 
-                        src="/images/logo2.png" 
-                        alt="Araval Logo" 
-                        width={150} 
-                        height={40} 
-                        priority 
-                        unoptimized
-                      />
-                  </div>
-                  <div className="text-right">
-                      <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
-                      <p className="mt-1">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                      <p className="mt-1">Fecha: {quote.fecha}</p>
-                  </div>
+            <div className="grid grid-cols-2 gap-8">
+              <div className="flex items-center">
+                <Image
+                  src="/images/logo2.png"
+                  alt="Araval Logo"
+                  width={150}
+                  height={40}
+                  priority
+                  unoptimized
+                />
               </div>
+              <div className="text-right">
+                <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
+                <p className="mt-1">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
+                <p className="mt-1">Fecha: {quote.fecha}</p>
+              </div>
+            </div>
           </header>
 
           <main className="p-8">
-              <section className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8">
-                  <div className="space-y-2">
-                      <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><Building className="h-5 w-5 text-gray-500"/>Datos Empresa</h3>
-                      <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {quote.empresa.razonSocial}</p>
-                      <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.empresa.rut}</p>
-                      <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
-                  </div>
-                  <div className="space-y-2">
-                      <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500"/>Datos Solicitante/Contacto</h3>
-                      <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {quote.solicitante.nombre}</p>
-                      <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.solicitante.rut}</p>
-                      <p className="text-sm"><strong className="font-medium text-gray-600">Cargo:</strong> {quote.solicitante.cargo}</p>
-                      <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.solicitante.mail}</p>
-                  </div>
-              </section>
-              
-              {quote.solicitudes && quote.solicitudes.length > 0 && (
-                   <section className="mb-8">
-                      <Card>
-                          <CardHeader>
-                              <CardTitle className="font-headline text-lg flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Trabajadores Incluidos en esta Cotización</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                               <ul className="space-y-1 text-sm list-disc list-inside text-muted-foreground columns-2">
-                                  {quote.solicitudes.map((s, i) => (
-                                      <li key={s.id || i}><span className="text-foreground font-medium">{s.trabajador.nombre}</span> (RUT: {s.trabajador.rut})</li>
-                                  ))}
-                              </ul>
-                          </CardContent>
-                      </Card>
-                  </section>
-              )}
+            <section className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8">
+              <div className="space-y-2">
+                <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><Building className="h-5 w-5 text-gray-500" />Datos Empresa</h3>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {quote.empresa.razonSocial}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.empresa.rut}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500" />Datos Solicitante/Contacto</h3>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {quote.solicitante.nombre}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.solicitante.rut}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Cargo:</strong> {quote.solicitante.cargo}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.solicitante.mail}</p>
+              </div>
+            </section>
 
-              <section>
-                  <h3 className="font-headline text-lg font-semibold mb-4 text-gray-700">Detalle de Servicios Consolidados</h3>
-                  <div className="border rounded-lg overflow-hidden">
-                      <Table>
-                          <TableHeader className="bg-gray-50">
-                              <TableRow>
-                                  <TableHead className="w-[70%] font-semibold text-gray-600">Examen</TableHead>
-                                  <TableHead className="text-right font-semibold text-gray-600">Valor Unitario</TableHead>
-                              </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {Object.keys(examsByMainCategory).length > 0 ? (
-                                  Object.entries(examsByMainCategory).map(([category, exams]) => (
-                                      <React.Fragment key={category}>
-                                          <TableRow className="bg-gray-100/70">
-                                              <TableCell colSpan={2} className="font-headline font-semibold text-foreground">
-                                                  {category}
-                                              </TableCell>
-                                          </TableRow>
-                                          {exams.map((exam) => (
-                                              <TableRow key={exam.id} className="border-b-0">
-                                                  <TableCell className="font-medium text-gray-800 pl-8">{exam.nombre}</TableCell>
-                                                  <TableCell className="text-right font-medium text-gray-700">{formatCurrency(exam.valor)}</TableCell>
-                                              </TableRow>
-                                          ))}
-                                      </React.Fragment>
-                                  ))
-                              ) : (
-                                  <TableRow>
-                                      <TableCell colSpan={2} className="text-center text-gray-500 py-8">
-                                          No hay exámenes seleccionados.
-                                      </TableCell>
-                                  </TableRow>
-                              )}
-                          </TableBody>
-                      </Table>
-                  </div>
+            {quote.solicitudes && quote.solicitudes.length > 0 && (
+              <section className="mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="font-headline text-lg flex items-center gap-2"><Users className="h-5 w-5 text-primary" />Trabajadores Incluidos en esta Cotización</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-1 text-sm list-disc list-inside text-muted-foreground columns-2">
+                      {quote.solicitudes.map((s, i) => (
+                        <li key={s.id || i}><span className="text-foreground font-medium">{s.trabajador.nombre}</span> (RUT: {s.trabajador.rut})</li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
               </section>
+            )}
 
-              <section className="mt-8 flex justify-end">
-                  <div className="w-full max-w-xs space-y-2 text-sm">
-                      <div className="flex justify-between">
-                          <span className="text-gray-600">Neto</span>
-                          <span className="font-medium text-gray-700">{formatCurrency(neto)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                          <span className="text-gray-600">IVA (19%)</span>
-                          <span className="font-medium text-gray-700">{formatCurrency(iva)}</span>
-                      </div>
-                      <Separator className="my-2" />
-                      <div className="flex justify-between items-center text-base font-bold bg-primary text-primary-foreground p-3 rounded-md">
-                          <span>TOTAL A PAGAR</span>
-                          <span>{formatCurrency(totalFinal)}</span>
-                      </div>
-                  </div>
-              </section>
+            <section>
+              <h3 className="font-headline text-lg font-semibold mb-4 text-gray-700">Detalle de Servicios Consolidados</h3>
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-gray-50">
+                    <TableRow>
+                      <TableHead className="w-[70%] font-semibold text-gray-600">Examen</TableHead>
+                      <TableHead className="text-right font-semibold text-gray-600">Valor Unitario</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Object.keys(examsByMainCategory).length > 0 ? (
+                      Object.entries(examsByMainCategory).map(([category, exams]) => (
+                        <React.Fragment key={category}>
+                          <TableRow className="bg-gray-100/70">
+                            <TableCell colSpan={2} className="font-headline font-semibold text-foreground">
+                              {category}
+                            </TableCell>
+                          </TableRow>
+                          {exams.map((exam) => (
+                            <TableRow key={exam.id} className="border-b-0">
+                              <TableCell className="font-medium text-gray-800 pl-8">{exam.nombre}</TableCell>
+                              <TableCell className="text-right font-medium text-gray-700">{formatCurrency(exam.valor)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </React.Fragment>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={2} className="text-center text-gray-500 py-8">
+                          No hay exámenes seleccionados.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+
+            <section className="mt-8 flex justify-end">
+              <div className="w-full max-w-xs space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Neto</span>
+                  <span className="font-medium text-gray-700">{formatCurrency(neto)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">IVA (19%)</span>
+                  <span className="font-medium text-gray-700">{formatCurrency(iva)}</span>
+                </div>
+                <Separator className="my-2" />
+                <div className="flex justify-between items-center text-base font-bold bg-primary text-primary-foreground p-3 rounded-md">
+                  <span>TOTAL A PAGAR</span>
+                  <span>{formatCurrency(totalFinal)}</span>
+                </div>
+              </div>
+            </section>
           </main>
-          
+
           <footer className="mt-8 p-8 text-center text-xs text-gray-400 border-t">
-              <p>Cotización válida por 30 días. Para agendar, por favor contacte a nuestro equipo.</p>
-              <p className="font-semibold mt-1">contacto@araval.cl | +56 9 7541 1515</p>
+            <p>Cotización válida por 30 días. Para agendar, por favor contacte a nuestro equipo.</p>
+            <p className="font-semibold mt-1">contacto@araval.cl | +56 9 7541 1515</p>
           </footer>
         </div>
-        
-        {/* Annex container is no longer needed for PDF generation */}
-        {/* It can be used for a "print preview" if desired, but we'll remove it for now to simplify */}
+      </div>
+
+      {/* --- Annex Container for PDF Generation ONLY --- */}
+      {/* This section is hidden on screen and only used for the PDF generation logic */}
+      <div className="hidden" aria-hidden="true">
+        <div id="annex-container">
+           {quote?.solicitudes.map((solicitud, index) => (
+                <OrdenDeExamen 
+                    key={solicitud.id || index} 
+                    solicitud={solicitud} 
+                    empresa={quote.empresa}
+                    quoteId={quote.id ? quote.id.slice(-6) : 'N/A'}
+                    index={index}
+                />
+            ))}
+        </div>
       </div>
 
       <style jsx global>{`
