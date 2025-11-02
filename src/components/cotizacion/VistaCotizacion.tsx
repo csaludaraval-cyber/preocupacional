@@ -7,11 +7,81 @@ import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Download, Mail, Building, User, Users, Phone, Clock, MapPin, Loader2 } from 'lucide-react';
-import type { Cotizacion, Examen } from '@/lib/types';
+import type { Cotizacion, Empresa, SolicitudTrabajador, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+// Componente para la Orden de Examen
+const OrdenDeExamen = ({ solicitud, empresa, quoteId }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string }) => (
+    <div className="order-page-container max-w-4xl mx-auto bg-white p-8">
+      <header className="bg-gray-100 p-6 rounded-t-lg">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-2xl font-bold font-headline text-primary">Orden de Examen</h3>
+            <p className="text-muted-foreground">Referencia Cotización Nº: {quoteId}</p>
+          </div>
+          <Image 
+            src="/images/logo.png" 
+            alt="Araval Logo" 
+            width={120} 
+            height={32} 
+            unoptimized
+          />
+        </div>
+      </header>
+      <main className="p-6">
+        <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="space-y-1">
+            <h4 className="font-semibold text-gray-600">Paciente:</h4>
+            <p>{solicitud.trabajador.nombre}</p>
+            <p className="text-sm text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
+          </div>
+          <div className="space-y-1">
+            <h4 className="font-semibold text-gray-600">Empresa:</h4>
+            <p>{empresa.razonSocial}</p>
+            <p className="text-sm text-muted-foreground">RUT: {empresa.rut}</p>
+          </div>
+        </div>
+
+        <h4 className="font-semibold text-gray-600 mb-2">Exámenes a Realizar:</h4>
+        <div className="border rounded-md p-4 bg-gray-50/50">
+          <ul className="space-y-1 list-disc list-inside text-gray-700">
+            {solicitud.examenes.map(exam => (
+              <li key={exam.id}>{exam.nombre}</li>
+            ))}
+          </ul>
+        </div>
+
+        <Separator className="my-6" />
+
+        <div>
+          <h4 className="font-semibold text-gray-600 mb-4 text-center">Información para el Paciente</h4>
+          <div className="border rounded-lg p-4 bg-blue-50/50 text-blue-900">
+            <p className="font-bold text-lg text-center mb-3">Centro Médico Araval</p>
+            <div className='text-sm space-y-2'>
+              <div className="flex items-start gap-3">
+                <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5"/>
+                <span>Juan Martinez 235, Taltal, Chile</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Phone className="h-4 w-4 text-blue-600 shrink-0 mt-0.5"/>
+                <span>+56 9 7541 1515</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Clock className="h-4 w-4 text-blue-600 shrink-0 mt-0.5"/>
+                <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
+              </div>
+            </div>
+            <Separator className="my-4 bg-blue-200"/>
+            <p className="text-xs text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+);
+
 
 export function VistaCotizacion() {
   const [quote, setQuote] = useState<Cotizacion | null>(null);
@@ -54,84 +124,96 @@ export function VistaCotizacion() {
   }, [allExams]);
 
   const handleExportPDF = async () => {
-    if (!quote) return;
+    const quoteElement = document.getElementById('printable-quote');
+    if (!quoteElement || !quote) return;
+
     setLoadingPdf(true);
 
     const pdf = new jsPDF({
-      orientation: 'p',
-      unit: 'pt',
-      format: 'letter',
+        orientation: 'p',
+        unit: 'pt',
+        format: 'letter',
     });
-    
     const pdfWidth = pdf.internal.pageSize.getWidth();
-    
-    const buttonContainer = document.getElementById('button-container');
-    const quoteElement = document.getElementById('printable-quote');
-    const annexContainer = document.getElementById('annex-container');
 
-    // Hide buttons and show annexes for processing
-    if (buttonContainer) buttonContainer.style.visibility = 'hidden';
-    if (annexContainer) annexContainer.style.display = 'block';
+    // Hide buttons during processing
+    const buttonContainer = document.getElementById('button-container');
+    if (buttonContainer) buttonContainer.style.display = 'none';
 
     try {
-      // 1. Process Main Quote
-      if (quoteElement) {
-          const canvas = await html2canvas(quoteElement, { scale: 2 });
-          const imgData = canvas.toDataURL('image/png');
-          const canvasWidth = canvas.width;
-          const canvasHeight = canvas.height;
-          const ratio = canvasHeight / canvasWidth;
-          const imgHeight = pdfWidth * ratio;
-          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-      }
-      
-      // 2. Process Annexes (Order Forms) one by one
-      if (quote.solicitudes) {
-        for (let i = 0; i < quote.solicitudes.length; i++) {
-          const orderElementId = `order-page-${i}`;
-          const orderElement = document.getElementById(orderElementId);
+        // 1. Process Main Quote
+        const mainCanvas = await html2canvas(quoteElement, { scale: 2 });
+        const mainImgData = mainCanvas.toDataURL('image/png');
+        const mainRatio = mainCanvas.height / mainCanvas.width;
+        const mainImgHeight = pdfWidth * mainRatio;
+        pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
 
-          if (orderElement) {
-            pdf.addPage();
-            const canvas = await html2canvas(orderElement, { scale: 2 });
-            const imgData = canvas.toDataURL('image/png');
-            const canvasWidth = canvas.width;
-            const canvasHeight = canvas.height;
-            const ratio = canvasHeight / canvasWidth;
-            const imgHeight = pdfWidth * ratio;
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-          }
+        // 2. Process Annexes
+        if (quote.solicitudes) {
+            for (let i = 0; i < quote.solicitudes.length; i++) {
+                const solicitud = quote.solicitudes[i];
+                const annexId = `annex-temp-${i}`;
+                
+                // Create a temporary container for rendering the annex
+                const tempContainer = document.createElement('div');
+                tempContainer.id = annexId;
+                tempContainer.style.position = 'absolute';
+                tempContainer.style.left = '-9999px'; // Move it off-screen
+                document.body.appendChild(tempContainer);
+                
+                // We need to use React's rendering to get the annex content
+                const { createRoot } = await import('react-dom/client');
+                const root = createRoot(tempContainer);
+                
+                // Render the component to the temporary container
+                await new Promise<void>(resolve => {
+                    root.render(
+                        <div style={{width: `${quoteElement.offsetWidth}px`}}>
+                            <OrdenDeExamen 
+                                solicitud={solicitud} 
+                                empresa={quote.empresa} 
+                                quoteId={quote.id ? quote.id.slice(-6) : 'N/A'}
+                            />
+                        </div>
+                    );
+                    setTimeout(resolve, 100); // Give it a moment to render
+                });
+
+                const annexCanvas = await html2canvas(tempContainer.firstChild as HTMLElement, { scale: 2 });
+                const annexImgData = annexCanvas.toDataURL('image/png');
+                const annexRatio = annexCanvas.height / annexCanvas.width;
+                const annexImgHeight = pdfWidth * annexRatio;
+
+                pdf.addPage();
+                pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
+                
+                // Clean up
+                root.unmount();
+                document.body.removeChild(tempContainer);
+            }
         }
-      }
-    } catch(error) {
-      console.error("Error generating PDF:", error);
+
+    } catch (error) {
+        console.error("Error generating PDF:", error);
     } finally {
-      // Restore visibility
-      if (buttonContainer) buttonContainer.style.visibility = 'visible';
-      if (annexContainer) annexContainer.style.display = 'none';
+        if (buttonContainer) buttonContainer.style.display = 'flex';
+        setLoadingPdf(false);
 
-      // 3. Save PDF
-      const date = new Date();
-      const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-      const month = monthNames[date.getMonth()];
-      const day = date.getDate();
-      const correlative = quote.id ? quote.id.slice(-6) : "000000";
-      const fileName = `Cot-${month}${day}-${correlative}.pdf`;
-
-      pdf.save(fileName);
-      setLoadingPdf(false);
+        const date = new Date();
+        const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+        const month = monthNames[date.getMonth()];
+        const day = date.getDate();
+        const correlative = quote.id ? quote.id.slice(-6) : "000000";
+        const fileName = `Cot-${month}${day}-${correlative}.pdf`;
+        pdf.save(fileName);
     }
-  };
-  
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
-  };
+};
 
   if (!quote) {
     return (
-      <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
+      <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md flex items-center justify-center">
+          <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
           <h2 className="text-xl font-semibold">Cargando cotización...</h2>
-          <p className="text-muted-foreground">Si no se carga, es posible que los datos de la cotización no sean válidos.</p>
       </div>
     );
   }
@@ -159,10 +241,9 @@ export function VistaCotizacion() {
         </Button>
       </div>
       
-      {/* This container is for on-screen display and PDF generation */}
+      {/* Container for on-screen display. The annexes are now generated dynamically for the PDF */}
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
         
-        {/* --- MAIN QUOTE --- */}
         <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none">
           <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
               <div className="grid grid-cols-2 gap-8">
@@ -281,79 +362,9 @@ export function VistaCotizacion() {
               <p className="font-semibold mt-1">contacto@araval.cl | +56 9 7541 1515</p>
           </footer>
         </div>
-
-        {/* --- ANNEXES: EXAMINATION ORDERS (Hidden on screen, used for PDF generation) --- */}
-        {quote.solicitudes && quote.solicitudes.length > 0 && (
-          <div id="annex-container" className="hidden">
-            {quote.solicitudes.map((solicitud, index) => (
-              <div id={`order-page-${index}`} key={solicitud.id || index} className="order-page-container max-w-4xl mx-auto bg-white p-8">
-                <header className="bg-gray-100 p-6 rounded-t-lg">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-2xl font-bold font-headline text-primary">Orden de Examen</h3>
-                      <p className="text-muted-foreground">Referencia Cotización Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                    </div>
-                    <Image 
-                      src="/images/logo.png" 
-                      alt="Araval Logo" 
-                      width={120} 
-                      height={32} 
-                      unoptimized
-                    />
-                  </div>
-                </header>
-                <main className="p-6">
-                  <div className="grid grid-cols-2 gap-6 mb-6">
-                    <div className="space-y-1">
-                      <h4 className="font-semibold text-gray-600">Paciente:</h4>
-                      <p>{solicitud.trabajador.nombre}</p>
-                      <p className="text-sm text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="font-semibold text-gray-600">Empresa:</h4>
-                      <p>{quote.empresa.razonSocial}</p>
-                      <p className="text-sm text-muted-foreground">RUT: {quote.empresa.rut}</p>
-                    </div>
-                  </div>
-
-                  <h4 className="font-semibold text-gray-600 mb-2">Exámenes a Realizar:</h4>
-                  <div className="border rounded-md p-4 bg-gray-50/50">
-                    <ul className="space-y-1 list-disc list-inside text-gray-700">
-                      {solicitud.examenes.map(exam => (
-                        <li key={exam.id}>{exam.nombre}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  <div>
-                    <h4 className="font-semibold text-gray-600 mb-4 text-center">Información para el Paciente</h4>
-                    <div className="border rounded-lg p-4 bg-blue-50/50 text-blue-900">
-                      <p className="font-bold text-lg text-center mb-3">Centro Médico Araval</p>
-                      <div className='text-sm space-y-2'>
-                        <div className="flex items-start gap-3">
-                          <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5"/>
-                          <span>Juan Martinez 235, Taltal, Chile</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Phone className="h-4 w-4 text-blue-600 shrink-0 mt-0.5"/>
-                          <span>+56 9 7541 1515</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Clock className="h-4 w-4 text-blue-600 shrink-0 mt-0.5"/>
-                          <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
-                        </div>
-                      </div>
-                      <Separator className="my-4 bg-blue-200"/>
-                      <p className="text-xs text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
-                    </div>
-                  </div>
-                </main>
-              </div>
-            ))}
-          </div>
-        )}
+        
+        {/* Annex container is no longer needed for PDF generation */}
+        {/* It can be used for a "print preview" if desired, but we'll remove it for now to simplify */}
       </div>
 
       <style jsx global>{`
@@ -363,15 +374,8 @@ export function VistaCotizacion() {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          #button-container {
+          #button-container, #pdf-content-area > .bg-gray-100 {
             display: none !important;
-          }
-          #pdf-content-area {
-            padding: 0;
-            margin: 0;
-          }
-           #annex-container {
-            display: block !important;
           }
           .order-page-container {
              page-break-before: always;
@@ -381,3 +385,5 @@ export function VistaCotizacion() {
     </>
   );
 }
+
+    
