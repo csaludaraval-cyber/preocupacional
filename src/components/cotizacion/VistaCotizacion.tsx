@@ -136,6 +136,7 @@ export function VistaCotizacion() {
   const handleExportPDF = async () => {
     const quoteElement = document.getElementById('printable-quote');
     const annexContainer = document.getElementById('annex-container');
+
     if (!quoteElement || !annexContainer || !quote) return;
 
     setLoadingPdf(true);
@@ -146,43 +147,30 @@ export function VistaCotizacion() {
       format: 'letter',
     });
     const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-
+    
     // Hide buttons during processing
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
-    
-    // Temporarily make annex container visible for rendering, but position it off-screen
+
+    // Make annex container visible for rendering but off-screen
     const originalAnnexClasses = annexContainer.className;
     annexContainer.className = "fixed top-0 left-[-9999px] opacity-100";
 
 
     try {
       // 1. Process Main Quote
-      const mainCanvas = await html2canvas(quoteElement, { scale: 2 });
+      const mainCanvas = await html2canvas(quoteElement, { scale: 2, useCORS: true });
       const mainImgData = mainCanvas.toDataURL('image/png');
       const mainRatio = mainCanvas.height / mainCanvas.width;
       const mainImgHeight = pdfWidth * mainRatio;
       
-      let heightLeft = mainImgHeight;
-      let position = 0;
-      
-      pdf.addImage(mainImgData, 'PNG', 0, position, pdfWidth, mainImgHeight);
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - mainImgHeight;
-        pdf.addPage();
-        pdf.addImage(mainImgData, 'PNG', 0, position, pdfWidth, mainImgHeight);
-        heightLeft -= pdfHeight;
-      }
-
+      pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
 
       // 2. Process Annexes
       const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
       for (let i = 0; i < annexElements.length; i++) {
         const annexElement = annexElements[i];
-        const annexCanvas = await html2canvas(annexElement, { scale: 2 });
+        const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true });
         const annexImgData = annexCanvas.toDataURL('image/png');
         const annexRatio = annexCanvas.height / annexCanvas.width;
         const annexImgHeight = pdfWidth * annexRatio;
@@ -190,9 +178,13 @@ export function VistaCotizacion() {
         pdf.addPage();
         pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
       }
-
     } catch (error) {
       console.error("Error generating PDF:", error);
+      toast({
+          title: "Error al generar PDF",
+          description: "Hubo un problema al crear el archivo. Revisa la consola.",
+          variant: "destructive"
+      })
     } finally {
       // Restore everything
       if (buttonContainer) buttonContainer.style.display = 'flex';
@@ -401,4 +393,3 @@ export function VistaCotizacion() {
     </>
   );
 }
-
