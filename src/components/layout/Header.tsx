@@ -27,7 +27,7 @@ export function Header() {
     <header className="sticky top-0 z-40 w-full border-b bg-card/80 backdrop-blur-sm">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/" className="flex items-center gap-3">
-          <Image src="/images/logo.png" alt="Araval Logo" width={150} height={40} priority unoptimized/>
+          <Image src="/images/logo.png" alt="Araval Logo" width={150} height={40} priority />
         </Link>
         <nav className="hidden items-center gap-4 md:flex">
           <Link href="/" className={navLinkClasses('/')}>

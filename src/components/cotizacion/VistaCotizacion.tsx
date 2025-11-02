@@ -72,7 +72,7 @@ export function VistaCotizacion() {
         <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
             <div className="grid grid-cols-2 gap-8">
                 <div className="flex items-center">
-                    <Image src="/images/logo.png" alt="Araval Logo" width={150} height={40} priority unoptimized/>
+                    <Image src="/images/logo.png" alt="Araval Logo" width={150} height={40} priority />
                 </div>
                 <div className="text-right">
                     <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
