@@ -96,6 +96,18 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isAdmin();
     }
 
+    /**
+     * @description Public-facing submission collection for exam requests.
+     * @path /solicitudes_publicas/{solicitudId}
+     * @allow create: if true; // Anyone can create a request.
+     * @allow read, update, delete, list: if isSignedIn() && isAdmin(); // Only admins can manage requests.
+     * @principle Enables a public write endpoint while securing read/management to admins.
+     */
+    match /solicitudes_publicas/{solicitudId} {
+      allow create: if true;
+      allow read, list, update, delete: if isSignedIn() && isAdmin();
+    }
+
     // --- Helper Functions ---
 
     /**
@@ -142,3 +154,4 @@ service cloud.firestore {
     }
   }
 }
+    

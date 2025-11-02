@@ -27,7 +27,7 @@ export type Trabajador = {
 };
 
 // This type is for the frontend display and URL passing
-export type CotizacionDisplay = {
+export type Cotizacion = {
   id?: string;
   empresa: Empresa;
   trabajador: Trabajador;
@@ -49,7 +49,24 @@ export type CotizacionFirestore = {
   examenesData: Examen[];
 }
 
-
 export interface User extends FirebaseUser {
   role?: 'admin' | 'standard';
 }
+
+// Type for a single worker's exam request within a public submission
+export type SolicitudTrabajador = {
+  id: string; // A unique ID for the worker within the form, e.g., using crypto.randomUUID()
+  trabajador: Trabajador;
+  examenes: Examen[];
+};
+
+// Type for the entire public submission, as it will be stored in Firestore
+export type SolicitudPublica = {
+  id: string;
+  empresa: Empresa;
+  solicitudes: SolicitudTrabajador[];
+  fechaCreacion: Timestamp;
+  estado: 'pendiente' | 'procesada';
+};
+
+    

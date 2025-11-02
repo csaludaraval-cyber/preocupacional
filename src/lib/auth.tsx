@@ -24,7 +24,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const publicRoutes = ['/login', '/crear-primer-admin'];
+const publicRoutes = ['/login', '/crear-primer-admin', '/solicitud'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userProfile);
         
         // Redirect logic after user is identified
-        if (publicRoutes.includes(pathname)) {
+        if (publicRoutes.includes(pathname) && pathname !== '/solicitud') {
             if (userProfile.role === 'admin') {
                 router.push('/admin');
             } else {
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     logout,
-  }), [user, loading, logout]);
+  }), [user, loading]);
   
   const isPublicRoute = publicRoutes.includes(pathname);
 
@@ -110,3 +110,5 @@ export function useAuth() {
   }
   return context;
 }
+
+    
