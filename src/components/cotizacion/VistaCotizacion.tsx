@@ -18,6 +18,18 @@ export function VistaCotizacion() {
   const [loadingPdf, setLoadingPdf] = useState(false);
   const searchParams = useSearchParams();
 
+  useEffect(() => {
+    const data = searchParams.get('data');
+    if (data) {
+      try {
+        const parsedData = JSON.parse(decodeURIComponent(data));
+        setQuote(parsedData);
+      } catch (error) {
+        console.error("Error parsing quote data:", error);
+      }
+    }
+  }, [searchParams]);
+
   const allExams = useMemo(() => {
     if (!quote?.solicitudes) return [];
     const uniqueExams = new Map<string, Examen>();
@@ -41,18 +53,6 @@ export function VistaCotizacion() {
     }, {} as Record<string, Examen[]>);
   }, [allExams]);
 
-  useEffect(() => {
-    const data = searchParams.get('data');
-    if (data) {
-      try {
-        const parsedData = JSON.parse(decodeURIComponent(data));
-        setQuote(parsedData);
-      } catch (error) {
-        console.error("Error parsing quote data:", error);
-      }
-    }
-  }, [searchParams]);
-
   const handleExportPDF = async () => {
     if (!quote) return;
     setLoadingPdf(true);
@@ -64,8 +64,7 @@ export function VistaCotizacion() {
     });
     
     const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-
+    
     // Hide buttons during canvas operations
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.visibility = 'hidden';
@@ -96,7 +95,7 @@ export function VistaCotizacion() {
           const canvasHeight = canvas.height;
           const ratio = canvasHeight / canvasWidth;
           const imgHeight = pdfWidth * ratio;
-          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight > pdfHeight ? pdfHeight : imgHeight);
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
         }
       }
     }
@@ -275,11 +274,11 @@ export function VistaCotizacion() {
           </footer>
         </div>
 
-        {/* --- ANNEXES: EXAMINATION ORDERS (These are separate for PDF generation logic) --- */}
+        {/* --- ANNEXES: EXAMINATION ORDERS (These are for PDF generation logic) --- */}
         {quote.solicitudes && quote.solicitudes.length > 0 && (
-          <div className="annex-container" style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <div id="annex-container" className="hidden print:block">
             {quote.solicitudes.map((solicitud, index) => (
-              <div id={`order-page-${index}`} key={solicitud.id || index} className="order-page-container max-w-4xl mx-auto bg-white p-8" style={{width: '8.5in', height: '11in'}}>
+              <div id={`order-page-${index}`} key={solicitud.id || index} className="order-page-container max-w-4xl mx-auto bg-white p-8" style={{pageBreakBefore: 'always'}}>
                 <header className="bg-gray-100 p-6 rounded-t-lg">
                   <div className="flex justify-between items-center">
                     <div>
@@ -356,7 +355,7 @@ export function VistaCotizacion() {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          #button-container, .annex-container {
+          #button-container, #annex-container {
             display: none !important;
           }
           #pdf-content-area {
@@ -371,5 +370,7 @@ export function VistaCotizacion() {
     </>
   );
 }
+
+    
 
     
