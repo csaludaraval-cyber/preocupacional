@@ -64,7 +64,7 @@ export async function seedInitialExams() {
     { "nombre": "OPIOIDES (OPI)", "categoria": "Exámenes de Drogas", "subcategoria": "Drogas Individuales", "valor": 0, "unidad": "CLP", "descripcion": "", "esBateria": false },
     { "nombre": "4 DROGAS+OH", "categoria": "Exámenes de Drogas", "subcategoria": "Paneles de Drogas", "valor": 0, "unidad": "CLP", "descripcion": "ANF, BZO, COC, THC + OH", "esBateria": true },
     { "nombre": "5 DROGAS+OH", "categoria": "Exámenes de Drogas", "subcategoria": "Paneles de Drogas", "valor": 0, "unidad": "CLP", "descripcion": "ANF, BZO, COC, THC, OPI + OH", "esBateria": true },
-    { "nombre": "6 DROGAS+OH", "categoria": "Exámenes de Drogas", "subcategoria": "Paneles de Drogas", "valor": 0, "unidad": "CLP", "descripcion": "", "esBateria": true },
+    { "nombre": "6 DROGAS+OH", "categoria": "Exámenes de Drogas", "subcategoria": "Paneles de Drogas", "valor": 0, "unidad": "CLP", "descripcion": "", "esBateria": true }
   ];
   
   const examsCollection = collection(firestore, 'examenes');
