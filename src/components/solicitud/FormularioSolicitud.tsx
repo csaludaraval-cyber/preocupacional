@@ -34,11 +34,11 @@ export function FormularioSolicitud() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { toast } = useToast();
-
+  const totalExams = useMemo(() => solicitudes.reduce((acc, s) => acc + s.examenes.length, 0), [solicitudes]);
+  const currentSolicitud = solicitudes[currentSolicitudIndex];
+  
   const totalSteps = 2;
   const progress = (step / totalSteps) * 100;
-
-  const currentSolicitud = solicitudes[currentSolicitudIndex];
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, totalSteps));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
@@ -81,7 +81,6 @@ export function FormularioSolicitud() {
     setCurrentSolicitudIndex(index);
     setStep(1);
   }
-
 
   const handleSendRequest = async () => {
      setIsSubmitting(true);
@@ -132,21 +131,7 @@ export function FormularioSolicitud() {
         setIsSubmitting(false);
     }
   };
-
-  if (formSubmitted) {
-    return (
-        <Alert className="max-w-2xl mx-auto border-accent">
-            <Send className="h-5 w-5 text-accent-foreground" />
-            <AlertTitle className="text-xl font-headline text-accent-foreground">¡Solicitud Enviada!</AlertTitle>
-            <AlertDescription className="text-muted-foreground">
-                Gracias por su solicitud. Nuestro equipo la revisará y se pondrá en contacto con usted a la brevedad para enviar la cotización formal.
-            </AlertDescription>
-        </Alert>
-    )
-  }
   
-  const totalExams = useMemo(() => solicitudes.reduce((acc, s) => acc + s.examenes.length, 0), [solicitudes]);
-
   const steps = [
     {
       id: 1,
@@ -161,6 +146,18 @@ export function FormularioSolicitud() {
   ];
 
   const currentStepData = steps.find(s => s.id === step);
+
+  if (formSubmitted) {
+    return (
+        <Alert className="max-w-2xl mx-auto border-accent">
+            <Send className="h-5 w-5 text-accent-foreground" />
+            <AlertTitle className="text-xl font-headline text-accent-foreground">¡Solicitud Enviada!</AlertTitle>
+            <AlertDescription className="text-muted-foreground">
+                Gracias por su solicitud. Nuestro equipo la revisará y se pondrá en contacto con usted a la brevedad para enviar la cotización formal.
+            </AlertDescription>
+        </Alert>
+    )
+  }
 
   return (
     <div className="space-y-8">
@@ -241,11 +238,16 @@ export function FormularioSolicitud() {
             </Button>
             
             <div className="flex gap-2">
-              {step < totalSteps && (
-                <Button onClick={nextStep} className="bg-primary hover:bg-primary/90">
-                  Siguiente <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              )}
+                {step === 1 && (
+                    <Button onClick={nextStep} className="bg-primary hover:bg-primary/90">
+                        Seleccionar Exámenes <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                )}
+                 {step > 1 && (
+                     <Button onClick={addTrabajador} variant="outline">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Añadir Otro Trabajador
+                    </Button>
+                )}
               
               <Button onClick={handleSendRequest} disabled={isSubmitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
                 {isSubmitting ? 'Enviando...' : <><Send className="mr-2 h-4 w-4" /> Enviar Solicitud Completa</>}
