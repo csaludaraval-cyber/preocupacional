@@ -1,0 +1,255 @@
+{
+  "entities": {
+    "Empresa": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Empresa",
+      "type": "object",
+      "description": "Entidad que representa la información de la empresa.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador único de la empresa."
+        },
+        "razonSocial": {
+          "type": "string",
+          "description": "Razón social de la empresa."
+        },
+        "rut": {
+          "type": "string",
+          "description": "RUT de la empresa."
+        },
+        "direccionFacturacion": {
+          "type": "string",
+          "description": "Dirección de facturación de la empresa."
+        }
+      },
+      "required": [
+        "id",
+        "razonSocial",
+        "rut",
+        "direccionFacturacion"
+      ]
+    },
+    "Solicitante": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Solicitante",
+      "type": "object",
+      "description": "Entidad que representa la información del solicitante/trabajador.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador único del solicitante."
+        },
+        "nombre": {
+          "type": "string",
+          "description": "Nombre del solicitante."
+        },
+        "rut": {
+          "type": "string",
+          "description": "RUT del solicitante."
+        },
+        "cargo": {
+          "type": "string",
+          "description": "Cargo del solicitante."
+        },
+        "centroCostos": {
+          "type": "string",
+          "description": "Centro de costos del solicitante."
+        },
+        "mail": {
+          "type": "string",
+          "description": "Correo electrónico del solicitante.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "nombre",
+        "rut",
+        "cargo",
+        "centroCostos",
+        "mail"
+      ]
+    },
+    "Examen": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Examen",
+      "type": "object",
+      "description": "Entidad que representa un examen del catálogo.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador único del examen."
+        },
+        "nombre": {
+          "type": "string",
+          "description": "Nombre del examen."
+        },
+        "categoria": {
+          "type": "string",
+          "description": "Categoría del examen."
+        },
+        "valor": {
+          "type": "number",
+          "description": "Valor del examen."
+        },
+        "unidad": {
+          "type": "string",
+          "description": "Unidad monetaria del valor del examen (e.g., CLP)."
+        },
+        "descripcion": {
+          "type": "string",
+          "description": "Descripción del examen."
+        },
+        "esBateria": {
+          "type": "boolean",
+          "description": "Indica si es un examen individual o una batería."
+        }
+      },
+      "required": [
+        "id",
+        "nombre",
+        "categoria",
+        "valor",
+        "unidad",
+        "descripcion",
+        "esBateria"
+      ]
+    },
+    "Cotizacion": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Cotizacion",
+      "type": "object",
+      "description": "Entidad que representa una cotización.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador único de la cotización."
+        },
+        "empresaId": {
+          "type": "string",
+          "description": "Referencia a la empresa. (Relationship: Empresa 1:N Cotización)"
+        },
+        "solicitanteId": {
+          "type": "string",
+          "description": "Referencia al solicitante. (Relationship: Solicitante 1:N Cotización)"
+        },
+        "fechaCreacion": {
+          "type": "string",
+          "description": "Fecha de creación de la cotización.",
+          "format": "date-time"
+        },
+        "examenIds": {
+          "type": "array",
+          "description": "Referencias a los exámenes incluidos en la cotización. (Relationship: Cotizacion N:N Examen)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "total": {
+          "type": "number",
+          "description": "Total de la cotización."
+        }
+      },
+      "required": [
+        "id",
+        "empresaId",
+        "solicitanteId",
+        "fechaCreacion",
+        "examenIds",
+        "total"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/empresas/{empresaId}",
+        "definition": {
+          "entityName": "Empresa",
+          "schema": {
+            "$ref": "#/backend/entities/Empresa"
+          },
+          "description": "Almacena la información de las empresas. Se utiliza el ID de la empresa como identificador del documento.",
+          "params": [
+            {
+              "name": "empresaId",
+              "description": "ID de la empresa."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/solicitantes/{solicitanteId}",
+        "definition": {
+          "entityName": "Solicitante",
+          "schema": {
+            "$ref": "#/backend/entities/Solicitante"
+          },
+          "description": "Almacena la información de los solicitantes. El acceso está restringido al solicitante propietario. Se utiliza el ID del solicitante como identificador del documento.",
+          "params": [
+            {
+              "name": "solicitanteId",
+              "description": "ID del solicitante."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/examenes/{examenId}",
+        "definition": {
+          "entityName": "Examen",
+          "schema": {
+            "$ref": "#/backend/entities/Examen"
+          },
+          "description": "Catálogo de exámenes disponibles. Gestionado por el administrador.",
+          "params": [
+            {
+              "name": "examenId",
+              "description": "ID del examen."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/cotizaciones/{cotizacionId}",
+        "definition": {
+          "entityName": "Cotizacion",
+          "schema": {
+            "$ref": "#/backend/entities/Cotizacion"
+          },
+          "description": "Almacena las cotizaciones generadas. Incluye los IDs de la empresa y el solicitante para facilitar las reglas de seguridad. Permite independencia de authorizacion.",
+          "params": [
+            {
+              "name": "cotizacionId",
+              "description": "ID de la cotización."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "roles_admin",
+          "schema": {
+            "$ref": "#/backend/entities/roles_admin"
+          },
+          "description": "Indica si un usuario es administrador. La existencia del documento otorga privilegios de administrador.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "ID del usuario."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage quotations and a catalog of exams (servicios). It incorporates role-based access control, separating standard user and admin privileges, and is optimized for scalability and security. The key collections are `empresas`, `solicitantes`, `examenes`, `cotizaciones` and `roles_admin`. \n\n**Authorization Independence:** Access control is enforced without relying on hierarchical `get()` calls by storing all authorization information directly within the documents themselves. For example, the `cotizaciones` collection contains `empresaId` and `solicitanteId` which allows rules to validate access based on these values without needing to retrieve the related `empresa` or `solicitante` document. For the admin role, we rely on document existence in `roles_admin/{userId}`. This approach ensures atomic operations are possible and avoids the complexities of cascading authorization checks.\n\n**Segregation and QAPs:** The segregation of `examenes` and `cotizaciones` allows for targeted security rules. Admins can manage `examenes`, while users create `cotizaciones` referencing them. The `roles_admin` collection stores admin UIDs.  List operations are secured because rules can validate that a user can only list `cotizaciones` associated with their `empresaId` or if they have the `roles_admin` role, they can access `examenes` for catalogue management. Private user data (`solicitantes`) is secured using path-based ownership, limiting access to the respective user.\n\n**Admin Role:** The existence of a document in `/roles_admin/{userId}` grants administrative privileges. This is preferred over custom claims for simplicity.\n"
+  }
+}

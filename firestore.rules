@@ -1,0 +1,144 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a role-based access control model for managing companies, applicants, exams, and quotations.
+ * Data is organized into top-level collections: /empresas/{empresaId}, /solicitantes/{solicitanteId}, /examenes/{examenId}, /cotizaciones/{cotizacionId}, and /roles_admin/{userId}.
+ *
+ * Core Philosophy: This ruleset enforces a role-based access control model.
+ *
+ * Data Structure:
+ * - /empresas/{empresaId}: Stores company information.
+ * - /solicitantes/{solicitanteId}: Stores applicant information. Access is restricted to the applicant.
+ * - /examenes/{examenId}: Stores the catalog of exams. Managed by admins.
+ * - /cotizaciones/{cotizacionId}: Stores quotations. Contains companyId and solicitanteId for authorization.
+ * - /roles_admin/{userId}: Indicates if a user is an admin.
+ *
+ * Key Security Decisions:
+ * - Admin role is determined by the existence of a document in /roles_admin/{userId}.
+ * - Users can only access their own /solicitantes/{solicitanteId} document.
+ * - Quotations store companyId and solicitanteId to avoid hierarchical get() calls for authorization.
+ * - Listing of collections is generally restricted except for admins or based on ownership.
+ *
+ * Denormalization for Authorization:
+ * - Quotations store companyId and solicitanteId to avoid needing to fetch company or applicant documents for authorization.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Allows admins to read and write company data.
+     * @path /empresas/{empresaId}
+     * @allow (get, list, create, update, delete) if isSignedIn() && isAdmin()
+     * @deny (create, update, delete) if !isSignedIn() || !isAdmin()
+     * @principle Enforces admin-only access for company data.
+     */
+    match /empresas/{empresaId} {
+      allow get, list: if isSignedIn() && isAdmin();
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
+    /**
+     * @description Allows a user to read and write their own applicant data.
+     * @path /solicitantes/{solicitanteId}
+     * @allow (get, create, update, delete, list) if isSignedIn() && isOwner(solicitanteId)
+     * @deny (get, create, update, delete, list) if !isSignedIn() || !isOwner(solicitanteId)
+     * @principle Enforces document ownership for applicant data.
+     */
+    match /solicitantes/{solicitanteId} {
+      allow get: if isSignedIn() && isOwner(solicitanteId);
+      allow list: if isSignedIn() && isOwner(solicitanteId);
+      allow create: if isSignedIn() && isOwner(solicitanteId);
+      allow update: if isSignedIn() && isExistingOwner(solicitanteId);
+      allow delete: if isSignedIn() && isExistingOwner(solicitanteId);
+    }
+
+    /**
+     * @description Allows admins to read and write exam data.
+     * @path /examenes/{examenId}
+     * @allow (get, list, create, update, delete) if isSignedIn() && isAdmin()
+     * @deny (create, update, delete) if !isSignedIn() || !isAdmin()
+     * @principle Enforces admin-only access for exam data.
+     */
+    match /examenes/{examenId} {
+      allow get, list: if isSignedIn() && isAdmin();
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
+    /**
+     * @description Allows anyone to read quotation data, but restricts creation, update, and deletion.
+     * @path /cotizaciones/{cotizacionId}
+     * @allow (get, list) if true;
+     * @allow create: if isSignedIn() && (request.resource.data.solicitanteId == request.auth.uid);
+     * @allow update: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
+     * @allow delete: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
+     * @principle Allows public reads, but restricts writes to authorized users.
+     */
+    match /cotizaciones/{cotizacionId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && (request.resource.data.solicitanteId == request.auth.uid);
+      allow update: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
+      allow delete: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
+    }
+
+    /**
+     * @description Allows a user to create their own admin role document. Grants full access to admins.
+     * @path /roles_admin/{userId}
+     * @allow get, list: if isSignedIn() && isAdmin();
+     * @allow create: if isSignedIn() && isOwner(userId);
+     * @allow update: if isSignedIn() && isAdmin();
+     * @allow delete: if isSignedIn() && isAdmin();
+     * @principle Enforces admin role management.
+     */
+    match /roles_admin/{userId} {
+      allow get, list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // --- Helper Functions ---
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the resource.
+     * @param {string} userId - The user ID to check against.
+     * @return {bool} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the resource and if the resource exists.
+     * @param {string} userId - The user ID to check against.
+     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the Cotizacion resource and if the resource exists.
+     * @param {string} solicitanteId - The solicitante ID to check against.
+     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
+     */
+    function isExistingOwnerCotizacion(solicitanteId) {
+        return request.auth.uid == solicitanteId && resource != null;
+    }
+
+    /**
+     * @description Checks if the user is an admin by verifying the existence of a document in /roles_admin/{userId}.
+     * @return {bool} True if the user is an admin, false otherwise.
+     */
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+  }
+}
