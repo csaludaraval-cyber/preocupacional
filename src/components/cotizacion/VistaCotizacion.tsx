@@ -12,70 +12,71 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 // Componente para la Orden de Examen (Anexo)
 const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
-    <div id={`annex-page-${index}`} className="order-page-container max-w-xl mx-auto bg-white p-6 border rounded-lg">
-      <header className="bg-gray-50 p-4 rounded-t-lg">
+    <div id={`annex-page-${index}`} className="order-page-container bg-white p-8 border rounded-lg">
+      <header className="bg-gray-50 p-6 rounded-t-lg">
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="text-xl font-bold font-headline text-primary">Orden de Examen</h3>
-            <p className="text-xs text-muted-foreground">Referencia Cotización Nº: {quoteId}</p>
+            <h3 className="text-2xl font-bold font-headline text-primary">Orden de Examen</h3>
+            <p className="text-sm text-muted-foreground">Referencia Cotización Nº: {quoteId}</p>
           </div>
           <Image 
             src="/images/logo.png" 
             alt="Araval Logo" 
-            width={100} 
-            height={26} 
+            width={120} 
+            height={32} 
             unoptimized
           />
         </div>
       </header>
-      <main className="p-4">
-        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-          <div className="space-y-1">
-            <h4 className="font-semibold text-gray-600">Paciente:</h4>
-            <p>{solicitud.trabajador.nombre}</p>
-            <p className="text-xs text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
+      <main className="p-6">
+        <div className="grid grid-cols-2 gap-8 mb-6 text-base">
+          <div className="space-y-2">
+            <h4 className="font-semibold text-gray-700">Paciente:</h4>
+            <p className='text-lg'>{solicitud.trabajador.nombre}</p>
+            <p className="text-sm text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
           </div>
-          <div className="space-y-1">
-            <h4 className="font-semibold text-gray-600">Empresa:</h4>
-            <p>{empresa.razonSocial}</p>
-            <p className="text-xs text-muted-foreground">RUT: {empresa.rut}</p>
+          <div className="space-y-2">
+            <h4 className="font-semibold text-gray-700">Empresa:</h4>
+            <p className='text-lg'>{empresa.razonSocial}</p>
+            <p className="text-sm text-muted-foreground">RUT: {empresa.rut}</p>
           </div>
         </div>
 
-        <h4 className="font-semibold text-gray-600 mb-2 text-sm">Exámenes a Realizar:</h4>
-        <div className="border rounded-md p-3 bg-gray-50/50">
-          <ul className="space-y-1 list-disc list-inside text-gray-700 text-sm">
+        <h4 className="font-semibold text-gray-700 mb-2 text-base">Exámenes a Realizar:</h4>
+        <div className="border rounded-md p-4 bg-gray-50/50">
+          <ul className="space-y-2 list-disc list-inside text-gray-800 text-base">
             {solicitud.examenes.map(exam => (
               <li key={exam.id}>{exam.nombre}</li>
             ))}
           </ul>
         </div>
 
-        <Separator className="my-4" />
+        <Separator className="my-6" />
 
         <div>
-          <h4 className="font-semibold text-gray-600 mb-3 text-center text-sm">Información para el Paciente</h4>
-          <div className="border rounded-lg p-3 bg-blue-50/50 text-blue-900">
-            <p className="font-bold text-base text-center mb-2">Centro Médico Araval</p>
-            <div className='text-xs space-y-1.5'>
-              <div className="flex items-start gap-2">
-                <MapPin className="h-3 w-3 text-blue-600 shrink-0 mt-0.5"/>
+          <h4 className="font-semibold text-gray-700 mb-4 text-center text-base">Información para el Paciente</h4>
+          <div className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50/50 text-blue-900">
+            <p className="font-bold text-xl text-center mb-3">Centro Médico Araval</p>
+            <div className='text-sm space-y-2'>
+              <div className="flex items-center gap-3">
+                <MapPin className="h-4 w-4 text-blue-600 shrink-0"/>
                 <span>Juan Martinez 235, Taltal, Chile</span>
               </div>
-              <div className="flex items-start gap-2">
-                <Phone className="h-3 w-3 text-blue-600 shrink-0 mt-0.5"/>
+              <div className="flex items-center gap-3">
+                <Phone className="h-4 w-4 text-blue-600 shrink-0"/>
                 <span>+56 9 7541 1515</span>
               </div>
-              <div className="flex items-start gap-2">
-                <Clock className="h-3 w-3 text-blue-600 shrink-0 mt-0.5"/>
+              <div className="flex items-center gap-3">
+                <Clock className="h-4 w-4 text-blue-600 shrink-0"/>
                 <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
               </div>
             </div>
-            <Separator className="my-3 bg-blue-200"/>
-            <p className="text-xs text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
+            <Separator className="my-4 bg-blue-200"/>
+            <p className="text-sm text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
           </div>
         </div>
       </main>
@@ -93,6 +94,7 @@ export function VistaCotizacion() {
   const [quote, setQuote] = useState<Cotizacion | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(false);
   const searchParams = useSearchParams();
+  const { toast } = useToast();
 
   const allExams = useMemo(() => {
     if (!quote?.solicitudes) return [];
@@ -148,13 +150,14 @@ export function VistaCotizacion() {
     });
     const pdfWidth = pdf.internal.pageSize.getWidth();
     
-    // Hide buttons during processing
+    // Temporarily make annexes visible for rendering but off-screen
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
 
-    // Make annex container visible for rendering but off-screen
-    const originalAnnexClasses = annexContainer.className;
-    annexContainer.className = "fixed top-0 left-[-9999px] opacity-100";
+    annexContainer.style.position = 'fixed';
+    annexContainer.style.top = '0';
+    annexContainer.style.left = '-9999px';
+    annexContainer.style.opacity = '1';
 
 
     try {
@@ -188,7 +191,10 @@ export function VistaCotizacion() {
     } finally {
       // Restore everything
       if (buttonContainer) buttonContainer.style.display = 'flex';
-      annexContainer.className = originalAnnexClasses;
+      annexContainer.style.position = '';
+      annexContainer.style.top = '';
+      annexContainer.style.left = '';
+      annexContainer.style.opacity = '';
       setLoadingPdf(false);
 
       const date = new Date();
@@ -203,7 +209,7 @@ export function VistaCotizacion() {
 
   if (!quote) {
     return (
-      <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md flex items-center justify-center">
+      <div className="max-w-4xl mx-auto p-8 bg-white rounded-lg shadow-md flex items-center justify-center">
         <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
         <h2 className="text-xl font-semibold">Cargando cotización...</h2>
       </div>
@@ -233,54 +239,54 @@ export function VistaCotizacion() {
         </Button>
       </div>
 
-      <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
+      <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-8 print:p-0 print:bg-white">
 
         {/* --- Main Quotation for Display and PDF --- */}
         <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none">
-           <header className="bg-primary text-primary-foreground p-4 rounded-t-lg print:rounded-none">
-            <div className="grid grid-cols-2 gap-4">
+           <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
+            <div className="grid grid-cols-2 gap-8">
               <div className="flex items-center">
                 <Image
                   src="/images/logo2.png"
                   alt="Araval Logo"
-                  width={120}
-                  height={32}
+                  width={150}
+                  height={40}
                   priority
                   unoptimized
                 />
               </div>
               <div className="text-right">
-                <h2 className="text-xl font-bold font-headline">COTIZACIÓN</h2>
-                <p className="mt-1 text-xs">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                <p className="mt-1 text-xs">Fecha: {quote.fecha}</p>
+                <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
+                <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
+                <p className="mt-1 text-sm">Fecha: {quote.fecha}</p>
               </div>
             </div>
           </header>
 
-          <main className="p-4">
-            <section className="grid grid-cols-2 gap-4 mb-4">
-              <div className="space-y-1 text-xs">
-                <h3 className="font-headline text-sm font-semibold text-gray-700 border-b pb-1 mb-1 flex items-center gap-2"><Building className="h-4 w-4 text-gray-500" />Datos Empresa</h3>
-                <p><strong className="font-medium text-gray-600">Razón Social:</strong> {quote.empresa.razonSocial}</p>
-                <p><strong className="font-medium text-gray-600">RUT:</strong> {quote.empresa.rut}</p>
-                <p><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
+          <main className="p-8">
+            <section className="grid grid-cols-2 gap-8 mb-8">
+              <div className="space-y-2">
+                <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><Building className="h-5 w-5 text-gray-500" />Datos Empresa</h3>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {quote.empresa.razonSocial}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.empresa.rut}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
               </div>
-              <div className="space-y-1 text-xs">
-                <h3 className="font-headline text-sm font-semibold text-gray-700 border-b pb-1 mb-1 flex items-center gap-2"><User className="h-4 w-4 text-gray-500" />Datos Solicitante</h3>
-                <p><strong className="font-medium text-gray-600">Nombre:</strong> {quote.solicitante.nombre}</p>
-                <p><strong className="font-medium text-gray-600">RUT:</strong> {quote.solicitante.rut}</p>
-                <p><strong className="font-medium text-gray-600">Email:</strong> {quote.solicitante.mail}</p>
+              <div className="space-y-2">
+                <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500" />Datos Solicitante</h3>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {quote.solicitante.nombre}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.solicitante.rut}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.solicitante.mail}</p>
               </div>
             </section>
 
             {quote.solicitudes && quote.solicitudes.length > 0 && (
-              <section className="mb-4">
-                <Card className="shadow-none border-gray-200">
-                  <CardHeader className="p-2 bg-gray-50 rounded-t-lg">
-                    <CardTitle className="font-headline text-sm flex items-center gap-2"><Users className="h-4 w-4 text-primary" />Trabajadores Incluidos ({quote.solicitudes.length})</CardTitle>
+              <section className="mb-8">
+                <Card className="shadow-sm border-gray-200">
+                  <CardHeader className="p-3 bg-gray-50 rounded-t-lg">
+                    <CardTitle className="font-headline text-base flex items-center gap-2"><Users className="h-5 w-5 text-primary" />Trabajadores Incluidos ({quote.solicitudes.length})</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-2 text-xs">
-                     <ul className="space-y-0.5 list-disc list-inside text-muted-foreground columns-2">
+                  <CardContent className="p-4 text-sm">
+                     <ul className="space-y-1 list-disc list-inside text-muted-foreground columns-2 md:columns-3">
                       {quote.solicitudes.map((s, i) => (
                         <li key={s.id || i}><span className="text-foreground font-medium">{s.trabajador.nombre}</span></li>
                       ))}
@@ -291,35 +297,35 @@ export function VistaCotizacion() {
             )}
 
             <section>
-              <h3 className="font-headline text-sm font-semibold mb-1 text-gray-700">Detalle de Servicios Consolidados</h3>
+              <h3 className="font-headline text-lg font-semibold mb-2 text-gray-700">Detalle de Servicios Consolidados</h3>
               <div className="border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader className="bg-gray-50">
                     <TableRow>
-                      <TableHead className="w-[70%] font-semibold text-gray-600 text-xs py-1 px-2">Examen</TableHead>
-                      <TableHead className="text-right font-semibold text-gray-600 text-xs py-1 px-2">Valor Unitario</TableHead>
+                      <TableHead className="w-[70%] font-semibold text-gray-600 text-sm py-2 px-4">Examen</TableHead>
+                      <TableHead className="text-right font-semibold text-gray-600 text-sm py-2 px-4">Valor Unitario</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {Object.keys(examsByMainCategory).length > 0 ? (
                       Object.entries(examsByMainCategory).map(([category, exams]) => (
                         <React.Fragment key={category}>
-                          <TableRow className="bg-gray-100/70">
-                            <TableCell colSpan={2} className="font-headline font-semibold text-foreground text-xs py-1 px-2">
+                          <TableRow className="bg-gray-100/80">
+                            <TableCell colSpan={2} className="font-headline font-semibold text-foreground text-sm py-2 px-4">
                               {category}
                             </TableCell>
                           </TableRow>
                           {exams.map((exam) => (
-                            <TableRow key={exam.id} className="border-b-0 text-xs">
-                              <TableCell className="font-medium text-gray-800 pl-4 py-1 px-2">{exam.nombre}</TableCell>
-                              <TableCell className="text-right font-medium text-gray-700 py-1 px-2">{formatCurrency(exam.valor)}</TableCell>
+                            <TableRow key={exam.id} className="border-b-0 text-sm">
+                              <TableCell className="font-medium text-gray-800 pl-8 py-2 px-4">{exam.nombre}</TableCell>
+                              <TableCell className="text-right font-medium text-gray-700 py-2 px-4">{formatCurrency(exam.valor)}</TableCell>
                             </TableRow>
                           ))}
                         </React.Fragment>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center text-gray-500 py-4 text-xs">
+                        <TableCell colSpan={2} className="text-center text-gray-500 py-8 text-sm">
                           No hay exámenes seleccionados.
                         </TableCell>
                       </TableRow>
@@ -329,18 +335,18 @@ export function VistaCotizacion() {
               </div>
             </section>
 
-            <section className="mt-4 flex justify-end">
-              <div className="w-full max-w-[250px] space-y-1 text-xs">
+            <section className="mt-8 flex justify-end">
+              <div className="w-full max-w-sm space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Neto</span>
-                  <span className="font-medium text-gray-700">{formatCurrency(neto)}</span>
+                  <span className="font-semibold text-gray-800">{formatCurrency(neto)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">IVA (19%)</span>
-                  <span className="font-medium text-gray-700">{formatCurrency(iva)}</span>
+                  <span className="font-semibold text-gray-800">{formatCurrency(iva)}</span>
                 </div>
-                <Separator className="my-1" />
-                <div className="flex justify-between items-center text-sm font-bold bg-primary text-primary-foreground p-1.5 rounded-md">
+                <Separator className="my-2" />
+                <div className="flex justify-between items-center text-lg font-bold bg-primary text-primary-foreground p-3 rounded-lg">
                   <span>TOTAL A PAGAR</span>
                   <span>{formatCurrency(totalFinal)}</span>
                 </div>
@@ -348,7 +354,7 @@ export function VistaCotizacion() {
             </section>
           </main>
 
-          <footer className="mt-2 p-4 text-center text-xs text-gray-400 border-t">
+          <footer className="mt-4 p-8 text-center text-xs text-gray-500 border-t">
             <p>Cotización válida por 30 días. Para agendar, por favor contacte a nuestro equipo.</p>
             <p className="font-semibold mt-1">contacto@araval.cl | +56 9 7541 1515</p>
           </footer>
@@ -381,9 +387,6 @@ export function VistaCotizacion() {
           #printable-quote {
             box-shadow: none !important;
             border: none !important;
-          }
-          #annex-container {
-            display: block !important;
           }
           .order-page-container {
              page-break-before: always;
