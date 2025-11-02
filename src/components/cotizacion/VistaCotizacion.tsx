@@ -133,10 +133,10 @@ export function VistaCotizacion() {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
   };
 
-
   const handleExportPDF = async () => {
     const quoteElement = document.getElementById('printable-quote');
-    if (!quoteElement || !quote) return;
+    const annexContainer = document.getElementById('annex-container');
+    if (!quoteElement || !annexContainer || !quote) return;
 
     setLoadingPdf(true);
 
@@ -150,6 +150,12 @@ export function VistaCotizacion() {
     // Hide buttons during processing
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
+    
+    // --- STYLES TEMPORALES PARA CAPTURA ---
+    // Clases para mover el contenedor de anexos fuera de la pantalla pero mantenerlo renderizado y visible para html2canvas
+    const originalAnnexClasses = annexContainer.className;
+    annexContainer.className = "fixed top-0 left-0 -z-50 opacity-100"; // Lo hacemos "visible" pero fuera de vista
+
 
     try {
       // 1. Process Main Quote
@@ -160,25 +166,24 @@ export function VistaCotizacion() {
       pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
 
       // 2. Process Annexes
-      if (quote.solicitudes) {
-          for (let i = 0; i < quote.solicitudes.length; i++) {
-              const annexElement = document.getElementById(`annex-page-${i}`);
-              if (annexElement) {
-                const annexCanvas = await html2canvas(annexElement, { scale: 2 });
-                const annexImgData = annexCanvas.toDataURL('image/png');
-                const annexRatio = annexCanvas.height / annexCanvas.width;
-                const annexImgHeight = pdfWidth * annexRatio;
+      const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
+      for (let i = 0; i < annexElements.length; i++) {
+        const annexElement = annexElements[i];
+        const annexCanvas = await html2canvas(annexElement, { scale: 2 });
+        const annexImgData = annexCanvas.toDataURL('image/png');
+        const annexRatio = annexCanvas.height / annexCanvas.width;
+        const annexImgHeight = pdfWidth * annexRatio;
 
-                pdf.addPage();
-                pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
-              }
-          }
+        pdf.addPage();
+        pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
       }
 
     } catch (error) {
       console.error("Error generating PDF:", error);
     } finally {
+      // Restore everything
       if (buttonContainer) buttonContainer.style.display = 'flex';
+      annexContainer.className = originalAnnexClasses; // Restaurar clases originales
       setLoadingPdf(false);
 
       const date = new Date();
@@ -227,51 +232,51 @@ export function VistaCotizacion() {
 
         {/* --- Main Quotation for Display and PDF --- */}
         <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none">
-          <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
-            <div className="grid grid-cols-2 gap-8">
+          <header className="bg-primary text-primary-foreground p-6 rounded-t-lg print:rounded-none">
+            <div className="grid grid-cols-2 gap-6">
               <div className="flex items-center">
                 <Image
                   src="/images/logo2.png"
                   alt="Araval Logo"
-                  width={150}
-                  height={40}
+                  width={140}
+                  height={38}
                   priority
                   unoptimized
                 />
               </div>
               <div className="text-right">
-                <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
-                <p className="mt-1">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                <p className="mt-1">Fecha: {quote.fecha}</p>
+                <h2 className="text-2xl font-bold font-headline">COTIZACIÓN</h2>
+                <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
+                <p className="mt-1 text-sm">Fecha: {quote.fecha}</p>
               </div>
             </div>
           </header>
 
-          <main className="p-8">
-            <section className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8">
-              <div className="space-y-2">
-                <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><Building className="h-5 w-5 text-gray-500" />Datos Empresa</h3>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {quote.empresa.razonSocial}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.empresa.rut}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
+          <main className="p-6">
+            <section className="grid grid-cols-2 gap-6 mb-6">
+              <div className="space-y-1">
+                <h3 className="font-headline text-base font-semibold text-gray-700 border-b pb-1 mb-2 flex items-center gap-2"><Building className="h-4 w-4 text-gray-500" />Datos Empresa</h3>
+                <p className="text-xs"><strong className="font-medium text-gray-600">Razón Social:</strong> {quote.empresa.razonSocial}</p>
+                <p className="text-xs"><strong className="font-medium text-gray-600">RUT:</strong> {quote.empresa.rut}</p>
+                <p className="text-xs"><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
               </div>
-              <div className="space-y-2">
-                <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500" />Datos Solicitante/Contacto</h3>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {quote.solicitante.nombre}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.solicitante.rut}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Cargo:</strong> {quote.solicitante.cargo}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.solicitante.mail}</p>
+              <div className="space-y-1">
+                <h3 className="font-headline text-base font-semibold text-gray-700 border-b pb-1 mb-2 flex items-center gap-2"><User className="h-4 w-4 text-gray-500" />Datos Solicitante/Contacto</h3>
+                <p className="text-xs"><strong className="font-medium text-gray-600">Nombre:</strong> {quote.solicitante.nombre}</p>
+                <p className="text-xs"><strong className="font-medium text-gray-600">RUT:</strong> {quote.solicitante.rut}</p>
+                <p className="text-xs"><strong className="font-medium text-gray-600">Cargo:</strong> {quote.solicitante.cargo}</p>
+                <p className="text-xs"><strong className="font-medium text-gray-600">Email:</strong> {quote.solicitante.mail}</p>
               </div>
             </section>
 
             {quote.solicitudes && quote.solicitudes.length > 0 && (
-              <section className="mb-8">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="font-headline text-lg flex items-center gap-2"><Users className="h-5 w-5 text-primary" />Trabajadores Incluidos en esta Cotización</CardTitle>
+              <section className="mb-6">
+                <Card className="shadow-none border-gray-200">
+                  <CardHeader className="p-3 bg-gray-50 rounded-t-lg">
+                    <CardTitle className="font-headline text-base flex items-center gap-2"><Users className="h-5 w-5 text-primary" />Trabajadores Incluidos</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-1 text-sm list-disc list-inside text-muted-foreground columns-2">
+                  <CardContent className="p-3 text-xs">
+                     <ul className="space-y-1 list-disc list-inside text-muted-foreground columns-2">
                       {quote.solicitudes.map((s, i) => (
                         <li key={s.id || i}><span className="text-foreground font-medium">{s.trabajador.nombre}</span> (RUT: {s.trabajador.rut})</li>
                       ))}
@@ -282,13 +287,13 @@ export function VistaCotizacion() {
             )}
 
             <section>
-              <h3 className="font-headline text-lg font-semibold mb-4 text-gray-700">Detalle de Servicios Consolidados</h3>
+              <h3 className="font-headline text-base font-semibold mb-2 text-gray-700">Detalle de Servicios Consolidados</h3>
               <div className="border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader className="bg-gray-50">
                     <TableRow>
-                      <TableHead className="w-[70%] font-semibold text-gray-600">Examen</TableHead>
-                      <TableHead className="text-right font-semibold text-gray-600">Valor Unitario</TableHead>
+                      <TableHead className="w-[70%] font-semibold text-gray-600 text-sm py-2 px-4">Examen</TableHead>
+                      <TableHead className="text-right font-semibold text-gray-600 text-sm py-2 px-4">Valor Unitario</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -296,21 +301,21 @@ export function VistaCotizacion() {
                       Object.entries(examsByMainCategory).map(([category, exams]) => (
                         <React.Fragment key={category}>
                           <TableRow className="bg-gray-100/70">
-                            <TableCell colSpan={2} className="font-headline font-semibold text-foreground">
+                            <TableCell colSpan={2} className="font-headline font-semibold text-foreground text-sm py-2 px-4">
                               {category}
                             </TableCell>
                           </TableRow>
                           {exams.map((exam) => (
-                            <TableRow key={exam.id} className="border-b-0">
-                              <TableCell className="font-medium text-gray-800 pl-8">{exam.nombre}</TableCell>
-                              <TableCell className="text-right font-medium text-gray-700">{formatCurrency(exam.valor)}</TableCell>
+                            <TableRow key={exam.id} className="border-b-0 text-sm">
+                              <TableCell className="font-medium text-gray-800 pl-8 py-2 px-4">{exam.nombre}</TableCell>
+                              <TableCell className="text-right font-medium text-gray-700 py-2 px-4">{formatCurrency(exam.valor)}</TableCell>
                             </TableRow>
                           ))}
                         </React.Fragment>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center text-gray-500 py-8">
+                        <TableCell colSpan={2} className="text-center text-gray-500 py-6">
                           No hay exámenes seleccionados.
                         </TableCell>
                       </TableRow>
@@ -320,8 +325,8 @@ export function VistaCotizacion() {
               </div>
             </section>
 
-            <section className="mt-8 flex justify-end">
-              <div className="w-full max-w-xs space-y-2 text-sm">
+            <section className="mt-6 flex justify-end">
+              <div className="w-full max-w-xs space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Neto</span>
                   <span className="font-medium text-gray-700">{formatCurrency(neto)}</span>
@@ -330,8 +335,8 @@ export function VistaCotizacion() {
                   <span className="text-gray-600">IVA (19%)</span>
                   <span className="font-medium text-gray-700">{formatCurrency(iva)}</span>
                 </div>
-                <Separator className="my-2" />
-                <div className="flex justify-between items-center text-base font-bold bg-primary text-primary-foreground p-3 rounded-md">
+                <Separator className="my-1" />
+                <div className="flex justify-between items-center text-base font-bold bg-primary text-primary-foreground p-2 rounded-md">
                   <span>TOTAL A PAGAR</span>
                   <span>{formatCurrency(totalFinal)}</span>
                 </div>
@@ -339,7 +344,7 @@ export function VistaCotizacion() {
             </section>
           </main>
 
-          <footer className="mt-8 p-8 text-center text-xs text-gray-400 border-t">
+          <footer className="mt-4 p-6 text-center text-xs text-gray-400 border-t">
             <p>Cotización válida por 30 días. Para agendar, por favor contacte a nuestro equipo.</p>
             <p className="font-semibold mt-1">contacto@araval.cl | +56 9 7541 1515</p>
           </footer>
@@ -347,9 +352,8 @@ export function VistaCotizacion() {
       </div>
 
       {/* --- Annex Container for PDF Generation ONLY --- */}
-      {/* This section is hidden on screen and only used for the PDF generation logic */}
-      <div className="hidden" aria-hidden="true">
-        <div id="annex-container">
+      {/* This section is hidden on screen but visible to the PDF generator logic */}
+      <div id="annex-container" className="hidden">
            {quote?.solicitudes.map((solicitud, index) => (
                 <OrdenDeExamen 
                     key={solicitud.id || index} 
@@ -359,7 +363,6 @@ export function VistaCotizacion() {
                     index={index}
                 />
             ))}
-        </div>
       </div>
 
       <style jsx global>{`
@@ -371,6 +374,13 @@ export function VistaCotizacion() {
           }
           #button-container, #pdf-content-area > .bg-gray-100 {
             display: none !important;
+          }
+          #printable-quote {
+            box-shadow: none !important;
+            border: none !important;
+          }
+          #annex-container {
+            display: block !important;
           }
           .order-page-container {
              page-break-before: always;
