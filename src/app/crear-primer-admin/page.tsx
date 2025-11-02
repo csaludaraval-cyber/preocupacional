@@ -19,6 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus } from 'lucide-react';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function CreateFirstAdminPage() {
   const [name, setName] = useState('');
@@ -50,20 +52,41 @@ export default function CreateFirstAdminPage() {
       // 2. Update user profile with name
       await updateProfile(user, { displayName: name });
 
-      // 3. Create admin role document in Firestore
+      // 3. Create admin role document in Firestore (non-blocking with detailed error)
       const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
-      await setDoc(adminRoleRef, { admin: true, createdAt: new Date() });
-      
-      // 4. Create user profile document (optional but good practice)
+      const adminRoleData = { admin: true, createdAt: new Date() };
+      setDoc(adminRoleRef, adminRoleData)
+        .catch(error => {
+          errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+              path: adminRoleRef.path,
+              operation: 'create',
+              requestResourceData: adminRoleData,
+            })
+          );
+        });
+
+      // 4. Create user profile document (non-blocking with detailed error)
       const userProfileRef = doc(firestore, 'solicitantes', user.uid);
-      await setDoc(userProfileRef, {
+      const userProfileData = {
           nombre: name,
           mail: email,
           rut: '', // Add fields as necessary
           cargo: 'Administrador',
           centroCostos: 'N/A'
-      }, { merge: true });
-
+      };
+      setDoc(userProfileRef, userProfileData, { merge: true })
+        .catch(error => {
+          errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+              path: userProfileRef.path,
+              operation: 'create',
+              requestResourceData: userProfileData,
+            })
+          );
+        });
 
       toast({
         title: 'Administrador creado',
