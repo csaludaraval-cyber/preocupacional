@@ -1,3 +1,4 @@
+
 import { collection, doc, getDocs, updateDoc, writeBatch } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import type { Examen } from '@/lib/types';
@@ -52,7 +53,7 @@ export async function seedInitialExams() {
     { "nombre": "RX TORAX PA", "categoria": "Médicos y Clínicos", "subcategoria": "Radiología", "valor": 0, "unidad": "CLP", "descripcion": "", "esBateria": false },
     { "nombre": "RADIOGRAFIA TORAX LECTURA OIT", "categoria": "Médicos y Clínicos", "subcategoria": "Radiología", "valor": 0, "unidad": "CLP", "descripcion": "", "esBateria": false },
     { "nombre": "LAVADO OTICO", "categoria": "Médicos y Clínicos", "subcategoria": "Otros", "valor": 0, "unidad": "CLP", "descripcion": "", "esBateria": false },
-    { "nombre": "MEDICINA GENERAL", "categoria": "Médicos y Clínicos", "subcategoria": "Otros", "valor": g0, "unidad": "CLP", "descripcion": "", "esBateria": false },
+    { "nombre": "MEDICINA GENERAL", "categoria": "Médicos y Clínicos", "subcategoria": "Otros", "valor": 0, "unidad": "CLP", "descripcion": "", "esBateria": false },
     { "nombre": "ALCOHOL (OH) SANGRE", "categoria": "Médicos y Clínicos", "subcategoria": "Toxicología", "valor": 0, "unidad": "CLP", "descripcion": "", "esBateria": false },
 
     // IV. Exámenes de Drogas
@@ -103,3 +104,5 @@ export const examCategories = [
   'Médicos y Clínicos',
   'Exámenes de Drogas',
 ];
+
+    
