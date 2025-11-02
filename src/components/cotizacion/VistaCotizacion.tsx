@@ -154,7 +154,7 @@ export function VistaCotizacion() {
     
     // Temporarily make annex container visible for rendering, but position it off-screen
     const originalAnnexClasses = annexContainer.className;
-    annexContainer.className = "fixed top-0 left-0 -z-50 opacity-100";
+    annexContainer.className = "fixed top-0 left-[-9999px] opacity-100";
 
 
     try {
