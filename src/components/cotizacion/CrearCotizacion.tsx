@@ -16,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import Paso1DatosGenerales from './Paso1DatosGenerales';
 import Paso2SeleccionExamenes from './Paso2SeleccionExamenes';
 import ResumenCotizacion from './ResumenCotizacion';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '' };
 const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
@@ -45,7 +47,7 @@ export function CrearCotizacion() {
     setSelectedExams([]);
   };
 
-  const handleGenerateQuote = async () => {
+  const handleGenerateQuote = () => {
     if (!user) {
       toast({
         variant: 'destructive',
@@ -56,41 +58,47 @@ export function CrearCotizacion() {
     }
 
     const total = selectedExams.reduce((acc, exam) => acc + exam.valor, 0);
-    
-    // Create a new quote object for Firestore
+
     const newQuote = {
-      empresaId: empresa.rut, // Assuming RUT can be a unique identifier
+      empresaId: empresa.rut,
       solicitanteId: user.uid,
       fechaCreacion: serverTimestamp(),
       examenIds: selectedExams.map(ex => ex.id),
       total: total,
-      // Store denormalized data for easy display
       empresaData: empresa,
       solicitanteData: trabajador,
       examenesData: selectedExams
     };
 
-    try {
-      const docRef = await addDoc(collection(firestore, 'cotizaciones'), newQuote);
-      
-      const quoteForDisplay: Cotizacion = {
-        empresa,
-        trabajador,
-        examenes: selectedExams,
-        total,
-        fecha: new Date().toLocaleDateString('es-CL'),
-      };
-      
-      const query = encodeURIComponent(JSON.stringify(quoteForDisplay));
-      router.push(`/cotizacion?data=${query}`);
-    } catch (error) {
-      console.error("Error creating quote:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudo guardar la cotización. Revisa los permisos de Firestore.'
+    const cotizacionesRef = collection(firestore, 'cotizaciones');
+    addDoc(cotizacionesRef, newQuote)
+      .then(docRef => {
+        const quoteForDisplay: Cotizacion = {
+          empresa,
+          trabajador,
+          examenes: selectedExams,
+          total,
+          fecha: new Date().toLocaleDateString('es-CL'),
+        };
+
+        const query = encodeURIComponent(JSON.stringify(quoteForDisplay));
+        router.push(`/cotizacion?data=${query}`);
+      })
+      .catch(error => {
+        const permissionError = new FirestorePermissionError({
+            path: cotizacionesRef.path,
+            operation: 'create',
+            requestResourceData: newQuote,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+
+        // Optional: show a generic toast, but the detailed error is in the console/overlay
+        toast({
+            variant: 'destructive',
+            title: 'Error de Permiso',
+            description: 'No se pudo guardar la cotización. Revisa los permisos.'
+        });
       });
-    }
   };
 
   const steps = [
