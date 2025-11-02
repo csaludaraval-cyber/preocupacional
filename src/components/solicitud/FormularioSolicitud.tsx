@@ -1,13 +1,14 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Send, Sparkles, PlusCircle, Trash2, Users, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, PlusCircle, Trash2, Users, FileText } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import type { Empresa, Examen, Trabajador, SolicitudTrabajador } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -38,7 +39,6 @@ export function FormularioSolicitud() {
   const progress = (step / totalSteps) * 100;
 
   const currentSolicitud = solicitudes[currentSolicitudIndex];
-  const isEditingCompany = currentSolicitudIndex === 0;
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, totalSteps));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
@@ -59,7 +59,6 @@ export function FormularioSolicitud() {
   };
 
   const addTrabajador = () => {
-    // Go back to step 1 to enter new worker data
     setStep(1); 
     const newId = crypto.randomUUID();
     const newSolicitud: SolicitudTrabajador = { id: newId, trabajador: initialTrabajador, examenes: [] };
@@ -73,15 +72,14 @@ export function FormularioSolicitud() {
         return;
     }
     setSolicitudes(prev => prev.filter((_, index) => index !== indexToRemove));
-    // If we are removing the currently selected worker, move to the previous one
-    if (currentSolicitudIndex >= indexToRemove) {
-      setCurrentSolicitudIndex(prev => Math.max(0, prev - 1));
+    if (currentSolicitudIndex >= indexToRemove && currentSolicitudIndex > 0) {
+      setCurrentSolicitudIndex(prev => prev - 1);
     }
   };
 
   const selectTrabajador = (index: number) => {
     setCurrentSolicitudIndex(index);
-    setStep(1); // Go back to step 1 to edit this worker
+    setStep(1);
   }
 
 
@@ -91,21 +89,21 @@ export function FormularioSolicitud() {
      if (!empresa.razonSocial || !empresa.rut) {
         toast({ title: "Datos incompletos", description: "La Razón Social y el RUT de la empresa son obligatorios.", variant: "destructive"});
         setIsSubmitting(false);
-        setStep(1); // Go to step 1 to fix
+        setStep(1);
         return;
      }
 
      if (solicitudes.some(s => !s.trabajador.nombre || !s.trabajador.rut)) {
         toast({ title: "Datos incompletos", description: "El nombre y RUT de cada trabajador son obligatorios.", variant: "destructive"});
         setIsSubmitting(false);
-        setStep(1); // Go to step 1 to fix
+        setStep(1);
         return;
      }
 
      if (solicitudes.every(s => s.examenes.length === 0)) {
         toast({ title: "Sin exámenes", description: "Debe seleccionar al menos un examen para un trabajador.", variant: "destructive"});
         setIsSubmitting(false);
-        setStep(2); // Go to step 2 to fix
+        setStep(2);
         return;
      }
 
@@ -113,7 +111,7 @@ export function FormularioSolicitud() {
       empresa: empresa,
       solicitudes: solicitudes.map(s => ({
         trabajador: s.trabajador,
-        examenes: s.examenes.map(({ id, nombre, categoria, subcategoria, valor }) => ({ id, nombre, categoria, subcategoria, valor })) // Send relevant exam data
+        examenes: s.examenes.map(({ id, nombre, categoria, subcategoria, valor }) => ({ id, nombre, categoria, subcategoria, valor }))
       })),
       fechaCreacion: serverTimestamp(),
       estado: 'pendiente',
@@ -137,10 +135,10 @@ export function FormularioSolicitud() {
 
   if (formSubmitted) {
     return (
-        <Alert className="max-w-2xl mx-auto border-green-500">
-            <Sparkles className="h-5 w-5 text-green-600" />
-            <AlertTitle className="text-xl font-headline text-green-700">¡Solicitud Enviada!</AlertTitle>
-            <AlertDescription className="text-green-600">
+        <Alert className="max-w-2xl mx-auto border-accent">
+            <Send className="h-5 w-5 text-accent-foreground" />
+            <AlertTitle className="text-xl font-headline text-accent-foreground">¡Solicitud Enviada!</AlertTitle>
+            <AlertDescription className="text-muted-foreground">
                 Gracias por su solicitud. Nuestro equipo la revisará y se pondrá en contacto con usted a la brevedad para enviar la cotización formal.
             </AlertDescription>
         </Alert>
@@ -259,3 +257,5 @@ export function FormularioSolicitud() {
     </div>
   );
 }
+
+    
