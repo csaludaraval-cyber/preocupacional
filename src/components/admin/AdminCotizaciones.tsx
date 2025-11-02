@@ -2,13 +2,14 @@
 "use client";
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { collection, deleteDoc, doc } from 'firebase/firestore';
-import { History, Loader2, Search, Shield, Trash2, XCircle } from 'lucide-react';
+import { Eye, History, Loader2, Search, Shield, Trash2, XCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
-import type { CotizacionFirestore } from '@/lib/types';
+import type { CotizacionFirestore, CotizacionDisplay } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -26,7 +27,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export function AdminCotizaciones() {
   const { user, loading: authLoading } = useAuth();
@@ -34,8 +41,7 @@ export function AdminCotizaciones() {
   const [searchTerm, setSearchTerm] = useState('');
   const [quoteToDelete, setQuoteToDelete] = useState<WithId<CotizacionFirestore> | null>(null);
 
-  // Memoize the query to prevent re-renders
-  const cotizacionesQuery = useMemoFirebase(() => collection(firestore, 'cotizaciones'), [firestore]);
+  const cotizacionesQuery = useMemoFirebase(() => collection(firestore, 'cotizaciones'), []);
 
   const { data: cotizaciones, isLoading, error } = useCollection<CotizacionFirestore>(cotizacionesQuery);
   
@@ -80,6 +86,17 @@ export function AdminCotizaciones() {
       if (!timestamp) return 'N/A';
       return new Date(timestamp.seconds * 1000).toLocaleDateString('es-CL');
   }
+
+  const prepareQuoteForDisplay = (quote: WithId<CotizacionFirestore>): CotizacionDisplay => {
+    return {
+      id: quote.id,
+      empresa: quote.empresaData,
+      trabajador: quote.solicitanteData,
+      examenes: quote.examenesData,
+      total: quote.total,
+      fecha: formatDate(quote.fechaCreacion),
+    };
+  };
 
   if (authLoading || isLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -132,6 +149,7 @@ export function AdminCotizaciones() {
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
+          <TooltipProvider>
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -144,7 +162,11 @@ export function AdminCotizaciones() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredCotizaciones.length > 0 ? filteredCotizaciones.map((quote) => (
+                    {filteredCotizaciones.length > 0 ? filteredCotizaciones.map((quote) => {
+                      const displayQuote = prepareQuoteForDisplay(quote);
+                      const query = encodeURIComponent(JSON.stringify(displayQuote));
+
+                      return (
                         <TableRow key={quote.id} className="hover:bg-accent/50">
                             <TableCell className="font-mono text-xs">
                                 <Badge variant="secondary">{quote.id.slice(-6)}</Badge>
@@ -154,32 +176,54 @@ export function AdminCotizaciones() {
                             <TableCell className="text-muted-foreground">{quote.solicitanteData.nombre}</TableCell>
                             <TableCell className="text-right font-semibold">{formatCurrency(quote.total)}</TableCell>
                             <TableCell className="text-center">
-                                 <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => setQuoteToDelete(quote)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
-                                                <span className='font-bold'> N° {quote.id.slice(-6)} </span>
-                                                de los servidores.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel onClick={() => setQuoteToDelete(null)}>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                                                Eliminar
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
+                                <div className='flex items-center justify-center gap-1'>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Link href={`/cotizacion?data=${query}`} legacyBehavior>
+                                                <a target="_blank" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10">
+                                                    <Eye className="h-4 w-4" />
+                                                </a>
+                                            </Link>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Ver Cotización</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                           <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToDelete(quote)}>
+                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
+                                                            <span className='font-bold'> N° {quote.id.slice(-6)} </span>
+                                                            de los servidores.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel onClick={() => setQuoteToDelete(null)}>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                                                            Eliminar
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Eliminar Cotización</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
                             </TableCell>
                         </TableRow>
-                    )) : (
+                      )
+                    }) : (
                         <TableRow>
                             <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                                 No se encontraron cotizaciones.
@@ -188,6 +232,7 @@ export function AdminCotizaciones() {
                     )}
                 </TableBody>
             </Table>
+           </TooltipProvider>
         </div>
       </CardContent>
     </Card>
