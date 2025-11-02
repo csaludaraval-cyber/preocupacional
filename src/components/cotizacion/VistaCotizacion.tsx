@@ -31,25 +31,22 @@ export function VistaCotizacion() {
   }, [searchParams]);
 
   const examsByWorker = useMemo(() => {
-      if (!quote?.trabajadores || !quote?.examenes) return {};
-      
-      const workerExams: Record<string, { trabajador: Trabajador; examenes: Examen[] }> = {};
-      
-      // Since we consolidated exams, we have to assume all exams apply to all workers in this view.
-      // This is a known limitation of the current data structure passed to this component.
-      // For a more accurate breakdown, the data structure would need to change.
-      quote.trabajadores.forEach(worker => {
-          // This part is tricky if exams are consolidated. 
-          // If the original request structure is not available, we show all exams for all workers.
-          // Ideally, the quote object should retain which exams belong to which worker.
-          // For now, we assume all exams in the quote apply to every worker listed in it
-          // for the purpose of generating the order.
-          workerExams[worker.rut || worker.nombre] = {
-              trabajador: worker,
-              examenes: quote.examenes // Assigning all exams to each worker for the order form.
-          };
-      });
-      return workerExams;
+    if (!quote?.trabajadores || !quote?.examenes) return {};
+
+    const workerExams: Record<string, { trabajador: Trabajador; examenes: Examen[] }> = {};
+    
+    // This logic assumes a direct mapping. If a worker is in the list, they are associated with all exams
+    // This part is complex because the initial request links workers to specific exams, but the final quote consolidates them.
+    // For the order, we must show all exams for every worker involved in the quote.
+    quote.trabajadores.forEach(worker => {
+      if(worker.rut || worker.nombre) {
+        workerExams[worker.rut || worker.nombre] = {
+          trabajador: worker,
+          examenes: quote.examenes // Assign all exams from the consolidated quote
+        };
+      }
+    });
+    return workerExams;
   }, [quote]);
 
   const examsByMainCategory = useMemo(() => {
@@ -63,7 +60,7 @@ export function VistaCotizacion() {
       return acc;
     }, {} as Record<string, Examen[]>);
   }, [quote]);
-
+  
   const mailToLink = useMemo(() => {
     if (!quote?.solicitante?.mail) return '#';
 
@@ -382,3 +379,6 @@ export function VistaCotizacion() {
     </>
   );
 }
+
+
+    
