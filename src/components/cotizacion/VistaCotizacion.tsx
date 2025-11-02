@@ -7,7 +7,7 @@ import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Download, Mail, Building, User, Users, Phone, Clock, MapPin, Loader2 } from 'lucide-react';
-import type { Cotizacion, Examen, SolicitudTrabajador } from '@/lib/types';
+import type { Cotizacion, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
@@ -65,54 +65,62 @@ export function VistaCotizacion() {
     
     const pdfWidth = pdf.internal.pageSize.getWidth();
     
-    // Hide buttons during canvas operations
     const buttonContainer = document.getElementById('button-container');
-    if (buttonContainer) buttonContainer.style.visibility = 'hidden';
-
-    // 1. Process Main Quote
     const quoteElement = document.getElementById('printable-quote');
-    if (quoteElement) {
-        const canvas = await html2canvas(quoteElement, { scale: 2 });
-        const imgData = canvas.toDataURL('image/png');
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const ratio = canvasHeight / canvasWidth;
-        const imgHeight = pdfWidth * ratio;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-    }
-    
-    // 2. Process Annexes (Order Forms) one by one
-    if (quote.solicitudes) {
-      for (let i = 0; i < quote.solicitudes.length; i++) {
-        const orderElementId = `order-page-${i}`;
-        const orderElement = document.getElementById(orderElementId);
+    const annexContainer = document.getElementById('annex-container');
 
-        if (orderElement) {
-          pdf.addPage();
-          const canvas = await html2canvas(orderElement, { scale: 2 });
+    // Hide buttons and show annexes for processing
+    if (buttonContainer) buttonContainer.style.visibility = 'hidden';
+    if (annexContainer) annexContainer.style.display = 'block';
+
+    try {
+      // 1. Process Main Quote
+      if (quoteElement) {
+          const canvas = await html2canvas(quoteElement, { scale: 2 });
           const imgData = canvas.toDataURL('image/png');
           const canvasWidth = canvas.width;
           const canvasHeight = canvas.height;
           const ratio = canvasHeight / canvasWidth;
           const imgHeight = pdfWidth * ratio;
           pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+      }
+      
+      // 2. Process Annexes (Order Forms) one by one
+      if (quote.solicitudes) {
+        for (let i = 0; i < quote.solicitudes.length; i++) {
+          const orderElementId = `order-page-${i}`;
+          const orderElement = document.getElementById(orderElementId);
+
+          if (orderElement) {
+            pdf.addPage();
+            const canvas = await html2canvas(orderElement, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const ratio = canvasHeight / canvasWidth;
+            const imgHeight = pdfWidth * ratio;
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+          }
         }
       }
+    } catch(error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      // Restore visibility
+      if (buttonContainer) buttonContainer.style.visibility = 'visible';
+      if (annexContainer) annexContainer.style.display = 'none';
+
+      // 3. Save PDF
+      const date = new Date();
+      const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+      const month = monthNames[date.getMonth()];
+      const day = date.getDate();
+      const correlative = quote.id ? quote.id.slice(-6) : "000000";
+      const fileName = `Cot-${month}${day}-${correlative}.pdf`;
+
+      pdf.save(fileName);
+      setLoadingPdf(false);
     }
-    
-    // Show buttons again
-    if (buttonContainer) buttonContainer.style.visibility = 'visible';
-
-    // 3. Save PDF
-    const date = new Date();
-    const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-    const month = monthNames[date.getMonth()];
-    const day = date.getDate();
-    const correlative = quote.id ? quote.id.slice(-6) : "000000";
-    const fileName = `Cot-${month}${day}-${correlative}.pdf`;
-
-    pdf.save(fileName);
-    setLoadingPdf(false);
   };
   
   const formatCurrency = (value: number) => {
@@ -274,11 +282,11 @@ export function VistaCotizacion() {
           </footer>
         </div>
 
-        {/* --- ANNEXES: EXAMINATION ORDERS (These are for PDF generation logic) --- */}
+        {/* --- ANNEXES: EXAMINATION ORDERS (Hidden on screen, used for PDF generation) --- */}
         {quote.solicitudes && quote.solicitudes.length > 0 && (
-          <div id="annex-container" className="hidden print:block">
+          <div id="annex-container" className="hidden">
             {quote.solicitudes.map((solicitud, index) => (
-              <div id={`order-page-${index}`} key={solicitud.id || index} className="order-page-container max-w-4xl mx-auto bg-white p-8" style={{pageBreakBefore: 'always'}}>
+              <div id={`order-page-${index}`} key={solicitud.id || index} className="order-page-container max-w-4xl mx-auto bg-white p-8">
                 <header className="bg-gray-100 p-6 rounded-t-lg">
                   <div className="flex justify-between items-center">
                     <div>
@@ -355,12 +363,15 @@ export function VistaCotizacion() {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          #button-container, #annex-container {
+          #button-container {
             display: none !important;
           }
           #pdf-content-area {
             padding: 0;
             margin: 0;
+          }
+           #annex-container {
+            display: block !important;
           }
           .order-page-container {
              page-break-before: always;
@@ -370,7 +381,3 @@ export function VistaCotizacion() {
     </>
   );
 }
-
-    
-
-    
