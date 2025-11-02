@@ -68,11 +68,11 @@ export function VistaCotizacion() {
       </div>
       
       <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none">
-        <header className="bg-[#003366] text-white p-8 rounded-t-lg print:rounded-none">
+        <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
             <div className="grid grid-cols-2 gap-8">
                 <div className="flex items-center gap-4">
                     <div className="bg-white p-3 rounded-md">
-                        <FileText className="h-8 w-8 text-[#003366]" />
+                        <FileText className="h-8 w-8 text-primary" />
                     </div>
                     <div>
                         <h1 className="font-headline text-2xl font-bold">ARAVAL</h1>
@@ -118,7 +118,7 @@ export function VistaCotizacion() {
                                 Object.entries(examsByCategory).map(([category, exams]) => (
                                     <React.Fragment key={category}>
                                         <TableRow className="bg-gray-100/70">
-                                            <TableCell colSpan={2} className="font-headline font-semibold text-[#003366]">
+                                            <TableCell colSpan={2} className="font-headline font-semibold text-primary">
                                                 {category}
                                             </TableCell>
                                         </TableRow>
@@ -153,7 +153,7 @@ export function VistaCotizacion() {
                         <span className="font-medium text-gray-700">{formatCurrency(iva)}</span>
                     </div>
                     <Separator className="my-2" />
-                    <div className="flex justify-between items-center text-base font-bold bg-[#003366] text-white p-3 rounded-md">
+                    <div className="flex justify-between items-center text-base font-bold bg-primary text-primary-foreground p-3 rounded-md">
                         <span>TOTAL A PAGAR</span>
                         <span>{formatCurrency(totalFinal)}</span>
                     </div>
