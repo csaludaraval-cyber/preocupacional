@@ -134,14 +134,6 @@ export function VistaCotizacion() {
                     <span className="text-gray-600">Neto</span>
                     <span className="font-medium text-gray-700">{formatCurrency(neto)}</span>
                 </div>
-                 <div className="flex justify-between">
-                    <span className="text-gray-600">Descuentos</span>
-                    <span className="font-medium text-gray-700">{formatCurrency(0)}</span>
-                </div>
-                 <div className="flex justify-between">
-                    <span className="text-gray-600">Adicional</span>
-                    <span className="font-medium text-gray-700">{formatCurrency(0)}</span>
-                </div>
                 <div className="flex justify-between">
                     <span className="text-gray-600">IVA (19%)</span>
                     <span className="font-medium text-gray-700">{formatCurrency(iva)}</span>
@@ -162,6 +154,10 @@ export function VistaCotizacion() {
       </Card>
 
       <style jsx global>{`
+        @page {
+          size: letter;
+          margin: 1in;
+        }
         @media print {
           body {
             background-color: white;
