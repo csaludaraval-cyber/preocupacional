@@ -71,14 +71,8 @@ export function VistaCotizacion() {
       <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none">
         <header className="bg-primary text-primary-foreground p-8 rounded-t-lg print:rounded-none">
             <div className="grid grid-cols-2 gap-8">
-                <div className="flex items-center gap-4">
-                    <div className="bg-white p-2 rounded-md">
-                        <Image src="/images/logo.png" alt="Araval Logo" width={40} height={40} className="text-primary"/>
-                    </div>
-                    <div>
-                        <h1 className="font-headline text-2xl font-bold">ARAVAL</h1>
-                        <p className="text-sm opacity-80">Servicios Médicos</p>
-                    </div>
+                <div className="flex items-center">
+                    <Image src="/images/logo.png" alt="Araval Logo" width={150} height={40} priority unoptimized/>
                 </div>
                 <div className="text-right">
                     <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
