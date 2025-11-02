@@ -1,18 +1,17 @@
+
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, Shield, User as UserIcon, Loader2 } from 'lucide-react';
+import { FileText, Shield, User as UserIcon, LogOut } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '../ui/skeleton';
 
 export function Header() {
-  const { user, toggleRole, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   const pathname = usePathname();
 
   const navLinkClasses = (path: string) =>
@@ -46,25 +45,17 @@ export function Header() {
         </nav>
         <div className="flex items-center gap-4">
           {loading ? (
-            <div className="flex items-center space-x-2">
-              <Skeleton className="h-6 w-24" />
-              <Skeleton className="h-6 w-12" />
-              <Skeleton className="h-6 w-6 rounded-full" />
+             <Skeleton className="h-8 w-24" />
+          ) : user ? (
+            <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground hidden sm:inline">
+                    {user.email}
+                </span>
+                <Button variant="ghost" size="icon" onClick={logout}>
+                    <LogOut className="h-5 w-5 text-muted-foreground"/>
+                </Button>
             </div>
-          ) : (
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="role-switch" className="text-sm font-medium text-muted-foreground">
-                {user?.role === 'admin' ? 'Admin' : 'Usuario'}
-              </Label>
-              <Switch
-                id="role-switch"
-                checked={user?.role === 'admin'}
-                onCheckedChange={toggleRole}
-                aria-label="Cambiar a rol de administrador"
-              />
-              <UserIcon className="h-5 w-5 text-muted-foreground" />
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
     </header>

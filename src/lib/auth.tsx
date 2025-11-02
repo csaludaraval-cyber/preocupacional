@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { 
@@ -8,87 +9,97 @@ import React, {
   useMemo, 
   type ReactNode 
 } from 'react';
-import { onAuthStateChanged, signInAnonymously, type User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { usePathname, useRouter } from 'next/navigation';
+import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { auth, firestore } from './firebase';
 import type { User } from './types';
+import { Loader2 } from 'lucide-react';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  toggleRole: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const publicRoutes = ['/login'];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const userDocRef = doc(firestore, 'solicitantes', firebaseUser.uid);
         const adminRoleRef = doc(firestore, 'roles_admin', firebaseUser.uid);
+        const adminRoleDoc = await getDoc(adminRoleRef);
+
+        const userProfile: User = {
+          ...firebaseUser,
+          role: adminRoleDoc.exists() ? 'admin' : 'standard',
+        };
         
-        const [userDoc, adminRoleDoc] = await Promise.all([
-          getDoc(userDocRef),
-          getDoc(adminRoleDoc)
-        ]);
-
-        let userProfile: User = { ...firebaseUser, role: 'standard' };
-
-        if (adminRoleDoc.exists()) {
-          userProfile.role = 'admin';
-        }
-        
-        if (userDoc.exists()) {
-          // You might merge user profile data here if you store more in Firestore
-        }
-
         setUser(userProfile);
+        
+        // Redirect logic after user is identified
+        if (publicRoutes.includes(pathname)) {
+            router.push('/');
+        }
+
       } else {
-        // Simple anonymous sign-in for demo purposes
-        signInAnonymously(auth).catch(error => {
-          console.error("Anonymous sign-in failed:", error);
-        });
         setUser(null);
+        // If user logs out or session expires, redirect to login if not already on a public page
+        if (!publicRoutes.includes(pathname)) {
+            router.push('/login');
+        }
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router, pathname]);
 
-  const toggleRole = async () => {
-    if (!user) return;
-    
+  const logout = async () => {
     setLoading(true);
-    const newRole = user.role === 'admin' ? 'standard' : 'admin';
-    const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
-
-    try {
-      if (newRole === 'admin') {
-        await setDoc(adminRoleRef, { admin: true });
-      } else {
-        // In a real app, you'd use a cloud function to delete this for security
-        // For now, client-side deletion is enabled by the rules for demo purposes
-        const { deleteDoc } = await import('firebase/firestore');
-        await deleteDoc(adminRoleRef);
-      }
-      setUser({ ...user, role: newRole });
-    } catch(e) {
-      console.error("Failed to toggle role", e);
-    } finally {
-      setLoading(false);
-    }
+    await signOut(auth);
+    setUser(null);
+    router.push('/login');
+    setLoading(false);
   };
-
+  
   const value = useMemo(() => ({
     user,
     loading,
-    toggleRole
+    logout,
   }), [user, loading]);
+  
+  // Render a loading screen while checking auth state, unless on a public route
+  if (loading && !publicRoutes.includes(pathname)) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Allow access to public routes even while loading or if no user
+  if (publicRoutes.includes(pathname)) {
+      return (
+        <AuthContext.Provider value={value}>
+            {children}
+        </AuthContext.Provider>
+      );
+  }
+
+  // If not loading and no user, the effect will have already triggered redirect.
+  // But as a fallback, we can prevent rendering the children.
+  if (!user && !publicRoutes.includes(pathname)) {
+      return null;
+  }
 
   return (
     <AuthContext.Provider value={value}>
