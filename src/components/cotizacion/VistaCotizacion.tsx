@@ -4,7 +4,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { Printer, FileText, Building, User } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { Download, FileText, Building, User } from 'lucide-react';
 import type { Cotizacion, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 
 export function VistaCotizacion() {
   const [quote, setQuote] = useState<Cotizacion | null>(null);
+  const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -38,8 +41,56 @@ export function VistaCotizacion() {
     }, {} as Record<string, Examen[]>);
   }, [quote]);
 
-  const handlePrint = () => {
-    window.print();
+  const handleExportPDF = async () => {
+    setLoading(true);
+    const quoteElement = document.getElementById('printable-quote');
+    if (!quoteElement) {
+        setLoading(false);
+        return;
+    }
+
+    // Hide button before taking screenshot
+    const printButton = document.getElementById('print-button-container');
+    if(printButton) printButton.style.display = 'none';
+
+    const canvas = await html2canvas(quoteElement, {
+        scale: 2, // Increase scale for better resolution
+    });
+
+    // Show button again
+    if(printButton) printButton.style.display = 'flex';
+
+    const imgData = canvas.toDataURL('image/png');
+    
+    // a4 size in points (width, height)
+    const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'pt',
+        format: 'a4',
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const ratio = canvasHeight / canvasWidth;
+    const imgHeight = pdfWidth * ratio;
+    
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+    heightLeft -= pdfHeight;
+
+    while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+    }
+
+    pdf.save('cotizacion.pdf');
+    setLoading(false);
   };
   
   const formatCurrency = (value: number) => {
@@ -61,10 +112,19 @@ export function VistaCotizacion() {
 
   return (
     <>
-      <div className="flex justify-end mb-4 print:hidden">
-        <Button onClick={handlePrint}>
-          <Printer className="mr-2 h-4 w-4" />
-          Imprimir / Exportar
+      <div id="print-button-container" className="flex justify-end mb-4 print:hidden">
+        <Button onClick={handleExportPDF} disabled={loading}>
+          {loading ? (
+            <>
+              <Download className="mr-2 h-4 w-4 animate-pulse" />
+              Exportando...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar a PDF
+            </>
+          )}
         </Button>
       </div>
       
