@@ -32,7 +32,7 @@ export function FormularioSolicitud() {
 
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  
   const { toast } = useToast();
 
   const totalSteps = 2;
