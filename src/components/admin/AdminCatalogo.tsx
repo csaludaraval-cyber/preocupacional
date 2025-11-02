@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Shield, Loader2, Save } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { getExams, updateExamPrice, examCategories } from '@/lib/data';
+import { getExams, examCategories } from '@/lib/data';
 import type { Examen } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -136,10 +136,19 @@ export function AdminCatalogo() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Accordion type="multiple" className="w-full">
-            {examCategories.map(category => (
+        <Accordion type="multiple" className="w-full" defaultValue={[examCategories[0]]}>
+            {examCategories.map(category => {
+                const categoryExams = examsByCategory[category] || [];
+                const count = categoryExams.length;
+
+                return (
                 <AccordionItem value={category} key={category}>
-                    <AccordionTrigger className="text-xl font-headline hover:no-underline">{category}</AccordionTrigger>
+                    <AccordionTrigger className="text-xl font-headline hover:no-underline">
+                        <div className="flex items-center gap-2">
+                            <span>{category}</span>
+                            {count > 0 && <span className="text-sm font-normal text-muted-foreground">({count})</span>}
+                        </div>
+                    </AccordionTrigger>
                     <AccordionContent>
                         <div className="overflow-x-auto">
                             <Table>
@@ -152,7 +161,7 @@ export function AdminCatalogo() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {(examsByCategory[category] || []).map((exam) => (
+                                    {categoryExams.map((exam) => (
                                         <TableRow key={exam.id} className="hover:bg-accent/50">
                                             <TableCell className="font-medium">{exam.nombre}</TableCell>
                                             <TableCell><Badge variant="secondary">{exam.subcategoria}</Badge></TableCell>
@@ -183,7 +192,7 @@ export function AdminCatalogo() {
                         </div>
                     </AccordionContent>
                 </AccordionItem>
-            ))}
+            )})}
         </Accordion>
       </CardContent>
     </Card>
