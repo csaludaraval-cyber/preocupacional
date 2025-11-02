@@ -16,9 +16,10 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 interface Props {
   selectedExams: Examen[];
   onExamToggle: (exam: Examen, checked: boolean) => void;
+  showPrice?: boolean;
 }
 
-export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle }: Props) {
+export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, showPrice = true }: Props) {
   const [allExams, setAllExams] = useState<Examen[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -117,7 +118,9 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle }: 
                                   <p className="font-medium text-foreground leading-tight">{exam.nombre}</p>
                                   {exam.descripcion && <p className="text-xs text-muted-foreground mt-1">{exam.descripcion}</p>}
                                 </div>
-                                <p className="font-semibold text-primary whitespace-nowrap ml-4">{formatCurrency(exam.valor)}</p>
+                                {showPrice && (
+                                  <p className="font-semibold text-primary whitespace-nowrap ml-4">{formatCurrency(exam.valor)}</p>
+                                )}
                               </div>
                             </Label>
                           </div>

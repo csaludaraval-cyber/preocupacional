@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Send, Sparkles, PlusCircle, Trash2, ServerCrash } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, Sparkles, PlusCircle, Trash2, Users, FileText } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import type { Empresa, Examen, Trabajador, SolicitudTrabajador } from '@/lib/types';
@@ -24,7 +24,6 @@ export function FormularioSolicitud() {
   const [step, setStep] = useState(1);
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
   
-  // Manage multiple workers
   const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([
     { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }
   ]);
@@ -39,6 +38,7 @@ export function FormularioSolicitud() {
   const progress = (step / totalSteps) * 100;
 
   const currentSolicitud = solicitudes[currentSolicitudIndex];
+  const isEditingCompany = currentSolicitudIndex === 0;
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, totalSteps));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
@@ -59,19 +59,30 @@ export function FormularioSolicitud() {
   };
 
   const addTrabajador = () => {
-    setSolicitudes([...solicitudes, { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }]);
+    // Go back to step 1 to enter new worker data
+    setStep(1); 
+    const newId = crypto.randomUUID();
+    const newSolicitud: SolicitudTrabajador = { id: newId, trabajador: initialTrabajador, examenes: [] };
+    setSolicitudes(prev => [...prev, newSolicitud]);
     setCurrentSolicitudIndex(solicitudes.length);
   };
 
-  const removeTrabajador = (index: number) => {
+  const removeTrabajador = (indexToRemove: number) => {
     if (solicitudes.length <= 1) {
         toast({ title: "Acción no permitida", description: "Debe haber al menos un trabajador.", variant: "destructive" });
         return;
     }
-    const newSolicitudes = solicitudes.filter((_, i) => i !== index);
-    setSolicitudes(newSolicitudes);
-    setCurrentSolicitudIndex(Math.max(0, index - 1));
+    setSolicitudes(prev => prev.filter((_, index) => index !== indexToRemove));
+    // If we are removing the currently selected worker, move to the previous one
+    if (currentSolicitudIndex >= indexToRemove) {
+      setCurrentSolicitudIndex(prev => Math.max(0, prev - 1));
+    }
   };
+
+  const selectTrabajador = (index: number) => {
+    setCurrentSolicitudIndex(index);
+    setStep(1); // Go back to step 1 to edit this worker
+  }
 
 
   const handleSendRequest = async () => {
@@ -80,18 +91,21 @@ export function FormularioSolicitud() {
      if (!empresa.razonSocial || !empresa.rut) {
         toast({ title: "Datos incompletos", description: "La Razón Social y el RUT de la empresa son obligatorios.", variant: "destructive"});
         setIsSubmitting(false);
+        setStep(1); // Go to step 1 to fix
         return;
      }
 
      if (solicitudes.some(s => !s.trabajador.nombre || !s.trabajador.rut)) {
         toast({ title: "Datos incompletos", description: "El nombre y RUT de cada trabajador son obligatorios.", variant: "destructive"});
         setIsSubmitting(false);
+        setStep(1); // Go to step 1 to fix
         return;
      }
 
      if (solicitudes.every(s => s.examenes.length === 0)) {
         toast({ title: "Sin exámenes", description: "Debe seleccionar al menos un examen para un trabajador.", variant: "destructive"});
         setIsSubmitting(false);
+        setStep(2); // Go to step 2 to fix
         return;
      }
 
@@ -132,17 +146,19 @@ export function FormularioSolicitud() {
         </Alert>
     )
   }
+  
+  const totalExams = useMemo(() => solicitudes.reduce((acc, s) => acc + s.examenes.length, 0), [solicitudes]);
 
   const steps = [
     {
       id: 1,
-      name: "Datos Generales",
+      name: "Datos Empresa y Trabajador",
       component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} trabajador={currentSolicitud.trabajador} setTrabajador={updateCurrentTrabajador} />,
     },
     {
       id: 2,
       name: "Selección de Exámenes",
-      component: <Paso2SeleccionExamenes selectedExams={currentSolicitud.examenes} onExamToggle={handleExamToggle} />,
+      component: <Paso2SeleccionExamenes selectedExams={currentSolicitud.examenes} onExamToggle={handleExamToggle} showPrice={false}/>,
     },
   ];
 
@@ -165,66 +181,78 @@ export function FormularioSolicitud() {
             <Progress value={progress} className="h-2" />
             <div className="flex justify-between font-medium text-sm text-muted-foreground">
                 <span>Paso {step} de {totalSteps}</span>
-                <span className="font-bold text-foreground">{currentStepData?.name}</span>
+                <span className="font-bold text-foreground">{currentStepData?.name} para el trabajador {currentSolicitudIndex + 1}</span>
             </div>
           </div>
-          
-          <div className="lg:col-span-2">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={step}
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                transition={{ duration: 0.3 }}
-              >
-                {currentStepData?.id === 1 && (
-                     <Alert className="mb-6">
-                        <ServerCrash className="h-4 w-4" />
-                        <AlertTitle>Información del Trabajador</AlertTitle>
-                        <AlertDescription>
-                           Está editando los datos para el <strong>Trabajador {currentSolicitudIndex + 1} de {solicitudes.length}</strong>. Use los botones de abajo para añadir más trabajadores a esta solicitud.
-                        </AlertDescription>
-                    </Alert>
-                )}
-                {currentStepData?.component}
-              </motion.div>
-            </AnimatePresence>
-          </div>
 
-          {solicitudes.length > 1 && (
-            <div className="my-4 flex items-center gap-2 flex-wrap">
-              {solicitudes.map((s, index) => (
-                <Button key={s.id} variant={index === currentSolicitudIndex ? 'default' : 'outline'} size="sm" onClick={() => setCurrentSolicitudIndex(index)}>
-                  Trabajador {index + 1}
-                   <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={(e) => { e.stopPropagation(); removeTrabajador(index); }}>
-                      <Trash2 className="h-3 w-3 text-destructive"/>
-                   </Button>
-                </Button>
-              ))}
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
+            <div className="md:col-span-2">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${step}-${currentSolicitudIndex}`}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {currentStepData?.component}
+                </motion.div>
+              </AnimatePresence>
             </div>
-          )}
 
-           <div className="mt-8 flex justify-between">
-            {step === 1 ? (
-                 <Button variant="outline" onClick={addTrabajador}>
+            <div className="md:col-span-1 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-headline flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Trabajadores ({solicitudes.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {solicitudes.map((s, index) => (
+                    <div key={s.id} className="flex items-center justify-between gap-2">
+                      <Button variant={index === currentSolicitudIndex ? 'secondary' : 'ghost'} size="sm" className="flex-grow justify-start" onClick={() => selectTrabajador(index)}>
+                          {s.trabajador.nombre || `Trabajador ${index + 1}`}
+                      </Button>
+                      {solicitudes.length > 1 && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeTrabajador(index)}>
+                          <Trash2 className="h-4 w-4 text-destructive"/>
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button variant="outline" size="sm" className="w-full mt-2" onClick={addTrabajador}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Añadir Trabajador
-                </Button>
-            ): (
-                <Button variant="outline" onClick={prevStep} disabled={step === 1}>
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
-                </Button>
-            )}
+                  </Button>
+                </CardContent>
+              </Card>
 
-            {step < totalSteps ? (
-              <Button onClick={nextStep} className="bg-primary hover:bg-primary/90">
-                Siguiente <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            ): (
+               <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg font-headline flex items-center gap-2"><FileText className="h-5 w-5 text-primary"/> Resumen Solicitud</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Ha añadido <span className="font-bold text-foreground">{solicitudes.length}</span> trabajador(es) con un total de <span className="font-bold text-foreground">{totalExams}</span> exámenes.
+                      </p>
+                  </CardContent>
+                </Card>
+            </div>
+          </div>
+
+          <div className="mt-8 flex justify-between">
+            <Button variant="outline" onClick={prevStep} disabled={step === 1}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
+            </Button>
+            
+            <div className="flex gap-2">
+              {step < totalSteps && (
+                <Button onClick={nextStep} className="bg-primary hover:bg-primary/90">
+                  Siguiente <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+              
               <Button onClick={handleSendRequest} disabled={isSubmitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                {isSubmitting ? 'Enviando...' : <><Send className="mr-2 h-4 w-4" /> Enviar Solicitud</>}
+                {isSubmitting ? 'Enviando...' : <><Send className="mr-2 h-4 w-4" /> Enviar Solicitud Completa</>}
               </Button>
-            )}
+            </div>
           </div>
         </CardContent>
       </Card>

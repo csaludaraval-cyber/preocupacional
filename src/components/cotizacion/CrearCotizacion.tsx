@@ -111,7 +111,7 @@ export function CrearCotizacion() {
     {
       id: 2,
       name: "Selección de Exámenes",
-      component: <Paso2SeleccionExamenes selectedExams={selectedExams} onExamToggle={handleExamToggle} />,
+      component: <Paso2SeleccionExamenes selectedExams={selectedExams} onExamToggle={handleExamToggle} showPrice={true} />,
     },
   ];
 
