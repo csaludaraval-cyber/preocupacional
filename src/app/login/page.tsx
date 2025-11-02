@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -31,9 +32,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // The onAuthStateChanged listener in AuthProvider will handle redirection
-      // or state updates upon successful login.
-      // We can just push to home as a default.
       router.push('/');
     } catch (error: any) {
       toast({
@@ -83,10 +81,13 @@ export default function LoginPage() {
               />
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex-col gap-4">
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Ingresando...' : <> <LogIn className="mr-2 h-4 w-4"/> Ingresar </>}
             </Button>
+             <Link href="/crear-primer-admin" className="text-sm text-muted-foreground hover:text-primary">
+                Crear primer administrador
+            </Link>
           </CardFooter>
         </form>
       </Card>
