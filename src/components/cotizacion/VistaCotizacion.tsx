@@ -7,7 +7,7 @@ import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Download, Mail, Building, User, Users, Phone, Clock, MapPin } from 'lucide-react';
-import type { Cotizacion, Examen, Trabajador } from '@/lib/types';
+import type { Cotizacion, Examen, SolicitudTrabajador } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
@@ -31,17 +31,16 @@ export function VistaCotizacion() {
   }, [searchParams]);
 
   const allExams = useMemo(() => {
-      if (!quote?.solicitudes) return [];
-      // Use a Map to get unique exams based on ID, preserving the exam object.
-      const uniqueExams = new Map<string, Examen>();
-      quote.solicitudes.flatMap(s => s.examenes).forEach(exam => {
-          if (!uniqueExams.has(exam.id)) {
-              uniqueExams.set(exam.id, exam);
-          }
-      });
-      return Array.from(uniqueExams.values());
+    if (!quote?.solicitudes) return [];
+    // Use a Map to get unique exams based on ID, preserving the exam object.
+    const uniqueExams = new Map<string, Examen>();
+    quote.solicitudes.flatMap(s => s.examenes).forEach(exam => {
+        if (!uniqueExams.has(exam.id)) {
+            uniqueExams.set(exam.id, exam);
+        }
+    });
+    return Array.from(uniqueExams.values());
   }, [quote]);
-
 
   const examsByMainCategory = useMemo(() => {
     if (!allExams) return {};
@@ -60,7 +59,6 @@ export function VistaCotizacion() {
 
     return `mailto:${quote.solicitante.mail}?subject=${encodeURIComponent(`Cotización de Servicios Araval Nº ${quote.id?.slice(-6)}`)}&body=${encodeURIComponent(`Estimado(a) ${quote.solicitante.nombre},\n\nAdjunto encontrará la cotización Nº ${quote.id?.slice(-6)} solicitada.\n\nPor favor, recuerde adjuntar el archivo PDF antes de enviar.\n\nSaludos cordiales,\nEquipo Araval.`)}`;
   }, [quote]);
-
 
   const handleExportPDF = async () => {
     if (!quote) return;
@@ -115,7 +113,6 @@ export function VistaCotizacion() {
     const day = date.getDate();
     const correlative = quote.id ? quote.id.slice(-6) : "000000";
     const fileName = `Cot-${month}${day}-${correlative}.pdf`;
-
 
     pdf.save(fileName);
     setLoading(false);
@@ -283,74 +280,75 @@ export function VistaCotizacion() {
 
         {/* --- ANNEXES: EXAMINATION ORDERS --- */}
         {quote.solicitudes && quote.solicitudes.length > 0 && (
-          <section className="annex-section">
-            <h2 className="text-center text-2xl font-headline font-bold text-gray-700 my-4 print:my-8">Anexos: Órdenes de Examen</h2>
+          <div className="annex-section">
             {quote.solicitudes.map((solicitud, index) => (
               <div key={solicitud.id || index} className="order-page-container max-w-4xl mx-auto bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:border-t-2 print:border-dashed print:mt-8 print:rounded-none">
-                 <header className="bg-gray-100 p-6 rounded-t-lg print:rounded-none">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h3 className="text-2xl font-bold font-headline text-primary">Orden de Examen</h3>
-                            <p className="text-muted-foreground">Referencia Cotización Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                        </div>
-                         <Image 
-                            src="/images/logo.png" 
-                            alt="Araval Logo" 
-                            width={120} 
-                            height={32} 
-                            unoptimized
-                        />
+                <header className="bg-gray-100 p-6 rounded-t-lg print:rounded-none">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-2xl font-bold font-headline text-primary">Orden de Examen</h3>
+                      <p className="text-muted-foreground">Referencia Cotización Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
                     </div>
+                    <Image 
+                      src="/images/logo.png" 
+                      alt="Araval Logo" 
+                      width={120} 
+                      height={32} 
+                      unoptimized
+                    />
+                  </div>
                 </header>
                 <main className="p-6">
-                    <div className="grid grid-cols-2 gap-6 mb-6">
-                        <div className="space-y-1">
-                             <h4 className="font-semibold text-gray-600">Paciente:</h4>
-                             <p>{solicitud.trabajador.nombre}</p>
-                             <p className="text-sm text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <h4 className="font-semibold text-gray-600">Empresa:</h4>
-                            <p>{quote.empresa.razonSocial}</p>
-                            <p className="text-sm text-muted-foreground">RUT: {quote.empresa.rut}</p>
-                        </div>
+                  <div className="grid grid-cols-2 gap-6 mb-6">
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-gray-600">Paciente:</h4>
+                      <p>{solicitud.trabajador.nombre}</p>
+                      <p className="text-sm text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
                     </div>
-
-                    <h4 className="font-semibold text-gray-600 mb-2">Exámenes a Realizar:</h4>
-                    <div className="border rounded-md p-4 bg-gray-50/50">
-                        <ul className="space-y-1 list-disc list-inside text-gray-700">
-                           {solicitud.examenes.map(exam => (
-                               <li key={exam.id}>{exam.nombre}</li>
-                           ))}
-                        </ul>
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-gray-600">Empresa:</h4>
+                      <p>{quote.empresa.razonSocial}</p>
+                      <p className="text-sm text-muted-foreground">RUT: {quote.empresa.rut}</p>
                     </div>
+                  </div>
 
-                    <Separator className="my-6" />
+                  <h4 className="font-semibold text-gray-600 mb-2">Exámenes a Realizar:</h4>
+                  <div className="border rounded-md p-4 bg-gray-50/50">
+                    <ul className="space-y-1 list-disc list-inside text-gray-700">
+                      {solicitud.examenes.map(exam => (
+                        <li key={exam.id}>{exam.nombre}</li>
+                      ))}
+                    </ul>
+                  </div>
 
-                     <div>
-                        <h4 className="font-semibold text-gray-600 mb-4 text-center">Información para el Paciente</h4>
-                        <div className="border rounded-lg p-4 bg-blue-50/50 text-blue-900">
-                             <p className="font-bold text-lg text-center mb-3">Centro Médico Araval</p>
-                             <div className="flex items-center gap-4 mb-2">
-                                <MapPin className="h-5 w-5 text-blue-600 shrink-0"/>
-                                <span>Juan Martinez 235, Taltal, Chile</span>
-                             </div>
-                             <div className="flex items-center gap-4 mb-2">
-                                <Phone className="h-5 w-5 text-blue-600 shrink-0"/>
-                                <span>+56 9 7541 1515</span>
-                             </div>
-                             <div className="flex items-center gap-4">
-                                <Clock className="h-5 w-5 text-blue-600 shrink-0"/>
-                                <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
-                             </div>
-                             <Separator className="my-4 bg-blue-200"/>
-                             <p className="text-xs text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
+                  <Separator className="my-6" />
+
+                  <div>
+                    <h4 className="font-semibold text-gray-600 mb-4 text-center">Información para el Paciente</h4>
+                    <div className="border rounded-lg p-4 bg-blue-50/50 text-blue-900">
+                      <p className="font-bold text-lg text-center mb-3">Centro Médico Araval</p>
+                      <div className='text-sm space-y-2'>
+                        <div className="flex items-start gap-3">
+                          <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5"/>
+                          <span>Juan Martinez 235, Taltal, Chile</span>
                         </div>
-                     </div>
+                        <div className="flex items-start gap-3">
+                          <Phone className="h-4 w-4 text-blue-600 shrink-0 mt-0.5"/>
+                          <span>+56 9 7541 1515</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Clock className="h-4 w-4 text-blue-600 shrink-0 mt-0.5"/>
+                          <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
+                        </div>
+                      </div>
+                      <Separator className="my-4 bg-blue-200"/>
+                      <p className="text-xs text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
+                    </div>
+                  </div>
                 </main>
               </div>
             ))}
-          </section>
+          </div>
         )}
       </div>
 
@@ -365,8 +363,13 @@ export function VistaCotizacion() {
             padding: 0;
             margin: 0;
           }
+          .annex-section {
+            padding-top: 40px; /* Add some space at the top of the first annex page */
+          }
           .order-page-container {
             page-break-before: always;
+            box-shadow: none !important;
+            border: none !important;
           }
         }
       `}</style>
