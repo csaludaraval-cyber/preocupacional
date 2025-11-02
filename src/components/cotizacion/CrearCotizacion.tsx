@@ -26,7 +26,8 @@ const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', centroDe
 export function CrearCotizacion() {
   const [step, setStep] = useState(1);
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
-  const [trabajador, setTrabajador] = useState<Trabajador>(initialTrabajador);
+  const [solicitante, setSolicitante] = useState<Trabajador>(initialTrabajador);
+  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
   const [selectedExams, setSelectedExams] = useState<Examen[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,7 +40,8 @@ export function CrearCotizacion() {
       try {
         const parsedData = JSON.parse(decodeURIComponent(solicitudData));
         setEmpresa(parsedData.empresa || initialEmpresa);
-        setTrabajador(parsedData.trabajador || initialTrabajador);
+        setSolicitante(parsedData.solicitante || initialTrabajador);
+        setTrabajadores(parsedData.trabajadores || []);
         setSelectedExams(parsedData.examenes || []);
         toast({
             title: "Solicitud Cargada",
@@ -91,7 +93,8 @@ export function CrearCotizacion() {
       examenIds: selectedExams.map(ex => ex.id),
       total: total,
       empresaData: empresa,
-      solicitanteData: trabajador,
+      solicitanteData: solicitante,
+      trabajadoresData: trabajadores.length > 0 ? trabajadores : [solicitante], // Ensure workers list is not empty
       examenesData: selectedExams
     };
 
@@ -101,7 +104,8 @@ export function CrearCotizacion() {
         const quoteForDisplay: Cotizacion = {
           id: docRef.id,
           empresa,
-          trabajador,
+          solicitante: solicitante,
+          trabajadores: trabajadores.length > 0 ? trabajadores : [solicitante],
           examenes: selectedExams,
           total,
           fecha: new Date().toLocaleDateString('es-CL'),
@@ -131,7 +135,7 @@ export function CrearCotizacion() {
     {
       id: 1,
       name: "Datos Generales",
-      component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} trabajador={trabajador} setTrabajador={setTrabajador} />,
+      component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} trabajador={solicitante} setTrabajador={setSolicitante} />,
     },
     {
       id: 2,

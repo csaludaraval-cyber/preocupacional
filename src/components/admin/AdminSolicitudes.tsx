@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
-import type { SolicitudPublica, Cotizacion } from '@/lib/types';
+import type { SolicitudPublica, Cotizacion, Trabajador, Examen } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -86,19 +86,28 @@ export function AdminSolicitudes() {
       return new Date(timestamp.seconds * 1000).toLocaleDateString('es-CL');
   }
 
-  const prepareQuoteForProcessing = (request: WithId<SolicitudPublica>, solicitudIndex: number): string => {
-    const solicitudTrabajador = request.solicitudes[solicitudIndex];
-    if (!solicitudTrabajador) return '';
-    
-    // We create a partial Cotizacion object to pass to the creation page.
+  const prepareQuoteForProcessing = (request: WithId<SolicitudPublica>): string => {
+    if (!request.solicitudes || request.solicitudes.length === 0) return '';
+  
+    // Consolidate all exams from all workers
+    const allExams: Examen[] = request.solicitudes.flatMap(s => s.examenes);
+  
+    // Consolidate all unique workers
+    const allWorkers: Trabajador[] = request.solicitudes.map(s => s.trabajador);
+  
+    // Use the first worker as the main applicant for the quote form
+    const mainApplicant = allWorkers[0];
+  
     const quoteData: Partial<Cotizacion> & {
       empresa: any, 
-      trabajador: any, 
+      solicitante: any, 
+      trabajadores: any,
       examenes: any
     } = {
       empresa: request.empresa,
-      trabajador: solicitudTrabajador.trabajador,
-      examenes: solicitudTrabajador.examenes,
+      solicitante: mainApplicant,
+      trabajadores: allWorkers,
+      examenes: allExams,
     };
     return encodeURIComponent(JSON.stringify(quoteData));
   };
@@ -168,7 +177,9 @@ export function AdminSolicitudes() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredSolicitudes.length > 0 ? filteredSolicitudes.map((req) => (
+                    {filteredSolicitudes.length > 0 ? filteredSolicitudes.map((req) => {
+                      const quoteQuery = prepareQuoteForProcessing(req);
+                      return(
                         <React.Fragment key={req.id}>
                           <TableRow className="hover:bg-accent/50 bg-accent/20">
                               <TableCell className="font-mono text-xs font-bold">
@@ -178,7 +189,19 @@ export function AdminSolicitudes() {
                               <TableCell className="font-medium font-bold">{req.empresa.razonSocial}</TableCell>
                               <TableCell className="text-muted-foreground font-bold">{req.solicitudes.length}</TableCell>
                               <TableCell><Badge variant={req.estado === 'pendiente' ? 'default' : 'secondary'}>{req.estado}</Badge></TableCell>
-                              <TableCell className="text-center">
+                              <TableCell className="text-center space-x-2">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button asChild variant="outline" size="sm">
+                                        <Link href={`/?solicitud=${quoteQuery}`}>
+                                          Procesar Solicitud <ArrowRight className="ml-2 h-4 w-4"/>
+                                        </Link>
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Convertir la solicitud completa en una cotización</p>
+                                    </TooltipContent>
+                                  </Tooltip>
                                   <Tooltip>
                                       <TooltipTrigger asChild>
                                          <AlertDialog>
@@ -212,32 +235,17 @@ export function AdminSolicitudes() {
                               </TableCell>
                           </TableRow>
                           {req.solicitudes.map((solicitud, index) => {
-                            const quoteQuery = prepareQuoteForProcessing(req, index);
                             return (
-                              <TableRow key={`${req.id}-${index}`} className="hover:bg-accent/50 text-sm">
-                                <TableCell colSpan={3} className='pl-12'>
-                                  <span className='font-medium'>{solicitud.trabajador.nombre}</span> ({solicitud.examenes.length} exámenes)
-                                </TableCell>
-                                <TableCell colSpan={2}></TableCell>
-                                <TableCell className='text-center'>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button asChild variant="outline" size="sm">
-                                        <Link href={`/?solicitud=${quoteQuery}`}>
-                                          Procesar <ArrowRight className="ml-2 h-4 w-4"/>
-                                        </Link>
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Convertir en cotización para este trabajador</p>
-                                    </TooltipContent>
-                                  </Tooltip>
+                              <TableRow key={`${req.id}-${index}`} className="hover:bg-accent/50 text-sm bg-gray-50/50">
+                                <TableCell colSpan={6} className='pl-12 text-muted-foreground'>
+                                  - <span className='font-medium text-foreground'>{solicitud.trabajador.nombre}</span> ({solicitud.examenes.length} exámenes)
                                 </TableCell>
                               </TableRow>
                             )
                           })}
                         </React.Fragment>
-                    )) : (
+                      )
+                    }) : (
                         <TableRow>
                             <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                                 No se encontraron solicitudes.

@@ -30,8 +30,9 @@ export type Trabajador = {
 export type Cotizacion = {
   id?: string;
   empresa: Empresa;
-  trabajador: Trabajador;
-  examenes: Examen[];
+  solicitante: Trabajador; // This is the main contact for the quote
+  trabajadores: Trabajador[]; // All workers included in the quote
+  examenes: Examen[]; // All exams consolidated
   total: number;
   fecha: string;
 };
@@ -45,7 +46,8 @@ export type CotizacionFirestore = {
   examenIds: string[];
   total: number;
   empresaData: Empresa;
-  solicitanteData: Trabajador;
+  solicitanteData: Trabajador; // Main contact
+  trabajadoresData: Trabajador[]; // All workers
   examenesData: Examen[];
 }
 
@@ -66,7 +68,7 @@ export type SolicitudPublica = {
   empresa: Empresa;
   solicitudes: {
     trabajador: Trabajador,
-    examenes: { id: string, nombre: string, categoria: string, subcategoria: string }[]
+    examenes: { id: string, nombre: string, categoria: string, subcategoria: string, valor: number, descripcion: string, esBateria: boolean, unidad: 'CLP' }[]
   }[];
   fechaCreacion: Timestamp;
   estado: 'pendiente' | 'procesada';

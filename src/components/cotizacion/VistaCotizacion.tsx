@@ -6,11 +6,12 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download, Mail, Building, User } from 'lucide-react';
+import { Download, Mail, Building, User, Users } from 'lucide-react';
 import type { Cotizacion, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function VistaCotizacion() {
   const [quote, setQuote] = useState<Cotizacion | null>(null);
@@ -114,7 +115,7 @@ export function VistaCotizacion() {
     );
   }
   
-  const mailToLink = `mailto:${quote.trabajador.mail}?subject=${encodeURIComponent(`Cotización de Servicios Araval Nº ${quote.id?.slice(-6)}`)}&body=${encodeURIComponent(`Estimado(a) ${quote.trabajador.nombre},\n\nAdjunto encontrará la cotización Nº ${quote.id?.slice(-6)} solicitada.\n\nPor favor, recuerde adjuntar el archivo PDF antes de enviar.\n\nSaludos cordiales,\nEquipo Araval.`)}`;
+  const mailToLink = `mailto:${quote.solicitante.mail}?subject=${encodeURIComponent(`Cotización de Servicios Araval Nº ${quote.id?.slice(-6)}`)}&body=${encodeURIComponent(`Estimado(a) ${quote.solicitante.nombre},\n\nAdjunto encontrará la cotización Nº ${quote.id?.slice(-6)} solicitada.\n\nPor favor, recuerde adjuntar el archivo PDF antes de enviar.\n\nSaludos cordiales,\nEquipo Araval.`)}`;
 
   const neto = quote.total;
   const iva = neto * 0.19;
@@ -172,13 +173,30 @@ export function VistaCotizacion() {
                     <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
                 </div>
                 <div className="space-y-2">
-                    <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500"/>Datos Trabajador</h3>
-                    <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {quote.trabajador.nombre}</p>
-                    <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.trabajador.rut}</p>
-                    <p className="text-sm"><strong className="font-medium text-gray-600">Cargo:</strong> {quote.trabajador.cargo}</p>
-                    <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.trabajador.mail}</p>
+                    <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500"/>Datos Solicitante/Contacto</h3>
+                    <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {quote.solicitante.nombre}</p>
+                    <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.solicitante.rut}</p>
+                    <p className="text-sm"><strong className="font-medium text-gray-600">Cargo:</strong> {quote.solicitante.cargo}</p>
+                    <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.solicitante.mail}</p>
                 </div>
             </section>
+            
+            {quote.trabajadores && quote.trabajadores.length > 0 && (
+                 <section className="mb-8">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="font-headline text-lg flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Trabajadores Incluidos</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <ul className="space-y-1 text-sm list-disc list-inside text-muted-foreground">
+                                {quote.trabajadores.map((t, i) => (
+                                    <li key={i}><span className="text-foreground font-medium">{t.nombre}</span> (RUT: {t.rut})</li>
+                                ))}
+                            </ul>
+                        </CardContent>
+                    </Card>
+                </section>
+            )}
 
             <section>
                 <h3 className="font-headline text-lg font-semibold mb-4 text-gray-700">Detalle de Servicios</h3>
