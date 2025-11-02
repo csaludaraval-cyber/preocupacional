@@ -45,10 +45,13 @@ export function AdminSolicitudes() {
   
   const filteredSolicitudes = useMemo(() => {
     if (!solicitudes) return [];
-    if (!searchTerm) return solicitudes;
+    // Sort by most recent first
+    const sorted = [...solicitudes].sort((a, b) => b.fechaCreacion.toMillis() - a.fechaCreacion.toMillis());
+
+    if (!searchTerm) return sorted;
 
     const lowercasedFilter = searchTerm.toLowerCase();
-    return solicitudes.filter(req =>
+    return sorted.filter(req =>
       req.empresa.razonSocial.toLowerCase().includes(lowercasedFilter) ||
       req.solicitudes.some(s => s.trabajador.nombre.toLowerCase().includes(lowercasedFilter)) ||
       req.id.toLowerCase().includes(lowercasedFilter)
@@ -216,5 +219,3 @@ export function AdminSolicitudes() {
     </Card>
   );
 }
-
-    

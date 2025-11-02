@@ -1,10 +1,9 @@
-
 "use client";
 
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { FileText, Shield, History, Inbox } from 'lucide-react';
+import { FileText, Shield, History, Inbox, LogOut } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
@@ -37,10 +36,12 @@ export function Header() {
           />
         </Link>
         <nav className="hidden items-center gap-4 md:flex">
-          <Link href="/" className={navLinkClasses('/')}>
-            <FileText className="h-4 w-4" />
-            Crear Cotización
-          </Link>
+          {user && (
+            <Link href="/" className={navLinkClasses('/')}>
+              <FileText className="h-4 w-4" />
+              Crear Cotización
+            </Link>
+          )}
           {user?.role === 'admin' && (
             <>
                <Link href="/solicitudes-recibidas" className={navLinkClasses('/solicitudes-recibidas')}>
@@ -67,7 +68,7 @@ export function Header() {
                     {user.email}
                 </span>
                 <Button variant="ghost" size="icon" onClick={logout}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted-foreground lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                    <LogOut className="h-5 w-5 text-muted-foreground" />
                 </Button>
             </div>
           ) : (
@@ -82,5 +83,3 @@ export function Header() {
     </header>
   );
 }
-
-    

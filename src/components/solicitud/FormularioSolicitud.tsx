@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Send, Sparkles, PlusCircle, Trash2, ServerCrash } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, Sparkles, PlusCircle, Trash2, ServerCrash } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import type { Empresa, Examen, Trabajador, SolicitudTrabajador } from '@/lib/types';
@@ -99,7 +99,7 @@ export function FormularioSolicitud() {
       empresa: empresa,
       solicitudes: solicitudes.map(s => ({
         trabajador: s.trabajador,
-        examenes: s.examenes.map(({ id, nombre, categoria, subcategoria }) => ({ id, nombre, categoria, subcategoria })) // Send only necessary exam data
+        examenes: s.examenes.map(({ id, nombre, categoria, subcategoria, valor }) => ({ id, nombre, categoria, subcategoria, valor })) // Send relevant exam data
       })),
       fechaCreacion: serverTimestamp(),
       estado: 'pendiente',
@@ -231,5 +231,3 @@ export function FormularioSolicitud() {
     </div>
   );
 }
-
-    

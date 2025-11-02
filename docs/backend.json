@@ -18,7 +18,7 @@
           "type": "string",
           "description": "RUT de la empresa."
         },
-        "direccionFacturacion": {
+        "direccion": {
           "type": "string",
           "description": "Dirección de facturación de la empresa."
         }
@@ -27,7 +27,7 @@
         "id",
         "razonSocial",
         "rut",
-        "direccionFacturacion"
+        "direccion"
       ]
     },
     "Solicitante": {
@@ -52,7 +52,7 @@
           "type": "string",
           "description": "Cargo del solicitante."
         },
-        "centroCostos": {
+        "centroDeCostos": {
           "type": "string",
           "description": "Centro de costos del solicitante."
         },
@@ -67,7 +67,7 @@
         "nombre",
         "rut",
         "cargo",
-        "centroCostos",
+        "centroDeCostos",
         "mail"
       ]
     },
@@ -163,16 +163,13 @@
     "SolicitudPublica": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "SolicitudPublica",
-      "type": "object",
       "description": "Representa una solicitud de exámenes enviada por un cliente desde el formulario público.",
+      "type": "object",
       "properties": {
-        "id": {
-          "type": "string"
-        },
         "empresa": {
           "$ref": "#/entities/Empresa"
         },
-        "solicitantes": {
+        "solicitudes": {
           "type": "array",
           "items": {
             "type": "object",
@@ -195,7 +192,10 @@
         },
         "estado": {
           "type": "string",
-          "enum": ["pendiente", "procesada"]
+          "enum": [
+            "pendiente",
+            "procesada"
+          ]
         }
       }
     }
@@ -207,105 +207,38 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/empresas/{empresaId}",
-        "definition": {
-          "entityName": "Empresa",
-          "schema": {
-            "$ref": "#/backend/entities/Empresa"
-          },
-          "description": "Almacena la información de las empresas. Se utiliza el ID de la empresa como identificador del documento.",
-          "params": [
-            {
-              "name": "empresaId",
-              "description": "ID de la empresa."
-            }
-          ]
-        }
+    "/empresas/{empresaId}": {
+      "schema": {
+        "$ref": "#/entities/Empresa"
       },
-      {
-        "path": "/solicitantes/{solicitanteId}",
-        "definition": {
-          "entityName": "Solicitante",
-          "schema": {
-            "$ref": "#/backend/entities/Solicitante"
-          },
-          "description": "Almacena la información de los solicitantes. El acceso está restringido al solicitante propietario. Se utiliza el ID del solicitante como identificador del documento.",
-          "params": [
-            {
-              "name": "solicitanteId",
-              "description": "ID del solicitante."
-            }
-          ]
-        }
+      "description": "Almacena la información de las empresas."
+    },
+    "/solicitantes/{solicitanteId}": {
+      "schema": {
+        "$ref": "#/entities/Solicitante"
       },
-      {
-        "path": "/examenes/{examenId}",
-        "definition": {
-          "entityName": "Examen",
-          "schema": {
-            "$ref": "#/backend/entities/Examen"
-          },
-          "description": "Catálogo de exámenes disponibles. Gestionado por el administrador.",
-          "params": [
-            {
-              "name": "examenId",
-              "description": "ID del examen."
-            }
-          ]
-        }
+      "description": "Almacena la información de los solicitantes/trabajadores. Acceso restringido al dueño."
+    },
+    "/examenes/{examenId}": {
+      "schema": {
+        "$ref": "#/entities/Examen"
       },
-      {
-        "path": "/cotizaciones/{cotizacionId}",
-        "definition": {
-          "entityName": "Cotizacion",
-          "schema": {
-            "$ref": "#/backend/entities/Cotizacion"
-          },
-          "description": "Almacena las cotizaciones generadas. Incluye los IDs de la empresa y el solicitante para facilitar las reglas de seguridad. Permite independencia de authorizacion.",
-          "params": [
-            {
-              "name": "cotizacionId",
-              "description": "ID de la cotización."
-            }
-          ]
-        }
+      "description": "Catálogo de exámenes disponibles, gestionado por administradores."
+    },
+    "/cotizaciones/{cotizacionId}": {
+      "schema": {
+        "$ref": "#/entities/Cotizacion"
       },
-      {
-        "path": "/roles_admin/{userId}",
-        "definition": {
-          "entityName": "roles_admin",
-          "schema": {
-            "$ref": "#/backend/entities/roles_admin"
-          },
-          "description": "Indica si un usuario es administrador. La existencia del documento otorga privilegios de administrador.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "ID del usuario."
-            }
-          ]
-        }
+      "description": "Almacena las cotizaciones generadas. Contiene IDs para reglas de seguridad."
+    },
+    "/roles_admin/{userId}": {
+      "description": "Colección para gestionar roles de administrador. La existencia de un documento otorga privilegios."
+    },
+    "/solicitudes_publicas/{solicitudId}": {
+      "schema": {
+        "$ref": "#/entities/SolicitudPublica"
       },
-      {
-        "path": "/solicitudes_publicas/{solicitudId}",
-        "definition": {
-          "entityName": "SolicitudPublica",
-          "schema": {
-            "$ref": "#/backend/entities/SolicitudPublica"
-          },
-          "description": "Almacena las solicitudes de exámenes enviadas desde el formulario público. Cualquiera puede crear, pero solo los admins pueden leer y gestionar.",
-          "params": [
-            {
-              "name": "solicitudId",
-              "description": "ID de la solicitud pública."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure is designed to manage quotations and a catalog of exams (servicios). It incorporates role-based access control, separating standard user and admin privileges, and is optimized for scalability and security. The key collections are `empresas`, `solicitantes`, `examenes`, `cotizaciones`, `roles_admin`, and the new `solicitudes_publicas`. \n\n**Authorization Independence:** Access control is enforced without relying on hierarchical `get()` calls by storing all authorization information directly within the documents themselves. For example, the `cotizaciones` collection contains `empresaId` and `solicitanteId` which allows rules to validate access based on these values without needing to retrieve the related `empresa` or `solicitante` document. For the admin role, we rely on document existence in `roles_admin/{userId}`. This approach ensures atomic operations are possible and avoids the complexities of cascading authorization checks.\n\n**Segregation and QAPs:** The segregation of `examenes` and `cotizaciones` allows for targeted security rules. Admins can manage `examenes`, while users create `cotizaciones` referencing them. The `roles_admin` collection stores admin UIDs.  List operations are secured because rules can validate that a user can only list `cotizaciones` associated with their `empresaId` or if they have the `roles_admin` role, they can access `examenes` for catalogue management. Private user data (`solicitantes`) is secured using path-based ownership, limiting access to the respective user.\n\n**Admin Role:** The existence of a document in `/roles_admin/{userId}` grants administrative privileges. This is preferred over custom claims for simplicity.\n\n**Public Submissions:** The `solicitudes_publicas` collection is world-writable to allow unauthenticated users to submit requests, but only readable by admins to ensure client data privacy after submission."
+      "description": "Almacena las solicitudes de exámenes enviadas desde el formulario público. Cualquiera puede crear, pero solo los administradores pueden leer y gestionar."
+    }
   }
 }
-    

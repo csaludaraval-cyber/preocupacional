@@ -11,6 +11,7 @@
  * - /examenes/{examenId}: Stores the catalog of exams. Managed by admins.
  * - /cotizaciones/{cotizacionId}: Stores quotations. Contains companyId and solicitanteId for authorization.
  * - /roles_admin/{userId}: Indicates if a user is an admin.
+ * - /solicitudes_publicas/{solicitudId}: Public submission form data.
  *
  * Key Security Decisions:
  * - Admin role is determined by the existence of a document in /roles_admin/{userId}.
@@ -95,7 +96,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && isAdmin();
       allow delete: if isSignedIn() && isAdmin();
     }
-
+    
     /**
      * @description Public-facing submission collection for exam requests.
      * @path /solicitudes_publicas/{solicitudId}
@@ -154,4 +155,3 @@ service cloud.firestore {
     }
   }
 }
-    

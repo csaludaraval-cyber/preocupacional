@@ -64,9 +64,10 @@ export type SolicitudTrabajador = {
 export type SolicitudPublica = {
   id: string;
   empresa: Empresa;
-  solicitudes: SolicitudTrabajador[];
+  solicitudes: {
+    trabajador: Trabajador,
+    examenes: { id: string, nombre: string, categoria: string, subcategoria: string }[]
+  }[];
   fechaCreacion: Timestamp;
   estado: 'pendiente' | 'procesada';
 };
-
-    

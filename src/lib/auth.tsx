@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { 
@@ -46,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userProfile);
         
         // Redirect logic after user is identified
-        if (publicRoutes.includes(pathname) && pathname !== '/solicitud') {
+        if (pathname === '/login' || pathname === '/crear-primer-admin') {
             if (userProfile.role === 'admin') {
                 router.push('/admin');
             } else {
@@ -79,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     logout,
-  }), [user, loading]);
+  }), [user, loading, logout]);
   
   const isPublicRoute = publicRoutes.includes(pathname);
 
@@ -110,5 +109,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    
