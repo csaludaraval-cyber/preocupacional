@@ -1,11 +1,12 @@
+
 "use client";
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Printer, FileText } from 'lucide-react';
-import type { Cotizacion } from '@/lib/types';
+import type { Cotizacion, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 
@@ -25,6 +26,18 @@ export function VistaCotizacion() {
     }
   }, [searchParams]);
 
+  const examsByCategory = useMemo(() => {
+    if (!quote) return {};
+    return quote.examenes.reduce((acc, exam) => {
+      const { categoria } = exam;
+      if (!acc[categoria]) {
+        acc[categoria] = [];
+      }
+      acc[categoria].push(exam);
+      return acc;
+    }, {} as Record<string, Examen[]>);
+  }, [quote]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -35,14 +48,16 @@ export function VistaCotizacion() {
 
   if (!quote) {
     return (
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle>No se encontró la cotización</CardTitle>
-          <CardDescription>Los datos de la cotización no son válidos o no se proporcionaron.</CardDescription>
-        </CardHeader>
+      <Card className="max-w-4xl mx-auto p-6">
+          <h2 className="text-xl font-semibold">No se encontró la cotización</h2>
+          <p className="text-muted-foreground">Los datos de la cotización no son válidos o no se proporcionaron.</p>
       </Card>
     );
   }
+
+  const neto = quote.total;
+  const iva = neto * 0.19;
+  const totalFinal = neto + iva;
 
   return (
     <>
@@ -94,24 +109,49 @@ export function VistaCotizacion() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {quote.examenes.map((exam) => (
-                        <TableRow key={exam.id}>
-                            <TableCell className="font-medium text-gray-800">{exam.nombre}</TableCell>
-                            <TableCell className="text-right font-medium text-gray-700">{formatCurrency(exam.valor)}</TableCell>
-                        </TableRow>
+                    {Object.entries(examsByCategory).map(([category, exams]) => (
+                        <React.Fragment key={category}>
+                            <TableRow className="bg-gray-100/50">
+                                <TableCell colSpan={2} className="font-headline font-semibold text-primary">
+                                    {category}
+                                </TableCell>
+                            </TableRow>
+                            {exams.map((exam) => (
+                                <TableRow key={exam.id}>
+                                    <TableCell className="font-medium text-gray-800 pl-8">{exam.nombre}</TableCell>
+                                    <TableCell className="text-right font-medium text-gray-700">{formatCurrency(exam.valor)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </React.Fragment>
                     ))}
                 </TableBody>
             </Table>
         </section>
 
         <section className="mt-8 flex justify-end">
-            <div className="w-full max-w-xs space-y-3">
-                <Separator />
+            <div className="w-full max-w-sm space-y-2 text-sm">
+                <div className="flex justify-between">
+                    <span className="text-gray-600">Neto</span>
+                    <span className="font-medium text-gray-700">{formatCurrency(neto)}</span>
+                </div>
+                 <div className="flex justify-between">
+                    <span className="text-gray-600">Descuentos</span>
+                    <span className="font-medium text-gray-700">{formatCurrency(0)}</span>
+                </div>
+                 <div className="flex justify-between">
+                    <span className="text-gray-600">Adicional</span>
+                    <span className="font-medium text-gray-700">{formatCurrency(0)}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-gray-600">IVA (19%)</span>
+                    <span className="font-medium text-gray-700">{formatCurrency(iva)}</span>
+                </div>
+                <Separator className="my-2" />
                 <div className="flex justify-between items-center text-xl font-bold">
                     <span className="text-gray-800">TOTAL</span>
-                    <span className="text-primary">{formatCurrency(quote.total)}</span>
+                    <span className="text-primary">{formatCurrency(totalFinal)}</span>
                 </div>
-                <Separator />
+                <Separator className="my-2"/>
             </div>
         </section>
         
@@ -142,3 +182,4 @@ export function VistaCotizacion() {
     </>
   );
 }
+
