@@ -3,11 +3,15 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Send, Sparkles } from 'lucide-react';
-import type { Empresa, Examen, Trabajador } from '@/lib/types';
+import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '@/lib/auth';
+import { firestore } from '@/lib/firebase';
+import type { Empresa, Examen, Trabajador, Cotizacion } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
 
 import Paso1DatosGenerales from './Paso1DatosGenerales';
 import Paso2SeleccionExamenes from './Paso2SeleccionExamenes';
@@ -22,6 +26,8 @@ export function CrearCotizacion() {
   const [trabajador, setTrabajador] = useState<Trabajador>(initialTrabajador);
   const [selectedExams, setSelectedExams] = useState<Examen[]>([]);
   const router = useRouter();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const totalSteps = 2;
   const progress = (step / totalSteps) * 100;
@@ -39,17 +45,52 @@ export function CrearCotizacion() {
     setSelectedExams([]);
   };
 
-  const handleGenerateQuote = () => {
+  const handleGenerateQuote = async () => {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de Autenticación',
+        description: 'Debes estar autenticado para crear una cotización.'
+      });
+      return;
+    }
+
     const total = selectedExams.reduce((acc, exam) => acc + exam.valor, 0);
-    const quoteData = {
-      empresa,
-      trabajador,
-      examenes: selectedExams,
-      total,
-      fecha: new Date().toLocaleDateString('es-CL'),
+    
+    // Create a new quote object for Firestore
+    const newQuote = {
+      empresaId: empresa.rut, // Assuming RUT can be a unique identifier
+      solicitanteId: user.uid,
+      fechaCreacion: serverTimestamp(),
+      examenIds: selectedExams.map(ex => ex.id),
+      total: total,
+      // Store denormalized data for easy display
+      empresaData: empresa,
+      solicitanteData: trabajador,
+      examenesData: selectedExams
     };
-    const query = encodeURIComponent(JSON.stringify(quoteData));
-    router.push(`/cotizacion?data=${query}`);
+
+    try {
+      const docRef = await addDoc(collection(firestore, 'cotizaciones'), newQuote);
+      
+      const quoteForDisplay: Cotizacion = {
+        empresa,
+        trabajador,
+        examenes: selectedExams,
+        total,
+        fecha: new Date().toLocaleDateString('es-CL'),
+      };
+      
+      const query = encodeURIComponent(JSON.stringify(quoteForDisplay));
+      router.push(`/cotizacion?data=${query}`);
+    } catch (error) {
+      console.error("Error creating quote:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo guardar la cotización. Revisa los permisos de Firestore.'
+      });
+    }
   };
 
   const steps = [
@@ -115,16 +156,16 @@ export function CrearCotizacion() {
 
           <div className="mt-8 flex justify-between">
             <Button variant="outline" onClick={prevStep} disabled={step === 1}>
-              <ArrowLeft className="mr-2" /> Anterior
+              <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
             </Button>
             {step < totalSteps && (
               <Button onClick={nextStep} className="bg-primary hover:bg-primary/90">
-                Siguiente <ArrowRight className="ml-2" />
+                Siguiente <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
              {step === totalSteps && (
               <Button onClick={handleGenerateQuote} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <Sparkles className="mr-2" /> Generar Cotización
+                <Sparkles className="mr-2 h-4 w-4" /> Generar Cotización
               </Button>
             )}
           </div>

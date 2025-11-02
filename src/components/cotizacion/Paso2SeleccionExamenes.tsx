@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 interface Props {
   selectedExams: Examen[];
@@ -17,16 +18,27 @@ interface Props {
 export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle }: Props) {
   const [allExams, setAllExams] = useState<Examen[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     async function loadExams() {
       setLoading(true);
-      const examsData = await getExams();
-      setAllExams(examsData);
-      setLoading(false);
+      try {
+        const examsData = await getExams();
+        setAllExams(examsData);
+      } catch (error) {
+        console.error("Failed to load exams:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No se pudo cargar el catálogo de exámenes.",
+        });
+      } finally {
+        setLoading(false);
+      }
     }
     loadExams();
-  }, []);
+  }, [toast]);
 
   const examsByCategory = useMemo(() => {
     return allExams.reduce((acc, exam) => {

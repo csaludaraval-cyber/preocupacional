@@ -1,3 +1,5 @@
+import { type User as FirebaseUser } from 'firebase/auth';
+
 export type Examen = {
   id: string;
   nombre: string;
@@ -29,3 +31,7 @@ export type Cotizacion = {
   total: number;
   fecha: string;
 };
+
+export interface User extends FirebaseUser {
+  role?: 'admin' | 'standard';
+}

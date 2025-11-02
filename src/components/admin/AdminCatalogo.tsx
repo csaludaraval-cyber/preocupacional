@@ -14,7 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 export function AdminCatalogo() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [exams, setExams] = useState<Examen[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -25,18 +25,30 @@ export function AdminCatalogo() {
     async function fetchExams() {
       if (user?.role === 'admin') {
         setLoading(true);
-        const data = await getExams();
-        setExams(data);
-        const initialPrices = data.reduce((acc, exam) => {
-            acc[exam.id] = String(exam.valor);
-            return acc;
-        }, {} as Record<string, string>);
-        setLocalPrices(initialPrices);
-        setLoading(false);
+        try {
+          const data = await getExams();
+          setExams(data);
+          const initialPrices = data.reduce((acc, exam) => {
+              acc[exam.id] = String(exam.valor);
+              return acc;
+          }, {} as Record<string, string>);
+          setLocalPrices(initialPrices);
+        } catch (error) {
+           toast({
+            variant: "destructive",
+            title: "Error al cargar catálogo",
+            description: "No se pudieron obtener los exámenes. Verifique la consola.",
+          });
+          console.error(error);
+        } finally {
+          setLoading(false);
+        }
       }
     }
-    fetchExams();
-  }, [user]);
+    if (!authLoading) {
+      fetchExams();
+    }
+  }, [user, authLoading, toast]);
 
   const handlePriceChange = (id: string, value: string) => {
     setLocalPrices(prev => ({...prev, [id]: value}));
@@ -74,18 +86,19 @@ export function AdminCatalogo() {
       toast({
         variant: "destructive",
         title: "Error al actualizar",
-        description: "No se pudo guardar el cambio. Intente de nuevo.",
+        description: "No se pudo guardar el cambio. Verifique los permisos de Firestore.",
       });
+      console.error(error);
       setLocalPrices(prev => ({...prev, [id]: String(originalExam.valor)})); // Revert on error
     } finally {
       setUpdatingId(null);
     }
   };
   
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
-  };
-
+  if (authLoading || loading) {
+    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+  
   if (user?.role !== 'admin') {
     return (
         <Alert variant="destructive" className="max-w-2xl mx-auto">
@@ -98,9 +111,6 @@ export function AdminCatalogo() {
     );
   }
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
 
   return (
     <Card>
@@ -110,7 +120,7 @@ export function AdminCatalogo() {
             Administración de Catálogo
         </CardTitle>
         <CardDescription>
-          Edite los precios de los exámenes. Los cambios se guardarán automáticamente al salir del campo de edición.
+          Edite los precios de los exámenes. Los cambios se guardarán en la base de datos al salir del campo de edición.
         </CardDescription>
       </CardHeader>
       <CardContent>
