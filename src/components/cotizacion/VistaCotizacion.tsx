@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 // Componente para la Orden de Examen (Anexo)
 const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
     <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto">
-      <div className="p-8 border rounded-lg max-w-2xl mx-auto">
+      <div className="p-8 border rounded-lg max-w-2xl mx-auto my-8">
           <header className="bg-gray-50 p-6 rounded-t-lg">
             <div className="flex justify-between items-center">
               <div>
@@ -83,8 +83,7 @@ const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: Soli
       </div>
        <style jsx>{`
         .order-page-container {
-          margin-top: 2rem;
-          margin-bottom: 2rem;
+          page-break-before: always;
         }
       `}</style>
     </div>
@@ -99,8 +98,6 @@ export function VistaCotizacion() {
 
   const allExams = useMemo(() => {
     if (!quote?.solicitudes) return [];
-    // This creates a list of all exams requested across all workers, but doesn't unique them by ID.
-    // It's used for displaying the consolidated list of services.
     return quote.solicitudes.flatMap(s => s.examenes);
   }, [quote]);
 
@@ -154,12 +151,14 @@ export function VistaCotizacion() {
     });
     const pdfWidth = pdf.internal.pageSize.getWidth();
     
-    // Hide buttons, show annexes off-screen for rendering
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
+    
+    // Make annexes visible but move them off-screen for rendering
     annexContainer.style.position = 'fixed';
     annexContainer.style.left = '0';
-    annexContainer.style.top = '-9999px'; // Move off-screen
+    annexContainer.style.top = '0';
+    annexContainer.style.zIndex = '-1'; // Put it behind everything
     annexContainer.style.visibility = 'visible';
     annexContainer.style.opacity = '1';
 
@@ -169,15 +168,25 @@ export function VistaCotizacion() {
       const mainCanvas = await html2canvas(quoteElement, { scale: 2, useCORS: true });
       const mainImgData = mainCanvas.toDataURL('image/png');
       const mainRatio = mainCanvas.height / mainCanvas.width;
-      const mainImgHeight = pdfWidth * mainRatio;
-      
-      pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
+      let mainImgHeight = pdfWidth * mainRatio;
+      let mainImgHeightLeft = mainImgHeight;
+
+      let position = 0;
+      pdf.addImage(mainImgData, 'PNG', 0, position, pdfWidth, mainImgHeight);
+      mainImgHeightLeft -= pdf.internal.pageSize.getHeight();
+
+      while (mainImgHeightLeft > 0) {
+        position = -mainImgHeightLeft;
+        pdf.addPage();
+        pdf.addImage(mainImgData, 'PNG', 0, position, pdfWidth, mainImgHeight);
+        mainImgHeightLeft -= pdf.internal.pageSize.getHeight();
+      }
 
       // 2. Process Annexes
       const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
       for (let i = 0; i < annexElements.length; i++) {
         const annexElement = annexElements[i];
-        const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true });
+        const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true, windowWidth: annexElement.scrollWidth, windowHeight: annexElement.scrollHeight });
         const annexImgData = annexCanvas.toDataURL('image/png');
         const annexRatio = annexCanvas.height / annexCanvas.width;
         const annexImgHeight = pdfWidth * annexRatio;
@@ -193,12 +202,13 @@ export function VistaCotizacion() {
           variant: "destructive"
       })
     } finally {
-      // Restore everything
       if (buttonContainer) buttonContainer.style.display = 'flex';
+      // Restore annex container styles
       annexContainer.style.position = '';
       annexContainer.style.left = '';
       annexContainer.style.top = '';
-      annexContainer.style.visibility = '';
+      annexContainer.style.zIndex = '';
+      annexContainer.style.visibility = 'hidden';
       annexContainer.style.opacity = '';
       setLoadingPdf(false);
 
@@ -244,10 +254,10 @@ export function VistaCotizacion() {
         </Button>
       </div>
 
-      <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-8 print:p-0 print:bg-white">
+      <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
 
         {/* --- Main Quotation for Display and PDF --- */}
-        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-8">
+        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-12">
            <header className="bg-gray-50 p-6 rounded-lg mb-8">
             <div className="flex justify-between items-center">
               <div>
@@ -357,7 +367,7 @@ export function VistaCotizacion() {
             </section>
           </main>
 
-          <footer className="mt-8 p-8 text-center text-xs text-gray-500 border-t">
+          <footer className="mt-8 pt-6 text-center text-xs text-gray-500 border-t">
             <p>Cotización válida por 30 días. Para agendar, por favor contacte a nuestro equipo.</p>
             <p className="font-semibold mt-1">contacto@araval.cl | +56 9 7541 1515</p>
           </footer>
@@ -365,7 +375,7 @@ export function VistaCotizacion() {
       </div>
 
       {/* --- Annex Container for PDF Generation ONLY --- */}
-      <div id="annex-container" style={{ visibility: 'hidden', position: 'absolute', left: '-9999px', top: '0' }}>
+      <div id="annex-container" style={{ visibility: 'hidden', position: 'absolute', left: '-9999px', top: '0', zIndex: -1 }}>
            {quote?.solicitudes.map((solicitud, index) => (
                 <OrdenDeExamen 
                     key={solicitud.id || index} 
@@ -390,6 +400,7 @@ export function VistaCotizacion() {
           #printable-quote {
             box-shadow: none !important;
             border: none !important;
+            padding: 2rem !important;
           }
           .order-page-container {
              page-break-before: always;
