@@ -11,7 +11,7 @@ import React, {
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, firestore } from './firebase';
 import type { User } from './types';
 import { Loader2 } from 'lucide-react';
@@ -24,7 +24,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const publicRoutes = ['/login'];
+const publicRoutes = ['/login', '/crear-primer-admin'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -47,7 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Redirect logic after user is identified
         if (publicRoutes.includes(pathname)) {
-            router.push('/');
+            if (userProfile.role === 'admin') {
+                router.push('/admin');
+            } else {
+                router.push('/');
+            }
         }
 
       } else {
@@ -75,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     logout,
-  }), [user, loading]);
+  }), [user, loading, logout]);
   
   // Render a loading screen while checking auth state, unless on a public route
   if (loading && !publicRoutes.includes(pathname)) {
