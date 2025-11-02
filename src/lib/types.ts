@@ -26,6 +26,7 @@ export type Trabajador = {
 };
 
 export type Cotizacion = {
+  id?: string;
   empresa: Empresa;
   trabajador: Trabajador;
   examenes: Examen[];

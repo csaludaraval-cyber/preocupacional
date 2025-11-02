@@ -44,7 +44,7 @@ export function VistaCotizacion() {
   const handleExportPDF = async () => {
     setLoading(true);
     const quoteElement = document.getElementById('printable-quote');
-    if (!quoteElement) {
+    if (!quoteElement || !quote) {
         setLoading(false);
         return;
     }
@@ -89,7 +89,15 @@ export function VistaCotizacion() {
         heightLeft -= pdfHeight;
     }
 
-    pdf.save('cotizacion.pdf');
+    const date = new Date();
+    const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const month = monthNames[date.getMonth()];
+    const day = date.getDate();
+    const correlative = quote.id ? quote.id.slice(-6) : "000000";
+    const fileName = `Cot_${month}${day}_${correlative}.pdf`;
+
+
+    pdf.save(fileName);
     setLoading(false);
   };
   
@@ -143,6 +151,7 @@ export function VistaCotizacion() {
                 </div>
                 <div className="text-right">
                     <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
+                    <p className="mt-1">Nº: {quote.id}</p>
                     <p className="mt-1">Fecha: {quote.fecha}</p>
                 </div>
             </div>

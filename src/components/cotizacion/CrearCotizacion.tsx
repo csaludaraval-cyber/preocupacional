@@ -74,6 +74,7 @@ export function CrearCotizacion() {
     addDoc(cotizacionesRef, newQuote)
       .then(docRef => {
         const quoteForDisplay: Cotizacion = {
+          id: docRef.id,
           empresa,
           trabajador,
           examenes: selectedExams,
