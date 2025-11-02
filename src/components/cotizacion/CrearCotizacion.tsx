@@ -8,7 +8,7 @@ import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
-import type { Empresa, Examen, Trabajador, Cotizacion } from '@/lib/types';
+import type { Empresa, Examen, Trabajador, Cotizacion, SolicitudTrabajador } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -27,12 +27,15 @@ export function CrearCotizacion() {
   const [step, setStep] = useState(1);
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
   const [solicitante, setSolicitante] = useState<Trabajador>(initialTrabajador);
-  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
-  const [selectedExams, setSelectedExams] = useState<Examen[]>([]);
+  // We now manage a list of solicitudes (worker + their exams)
+  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([{id: 'default', trabajador: solicitante, examenes: []}]);
+  
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  const allExams = solicitudes.flatMap(s => s.examenes);
 
   useEffect(() => {
     const solicitudData = searchParams.get('solicitud');
@@ -41,8 +44,22 @@ export function CrearCotizacion() {
         const parsedData = JSON.parse(decodeURIComponent(solicitudData));
         setEmpresa(parsedData.empresa || initialEmpresa);
         setSolicitante(parsedData.solicitante || initialTrabajador);
-        setTrabajadores(parsedData.trabajadores || []);
-        setSelectedExams(parsedData.examenes || []);
+        
+        // If the incoming data has the new structure, use it.
+        if (parsedData.solicitudes && parsedData.solicitudes.length > 0) {
+            setSolicitudes(parsedData.solicitudes);
+        } else {
+           // Fallback for old structure for safety, though it should be deprecated.
+           const allExams = parsedData.examenes || [];
+           const allWorkers = parsedData.trabajadores || [parsedData.solicitante];
+           const newSolicitudes = allWorkers.map((trabajador: Trabajador, index: number) => ({
+               id: String(index),
+               trabajador,
+               examenes: allExams, // This is not ideal, but it's a fallback.
+           }));
+           setSolicitudes(newSolicitudes);
+        }
+
         toast({
             title: "Solicitud Cargada",
             description: "Los datos de la solicitud se han cargado en el formulario."
@@ -58,6 +75,13 @@ export function CrearCotizacion() {
     }
   }, [searchParams, toast]);
 
+  useEffect(() => {
+    // Sync solicitante with the first worker in the list
+    if (solicitudes.length > 0 && solicitudes[0].trabajador) {
+        setSolicitante(solicitudes[0].trabajador);
+    }
+  }, [solicitudes]);
+
   const totalSteps = 2;
   const progress = (step / totalSteps) * 100;
 
@@ -65,13 +89,18 @@ export function CrearCotizacion() {
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   const handleExamToggle = (exam: Examen, checked: boolean) => {
-    setSelectedExams(prev =>
-      checked ? [...prev, exam] : prev.filter(e => e.id !== exam.id)
-    );
+    // For a single-worker quote, we just update the first solicitud
+    const newSolicitudes = [...solicitudes];
+    const currentExams = newSolicitudes[0].examenes;
+    newSolicitudes[0].examenes = checked
+        ? [...currentExams, exam]
+        : currentExams.filter(e => e.id !== exam.id);
+    setSolicitudes(newSolicitudes);
   };
 
   const handleClearSelection = () => {
-    setSelectedExams([]);
+    // Clear exams from all solicitudes
+    setSolicitudes(solicitudes.map(s => ({...s, examenes: []})));
   };
 
   const handleGenerateQuote = () => {
@@ -84,29 +113,26 @@ export function CrearCotizacion() {
       return;
     }
 
-    const total = selectedExams.reduce((acc, exam) => acc + exam.valor, 0);
+    const total = allExams.reduce((acc, exam) => acc + exam.valor, 0);
 
-    const newQuote = {
+    const newQuoteFirestore = {
       empresaId: empresa.rut,
       solicitanteId: user.uid,
       fechaCreacion: serverTimestamp(),
-      examenIds: selectedExams.map(ex => ex.id),
       total: total,
       empresaData: empresa,
-      solicitanteData: solicitante,
-      trabajadoresData: trabajadores.length > 0 ? trabajadores : [solicitante], // Ensure workers list is not empty
-      examenesData: selectedExams
+      solicitanteData: solicitante, // The main contact
+      solicitudesData: solicitudes, // The detailed list of workers and their exams
     };
 
     const cotizacionesRef = collection(firestore, 'cotizaciones');
-    addDoc(cotizacionesRef, newQuote)
+    addDoc(cotizacionesRef, newQuoteFirestore)
       .then(docRef => {
         const quoteForDisplay: Cotizacion = {
           id: docRef.id,
           empresa,
           solicitante: solicitante,
-          trabajadores: trabajadores.length > 0 ? trabajadores : [solicitante],
-          examenes: selectedExams,
+          solicitudes: solicitudes,
           total,
           fecha: new Date().toLocaleDateString('es-CL'),
         };
@@ -118,11 +144,10 @@ export function CrearCotizacion() {
         const permissionError = new FirestorePermissionError({
             path: cotizacionesRef.path,
             operation: 'create',
-            requestResourceData: newQuote,
+            requestResourceData: newQuoteFirestore,
         });
         errorEmitter.emit('permission-error', permissionError);
 
-        // Optional: show a generic toast, but the detailed error is in the console/overlay
         toast({
             variant: 'destructive',
             title: 'Error de Permiso',
@@ -140,7 +165,8 @@ export function CrearCotizacion() {
     {
       id: 2,
       name: "Selección de Exámenes",
-      component: <Paso2SeleccionExamenes selectedExams={selectedExams} onExamToggle={handleExamToggle} showPrice={true} />,
+      // When creating a quote from scratch, we assume one "solicitud" to add exams to.
+      component: <Paso2SeleccionExamenes selectedExams={solicitudes[0]?.examenes || []} onExamToggle={handleExamToggle} showPrice={true} />,
     },
   ];
 
@@ -184,7 +210,7 @@ export function CrearCotizacion() {
             
             <div className="lg:col-span-1">
               <ResumenCotizacion 
-                selectedExams={selectedExams} 
+                selectedExams={allExams} 
                 onClear={handleClearSelection}
                 onGenerate={handleGenerateQuote}
                 isStep1={step === 1}

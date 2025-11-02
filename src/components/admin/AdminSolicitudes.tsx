@@ -89,25 +89,13 @@ export function AdminSolicitudes() {
   const prepareQuoteForProcessing = (request: WithId<SolicitudPublica>): string => {
     if (!request.solicitudes || request.solicitudes.length === 0) return '';
   
-    // Consolidate all exams from all workers
-    const allExams: Examen[] = request.solicitudes.flatMap(s => s.examenes);
-  
-    // Consolidate all unique workers
-    const allWorkers: Trabajador[] = request.solicitudes.map(s => s.trabajador);
-  
     // Use the first worker as the main applicant for the quote form
-    const mainApplicant = allWorkers[0];
+    const mainApplicant = request.solicitudes[0].trabajador;
   
-    const quoteData: Partial<Cotizacion> & {
-      empresa: any, 
-      solicitante: any, 
-      trabajadores: any,
-      examenes: any
-    } = {
+    const quoteData = {
       empresa: request.empresa,
       solicitante: mainApplicant,
-      trabajadores: allWorkers,
-      examenes: allExams,
+      solicitudes: request.solicitudes, // Pass the detailed structure
     };
     return encodeURIComponent(JSON.stringify(quoteData));
   };
@@ -235,10 +223,11 @@ export function AdminSolicitudes() {
                               </TableCell>
                           </TableRow>
                           {req.solicitudes.map((solicitud, index) => {
+                            const examCount = solicitud.examenes ? solicitud.examenes.length : 0;
                             return (
                               <TableRow key={`${req.id}-${index}`} className="hover:bg-accent/50 text-sm bg-gray-50/50">
                                 <TableCell colSpan={6} className='pl-12 text-muted-foreground'>
-                                  - <span className='font-medium text-foreground'>{solicitud.trabajador.nombre}</span> ({solicitud.examenes.length} exámenes)
+                                  - <span className='font-medium text-foreground'>{solicitud.trabajador.nombre}</span> ({examCount} exámenes)
                                 </TableCell>
                               </TableRow>
                             )

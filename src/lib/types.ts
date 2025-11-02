@@ -26,13 +26,18 @@ export type Trabajador = {
   mail: string;
 };
 
+export type SolicitudTrabajador = {
+  id: string; 
+  trabajador: Trabajador;
+  examenes: Examen[];
+};
+
 // This type is for the frontend display and URL passing
 export type Cotizacion = {
   id?: string;
   empresa: Empresa;
   solicitante: Trabajador; // This is the main contact for the quote
-  trabajadores: Trabajador[]; // All workers included in the quote
-  examenes: Examen[]; // All exams consolidated
+  solicitudes: SolicitudTrabajador[]; // Contains each worker with their specific exams
   total: number;
   fecha: string;
 };
@@ -43,24 +48,15 @@ export type CotizacionFirestore = {
   empresaId: string;
   solicitanteId: string;
   fechaCreacion: Timestamp;
-  examenIds: string[];
   total: number;
   empresaData: Empresa;
   solicitanteData: Trabajador; // Main contact
-  trabajadoresData: Trabajador[]; // All workers
-  examenesData: Examen[];
+  solicitudesData: SolicitudTrabajador[]; // All workers with their exams
 }
 
 export interface User extends FirebaseUser {
   role?: 'admin' | 'standard';
 }
-
-// Type for a single worker's exam request within a public submission
-export type SolicitudTrabajador = {
-  id: string; // A unique ID for the worker within the form, e.g., using crypto.randomUUID()
-  trabajador: Trabajador;
-  examenes: Examen[];
-};
 
 // Type for the entire public submission, as it will be stored in Firestore
 export type SolicitudPublica = {
@@ -68,7 +64,7 @@ export type SolicitudPublica = {
   empresa: Empresa;
   solicitudes: {
     trabajador: Trabajador,
-    examenes: { id: string, nombre: string, categoria: string, subcategoria: string, valor: number, descripcion: string, esBateria: boolean, unidad: 'CLP' }[]
+    examenes: Examen[]
   }[];
   fechaCreacion: Timestamp;
   estado: 'pendiente' | 'procesada';

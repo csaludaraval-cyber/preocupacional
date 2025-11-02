@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
-import type { CotizacionFirestore, CotizacionDisplay } from '@/lib/types';
+import type { CotizacionFirestore, Cotizacion } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -87,12 +87,12 @@ export function AdminCotizaciones() {
       return new Date(timestamp.seconds * 1000).toLocaleDateString('es-CL');
   }
 
-  const prepareQuoteForDisplay = (quote: WithId<CotizacionFirestore>): CotizacionDisplay => {
+  const prepareQuoteForDisplay = (quote: WithId<CotizacionFirestore>): Cotizacion => {
     return {
       id: quote.id,
       empresa: quote.empresaData,
-      trabajador: quote.solicitanteData,
-      examenes: quote.examenesData,
+      solicitante: quote.solicitanteData,
+      solicitudes: quote.solicitudesData,
       total: quote.total,
       fecha: formatDate(quote.fechaCreacion),
     };
@@ -120,7 +120,7 @@ export function AdminCotizaciones() {
               <XCircle className="h-4 w-4" />
               <AlertTitle>Error al Cargar Datos</AlertTitle>
               <AlertDescription>
-                  No se pudieron cargar las cotizaciones. Inténtelo de nuevo más tarde.
+                  No se pudieron cargar las cotizaciones.
               </AlertDescription>
           </Alert>
       )

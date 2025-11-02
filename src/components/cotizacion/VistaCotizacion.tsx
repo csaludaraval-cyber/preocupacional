@@ -30,25 +30,22 @@ export function VistaCotizacion() {
     }
   }, [searchParams]);
 
-  const examsByWorker = useMemo(() => {
-    if (!quote?.trabajadores || !quote?.examenes) return {};
-
-    const workerExams: Record<string, { trabajador: Trabajador; examenes: Examen[] }> = {};
-    
-    quote.trabajadores.forEach(worker => {
-      if(worker.rut || worker.nombre) {
-        workerExams[worker.rut || worker.nombre] = {
-          trabajador: worker,
-          examenes: quote.examenes
-        };
-      }
-    });
-    return workerExams;
+  const allExams = useMemo(() => {
+      if (!quote?.solicitudes) return [];
+      // Use a Map to get unique exams based on ID, preserving the exam object.
+      const uniqueExams = new Map<string, Examen>();
+      quote.solicitudes.flatMap(s => s.examenes).forEach(exam => {
+          if (!uniqueExams.has(exam.id)) {
+              uniqueExams.set(exam.id, exam);
+          }
+      });
+      return Array.from(uniqueExams.values());
   }, [quote]);
 
+
   const examsByMainCategory = useMemo(() => {
-    if (!quote) return {};
-    return quote.examenes.reduce((acc, exam) => {
+    if (!allExams) return {};
+    return allExams.reduce((acc, exam) => {
       const { categoria } = exam;
       if (!acc[categoria]) {
         acc[categoria] = [];
@@ -56,7 +53,7 @@ export function VistaCotizacion() {
       acc[categoria].push(exam);
       return acc;
     }, {} as Record<string, Examen[]>);
-  }, [quote]);
+  }, [allExams]);
 
   const mailToLink = useMemo(() => {
     if (!quote?.solicitante?.mail) return '#';
@@ -203,7 +200,7 @@ export function VistaCotizacion() {
                   </div>
               </section>
               
-              {quote.trabajadores && quote.trabajadores.length > 0 && (
+              {quote.solicitudes && quote.solicitudes.length > 0 && (
                    <section className="mb-8">
                       <Card>
                           <CardHeader>
@@ -211,8 +208,8 @@ export function VistaCotizacion() {
                           </CardHeader>
                           <CardContent>
                                <ul className="space-y-1 text-sm list-disc list-inside text-muted-foreground columns-2">
-                                  {quote.trabajadores.map((t, i) => (
-                                      <li key={i}><span className="text-foreground font-medium">{t.nombre}</span> (RUT: {t.rut})</li>
+                                  {quote.solicitudes.map((s, i) => (
+                                      <li key={s.id || i}><span className="text-foreground font-medium">{s.trabajador.nombre}</span> (RUT: {s.trabajador.rut})</li>
                                   ))}
                               </ul>
                           </CardContent>
@@ -285,11 +282,11 @@ export function VistaCotizacion() {
         </div>
 
         {/* --- ANNEXES: EXAMINATION ORDERS --- */}
-        {Object.keys(examsByWorker).length > 0 && (
+        {quote.solicitudes && quote.solicitudes.length > 0 && (
           <section className="annex-section">
             <h2 className="text-center text-2xl font-headline font-bold text-gray-700 my-4 print:my-8">Anexos: Órdenes de Examen</h2>
-            {Object.values(examsByWorker).map(({ trabajador, examenes }, index) => (
-              <div key={trabajador.rut || index} className="order-page-container max-w-4xl mx-auto bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:border-t-2 print:border-dashed print:mt-8 print:rounded-none">
+            {quote.solicitudes.map((solicitud, index) => (
+              <div key={solicitud.id || index} className="order-page-container max-w-4xl mx-auto bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:border-t-2 print:border-dashed print:mt-8 print:rounded-none">
                  <header className="bg-gray-100 p-6 rounded-t-lg print:rounded-none">
                     <div className="flex justify-between items-center">
                         <div>
@@ -309,8 +306,8 @@ export function VistaCotizacion() {
                     <div className="grid grid-cols-2 gap-6 mb-6">
                         <div className="space-y-1">
                              <h4 className="font-semibold text-gray-600">Paciente:</h4>
-                             <p>{trabajador.nombre}</p>
-                             <p className="text-sm text-muted-foreground">RUT: {trabajador.rut}</p>
+                             <p>{solicitud.trabajador.nombre}</p>
+                             <p className="text-sm text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
                         </div>
                         <div className="space-y-1">
                             <h4 className="font-semibold text-gray-600">Empresa:</h4>
@@ -322,8 +319,7 @@ export function VistaCotizacion() {
                     <h4 className="font-semibold text-gray-600 mb-2">Exámenes a Realizar:</h4>
                     <div className="border rounded-md p-4 bg-gray-50/50">
                         <ul className="space-y-1 list-disc list-inside text-gray-700">
-                           {/* This logic assumes each worker has their own exam list. If not, it will show all exams. */}
-                           {examenes.map(exam => (
+                           {solicitud.examenes.map(exam => (
                                <li key={exam.id}>{exam.nombre}</li>
                            ))}
                         </ul>
