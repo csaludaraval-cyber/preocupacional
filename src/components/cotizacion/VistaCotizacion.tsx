@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download, Mail, Building, User, Users, FileText, Phone, Clock, MapPin } from 'lucide-react';
+import { Download, Mail, Building, User, Users, Phone, Clock, MapPin } from 'lucide-react';
 import type { Cotizacion, Examen, Trabajador } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -31,7 +31,7 @@ export function VistaCotizacion() {
   }, [searchParams]);
 
   const examsByWorker = useMemo(() => {
-      if (!quote?.trabajadores) return {};
+      if (!quote?.trabajadores || !quote?.examenes) return {};
       
       const workerExams: Record<string, { trabajador: Trabajador; examenes: Examen[] }> = {};
       
@@ -39,13 +39,37 @@ export function VistaCotizacion() {
       // This is a known limitation of the current data structure passed to this component.
       // For a more accurate breakdown, the data structure would need to change.
       quote.trabajadores.forEach(worker => {
-          workerExams[worker.rut] = {
+          // This part is tricky if exams are consolidated. 
+          // If the original request structure is not available, we show all exams for all workers.
+          // Ideally, the quote object should retain which exams belong to which worker.
+          // For now, we assume all exams in the quote apply to every worker listed in it
+          // for the purpose of generating the order.
+          workerExams[worker.rut || worker.nombre] = {
               trabajador: worker,
               examenes: quote.examenes // Assigning all exams to each worker for the order form.
           };
       });
       return workerExams;
   }, [quote]);
+
+  const examsByMainCategory = useMemo(() => {
+    if (!quote) return {};
+    return quote.examenes.reduce((acc, exam) => {
+      const { categoria } = exam;
+      if (!acc[categoria]) {
+        acc[categoria] = [];
+      }
+      acc[categoria].push(exam);
+      return acc;
+    }, {} as Record<string, Examen[]>);
+  }, [quote]);
+
+  const mailToLink = useMemo(() => {
+    if (!quote?.solicitante?.mail) return '#';
+
+    return `mailto:${quote.solicitante.mail}?subject=${encodeURIComponent(`Cotización de Servicios Araval Nº ${quote.id?.slice(-6)}`)}&body=${encodeURIComponent(`Estimado(a) ${quote.solicitante.nombre},\n\nAdjunto encontrará la cotización Nº ${quote.id?.slice(-6)} solicitada.\n\nPor favor, recuerde adjuntar el archivo PDF antes de enviar.\n\nSaludos cordiales,\nEquipo Araval.`)}`;
+  }, [quote]);
+
 
   const handleExportPDF = async () => {
     setLoading(true);
@@ -112,32 +136,16 @@ export function VistaCotizacion() {
   if (!quote) {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold">No se encontró la cotización</h2>
-          <p className="text-muted-foreground">Los datos de la cotización no son válidos o no se proporcionaron.</p>
+          <h2 className="text-xl font-semibold">Cargando cotización...</h2>
+          <p className="text-muted-foreground">Si no se carga, es posible que los datos de la cotización no sean válidos.</p>
       </div>
     );
   }
-  
-  const mailToLink = quote.solicitante?.mail 
-    ? `mailto:${quote.solicitante.mail}?subject=${encodeURIComponent(`Cotización de Servicios Araval Nº ${quote.id?.slice(-6)}`)}&body=${encodeURIComponent(`Estimado(a) ${quote.solicitante.nombre},\n\nAdjunto encontrará la cotización Nº ${quote.id?.slice(-6)} solicitada.\n\nPor favor, recuerde adjuntar el archivo PDF antes de enviar.\n\nSaludos cordiales,\nEquipo Araval.`)}`
-    : '#';
 
   const neto = quote.total;
   const iva = neto * 0.19;
   const totalFinal = neto + iva;
-
-  const examsByMainCategory = useMemo(() => {
-    if (!quote) return {};
-    return quote.examenes.reduce((acc, exam) => {
-      const { categoria } = exam;
-      if (!acc[categoria]) {
-        acc[categoria] = [];
-      }
-      acc[categoria].push(exam);
-      return acc;
-    }, {} as Record<string, Examen[]>);
-  }, [quote]);
-
+  
   return (
     <>
       <div id="button-container" className="flex justify-end gap-2 mb-4 print:hidden">
@@ -282,7 +290,7 @@ export function VistaCotizacion() {
         </div>
 
         {/* --- ANNEXES: EXAMINATION ORDERS --- */}
-        {quote.trabajadores && quote.trabajadores.length > 0 && (
+        {Object.keys(examsByWorker).length > 0 && (
           <section className="annex-section">
             <h2 className="text-center text-2xl font-headline font-bold text-gray-700 my-4 print:my-8">Anexos: Órdenes de Examen</h2>
             {Object.values(examsByWorker).map(({ trabajador, examenes }, index) => (
