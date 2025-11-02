@@ -1,7 +1,8 @@
 
 "use client";
 
-import React, { useSearchParams, useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Printer, FileText } from 'lucide-react';
 import type { Cotizacion, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -181,4 +182,3 @@ export function VistaCotizacion() {
     </>
   );
 }
-
