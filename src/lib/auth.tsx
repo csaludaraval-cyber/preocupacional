@@ -25,81 +25,86 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const publicRoutes = ['/login', '/crear-primer-admin', '/solicitud'];
+const adminOnlyInitialRoute = '/admin';
 const quoteRoute = '/cotizacion';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [userWithRole, setUserWithRole] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   const { user: firebaseUser, auth, firestore, isUserLoading, areServicesAvailable } = useFirebase();
 
   useEffect(() => {
-    const isLoading = !areServicesAvailable || isUserLoading;
-    setLoading(isLoading);
-
-    if (isLoading) {
-      return;
+    if (isUserLoading || !areServicesAvailable) {
+      return; // Wait until Firebase Auth is initialized and services are ready
     }
 
-    const isPublicPath = publicRoutes.includes(pathname) || pathname.startsWith(quoteRoute);
+    const handleUserRole = async (fbUser: FirebaseUser) => {
+      if (!firestore) return;
+      try {
+        const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
+        const adminRoleDoc = await getDoc(adminRoleRef);
+        const role = adminRoleDoc.exists() ? 'admin' : 'standard';
+        
+        const user: User = {
+          ...fbUser,
+          uid: fbUser.uid,
+          role: role,
+        };
+        setUserWithRole(user);
 
-    const handleUser = async (fbUser: FirebaseUser | null) => {
-      if (fbUser && firestore) {
-        try {
-          const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
-          const adminRoleDoc = await getDoc(adminRoleRef);
-          
-          const extendedUser: User = {
-            ...fbUser,
-            uid: fbUser.uid,
-            role: adminRoleDoc.exists() ? 'admin' : 'standard',
-          };
-          setUserWithRole(extendedUser);
+        // --- REDIRECTION LOGIC FOR AUTHENTICATED USERS ---
+        const isOnLogin = publicRoutes.includes(pathname);
+        if (role === 'admin' && isOnLogin) {
+          router.push(adminOnlyInitialRoute);
+        } else if (isOnLogin) {
+          router.push('/');
+        }
 
-        } catch (error) {
-          console.error("Error fetching user role:", error);
-          setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' });
-        }
-      } else {
-        setUserWithRole(null);
-        if (!isPublicPath) {
-            router.push('/login');
-        }
+      } catch (error) {
+        console.error("Error fetching user role:", error);
+        setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' });
+      } finally {
+        setAuthChecked(true);
       }
     };
 
-    handleUser(firebaseUser);
+    if (firebaseUser) {
+      handleUserRole(firebaseUser);
+    } else {
+      // --- REDIRECTION LOGIC FOR UNAUTHENTICATED USERS ---
+      setUserWithRole(null);
+      setAuthChecked(true);
+      const isProtectedRoute = !publicRoutes.includes(pathname) && !pathname.startsWith(quoteRoute);
+      if (isProtectedRoute) {
+        router.push('/login');
+      }
+    }
 
   }, [firebaseUser, isUserLoading, areServicesAvailable, firestore, pathname, router]);
 
   const logout = async () => {
     if (!auth) return;
-    setLoading(true);
     await signOut(auth);
     setUserWithRole(null);
+    setAuthChecked(false);
     router.push('/login');
-    setLoading(false);
   };
   
   const value = useMemo(() => ({
     user: userWithRole,
-    loading,
+    loading: !authChecked,
     logout,
-  }), [userWithRole, loading, auth]);
-  
-  const isPublicPath = publicRoutes.includes(pathname) || pathname.startsWith(quoteRoute);
-  if (loading && !isPublicPath) {
-    return (
+  }), [userWithRole, authChecked, auth]);
+
+  if (!authChecked) {
+     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (!isPublicPath && !loading && !userWithRole) {
-    return null;
   }
 
   return (
