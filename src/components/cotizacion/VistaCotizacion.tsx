@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -5,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download, Mail, Building, User, Users, Phone, Clock, MapPin, Loader2 } from 'lucide-react';
+import { Download, Mail, Building, User, Users, Phone, Clock, MapPin, Loader2, FileText } from 'lucide-react';
 import type { Cotizacion, Empresa, SolicitudTrabajador, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,54 +14,51 @@ import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
-// Componente para la Orden de Examen (Anexo)
+// --- NUEVO DISEÑO COMPONENTE OrdenDeExamen ---
 const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
-    <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto my-8">
-      <div className="p-8 border rounded-lg max-w-xl mx-auto">
-          <header className="bg-gray-50 p-6 rounded-t-lg">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-bold font-headline text-gray-800">Orden de Examen</h3>
-                <p className="text-sm text-muted-foreground">Referencia Cotización Nº: {quoteId}</p>
-              </div>
-              <Image 
-                src="/images/logo.png" 
-                alt="Araval Logo" 
-                width={120} 
-                height={32} 
-                unoptimized
-              />
+    <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto my-8 p-8" style={{ pageBreakBefore: 'always' }}>
+      {/* Contenedor estilo Voucher */}
+      <div className="max-w-lg mx-auto border-2 border-dashed rounded-xl p-6 bg-white shadow-lg">
+          <header className="flex justify-between items-start pb-4 border-b-2 border-gray-200">
+            <div>
+              <h3 className="text-xl font-bold font-headline text-gray-800">Orden de Examen</h3>
+              <p className="text-xs text-muted-foreground mt-1">Ref. Cotización: {quoteId}</p>
             </div>
+            <Image 
+              src="/images/logo.png" 
+              alt="Araval Logo" 
+              width={100} 
+              height={26} 
+              unoptimized
+            />
           </header>
-          <main className="p-6">
-            <div className="grid grid-cols-2 gap-8 mb-6 text-sm">
-              <div className="space-y-2">
-                <h4 className="font-semibold text-gray-700">Paciente:</h4>
-                <p>{solicitud.trabajador.nombre}</p>
+          <main className="py-5 text-sm">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="space-y-1">
+                <h4 className="font-semibold text-gray-600 text-xs uppercase tracking-wider">Paciente:</h4>
+                <p className="font-medium text-gray-900">{solicitud.trabajador.nombre}</p>
                 <p className="text-xs text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
               </div>
-              <div className="space-y-2">
-                <h4 className="font-semibold text-gray-700">Empresa:</h4>
-                <p>{empresa.razonSocial}</p>
+              <div className="space-y-1">
+                <h4 className="font-semibold text-gray-600 text-xs uppercase tracking-wider">Empresa:</h4>
+                <p className="font-medium text-gray-900">{empresa.razonSocial}</p>
                 <p className="text-xs text-muted-foreground">RUT: {empresa.rut}</p>
               </div>
             </div>
 
-            <h4 className="font-semibold text-gray-700 mb-2">Exámenes a Realizar:</h4>
-            <div className="border rounded-md p-4 bg-gray-50/50">
-              <ul className="space-y-2 list-disc list-inside text-gray-800 text-sm">
+            <h4 className="font-semibold text-gray-600 text-xs uppercase tracking-wider mb-2">Exámenes a Realizar:</h4>
+            <div className="border rounded-md p-3 bg-gray-50/70">
+              <ul className="space-y-1.5 list-disc list-inside text-gray-800 text-sm">
                 {solicitud.examenes.map(exam => (
                   <li key={exam.id}>{exam.nombre}</li>
                 ))}
               </ul>
             </div>
-
-            <Separator className="my-6" />
-
-            <div>
-              <h4 className="font-semibold text-gray-700 mb-4 text-center">Información para el Paciente</h4>
+          </main>
+          <footer className="pt-4 border-t-2 border-gray-200">
+             <h4 className="font-semibold text-gray-700 mb-3 text-center text-sm">Información para el Paciente</h4>
               <div className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50/50 text-blue-900">
-                <p className="font-bold text-lg text-center mb-3">Centro Médico Araval</p>
+                <p className="font-bold text-base text-center mb-3">Centro Médico Araval</p>
                 <div className='text-xs space-y-2'>
                   <div className="flex items-center gap-3">
                     <MapPin className="h-4 w-4 text-blue-600 shrink-0"/>
@@ -75,17 +73,11 @@ const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: Soli
                     <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
                   </div>
                 </div>
-                <Separator className="my-4 bg-blue-200"/>
-                <p className="text-xs text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
+                <Separator className="my-3 bg-blue-200"/>
+                <p className="text-xs text-center text-blue-800">Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
               </div>
-            </div>
-          </main>
+          </footer>
       </div>
-       <style jsx>{`
-        .order-page-container {
-          page-break-before: always;
-        }
-      `}</style>
     </div>
 );
 
@@ -154,13 +146,14 @@ export function VistaCotizacion() {
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
     
-    // Temporarily make annexes visible for capture
+    // Make annexes temporarily visible for capture but off-screen
     annexContainer.style.position = 'fixed';
     annexContainer.style.left = '0';
     annexContainer.style.top = '0';
     annexContainer.style.zIndex = '-1'; 
     annexContainer.style.visibility = 'visible';
     annexContainer.style.opacity = '1';
+
 
     try {
       // 1. Process Main Quote
@@ -398,3 +391,4 @@ export function VistaCotizacion() {
     </>
   );
 }
+
