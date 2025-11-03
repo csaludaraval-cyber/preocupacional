@@ -70,7 +70,6 @@ export async function seedInitialExams(): Promise<Examen[]> {
   const examsCollection = collection(firestore, 'examenes');
   const seededExams: Examen[] = [];
   
-  console.log('Seeding initial exams...');
   const batch = writeBatch(firestore);
   catalogoExamenes.forEach(examen => {
       const docRef = doc(examsCollection); // Firestore generates ID
@@ -78,7 +77,7 @@ export async function seedInitialExams(): Promise<Examen[]> {
       seededExams.push({ ...examen, id: docRef.id });
   });
   await batch.commit();
-  console.log('Initial exams have been seeded.');
+  
   return seededExams;
 }
 
@@ -101,12 +100,3 @@ export async function updateExamPrice(id: string, newPrice: number): Promise<voi
   const examRef = doc(firestore, 'examenes', id);
   await updateDoc(examRef, { valor: newPrice });
 }
-
-export const examCategories = [
-  'Baterías y Exámenes Ocupacionales',
-  'Psicológicos y Psicosensométricos',
-  'Médicos y Clínicos',
-  'Exámenes de Drogas',
-];
-
-    
