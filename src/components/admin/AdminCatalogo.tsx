@@ -52,7 +52,7 @@ export function AdminCatalogo() {
     if (!authLoading) {
       fetchExams();
     }
-  }, [user, authLoading, toast]);
+  }, [user, authLoading]);
   
   const filteredExams = useMemo(() => {
     if (!searchTerm) return exams;
