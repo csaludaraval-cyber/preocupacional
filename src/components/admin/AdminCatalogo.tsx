@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Shield, Loader2, Save, Search } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { getExams, examCategories } from '@/lib/data';
+import { getExams, examCategories, updateExamPrice } from '@/lib/data';
 import type { Examen } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -51,7 +51,7 @@ export function AdminCatalogo() {
     if (!authLoading) {
       fetchExams();
     }
-  }, [user, authLoading, toast]);
+  }, [user, authLoading]);
   
   const filteredExams = useMemo(() => {
     if (!searchTerm) return exams;
@@ -76,12 +76,36 @@ export function AdminCatalogo() {
   };
   
   const handleSavePrice = async (id: string) => {
-    // This function will be implemented later or is assumed to exist.
-    // For now, it just shows a toast.
-    toast({
-        title: "Guardado (Simulado)",
-        description: `El precio para el examen con ID ${id} se ha guardado.`,
-    });
+    const newPriceStr = localPrices[id];
+    if (newPriceStr === undefined) return;
+
+    const newPrice = Number(newPriceStr);
+    if (isNaN(newPrice)) {
+        toast({
+            variant: "destructive",
+            title: "Valor inválido",
+            description: "Por favor, ingrese un número válido.",
+        });
+        return;
+    }
+    
+    setUpdatingId(id);
+    try {
+        await updateExamPrice(id, newPrice);
+        toast({
+            title: "Precio Actualizado",
+            description: "El valor del examen ha sido guardado correctamente.",
+        });
+    } catch(error) {
+        console.error("Failed to update price:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al guardar",
+            description: "No se pudo actualizar el precio del examen.",
+        });
+    } finally {
+        setUpdatingId(null);
+    }
   };
   
   if (authLoading || loading) {
