@@ -21,7 +21,7 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
         <div className="max-w-4xl mx-auto space-y-1 text-[5px]">
             <header className="flex justify-between items-start pb-1">
                 <div className="bg-primary text-primary-foreground px-1 py-0.25">
-                    <h3 className="text-[6px] font-bold">Orden de Examen Ocupacionales</h3>
+                    <h3 className="text-lg font-bold">Orden de Examen Ocupacionales</h3>
                 </div>
                 <Image 
                     src="/images/logo.png" 
@@ -32,22 +32,22 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 />
             </header>
 
-            <main className="space-y-1">
+            <main className="space-y-1 text-xs">
                 <section className="grid grid-cols-2 gap-2">
                     <div className="space-y-0.5">
-                        <h3 className="font-headline font-semibold text-gray-700 text-[6.5px]">Empresa</h3>
+                        <h3 className="font-headline font-semibold text-gray-700">Empresa</h3>
                         <p><strong className="font-medium text-gray-600">Razón Social:</strong> {empresa.razonSocial}</p>
                         <p><strong className="font-medium text-gray-600">RUT:</strong> {empresa.rut}</p>
                     </div>
                     <div className="space-y-0.5">
-                        <h3 className="font-headline font-semibold text-gray-700 text-[6.5px]">Trabajador</h3>
+                        <h3 className="font-headline font-semibold text-gray-700">Trabajador</h3>
                         <p><strong className="font-medium text-gray-600">Nombre:</strong> {solicitud.trabajador.nombre}</p>
                         <p><strong className="font-medium text-gray-600">RUT:</strong> {solicitud.trabajador.rut}</p>
                     </div>
                 </section>
 
                 <section>
-                    <h3 className="font-headline font-semibold text-gray-700 text-[6.5px]">Exámenes a Realizar</h3>
+                    <h3 className="font-headline font-semibold text-gray-700">Exámenes a Realizar</h3>
                     <hr className="my-0.5" />
                     <ul className="space-y-0.5 list-disc list-inside">
                         {solicitud.examenes.map(exam => (
@@ -59,12 +59,12 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
                 
                 <section>
-                    <h3 className="font-headline font-semibold text-gray-700 text-[6.5px]">Información para el Paciente</h3>
+                    <h3 className="font-headline font-semibold text-gray-700">Información para el Paciente</h3>
                      <hr className="my-0.5" />
                 </section>
                 
                 <section className="space-y-0.5">
-                    <h3 className="font-headline font-semibold text-gray-700 text-[6.5px]">Centro Medico Araval</h3>
+                    <h3 className="font-headline font-semibold text-gray-700">Centro Medico Araval</h3>
                     <div className="mt-0.5 space-y-0.5">
                         <p>Juan Martinez 235, Taltal Chile</p>
                         <p>+56 9 7541 1515</p>
@@ -73,7 +73,7 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
             </main>
             
-            <footer className="text-center text-gray-500 pt-2">
+            <footer className="text-center text-gray-500 pt-2 text-xs">
                  <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
             </footer>
         </div>
