@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download, Mail, Building, User, Users, Phone, Clock, MapPin, Loader2, FileText } from 'lucide-react';
+import { Download, Mail, Building, User, Users, Loader2 } from 'lucide-react';
 import type { Cotizacion, Empresa, SolicitudTrabajador, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,71 +16,76 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
-    <div className="order-page-container bg-white p-12 font-sans text-sm">
-      <div className="max-w-4xl mx-auto space-y-8">
-        
-        {/* Encabezado */}
-        <header className="flex justify-between items-center">
-          <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg">
-            <h3 className="text-base font-semibold">Orden de Examen Ocupacionales</h3>
-          </div>
-          <Image 
-            src="/images/logo.png" 
-            alt="Araval Logo" 
-            width={140} 
-            height={40} 
-            unoptimized
-          />
-        </header>
+    <div className="order-page-container bg-white text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div 
+            className="max-w-4xl mx-auto space-y-8" 
+            style={{ 
+                paddingTop: '170px', 
+                paddingBottom: '230px', 
+                paddingLeft: '60px', 
+                paddingRight: '60px' 
+            }}
+        >
+            <header className="flex justify-between items-center">
+                <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg">
+                    <h3 className="text-base font-semibold leading-none" style={{ fontSize: '13.165pt' }}>Orden de Examen Ocupacionales</h3>
+                </div>
+                <Image 
+                    src="/images/logo.png" 
+                    alt="Araval Logo" 
+                    width={140} 
+                    height={40} 
+                    unoptimized
+                />
+            </header>
 
-        {/* Cuerpo del Formulario */}
-        <main className="text-gray-800 space-y-8">
-          {/* Sección de Datos */}
-          <section className="grid grid-cols-2 gap-8">
-            <div>
-              <p className="font-bold text-gray-500 mb-1">Empresa</p>
-              <p>{empresa.razonSocial}</p>
-              <p>RUT: {empresa.rut}</p>
-            </div>
-            <div>
-              <p className="font-bold text-gray-500 mb-1">Trabajador</p>
-              <p>{solicitud.trabajador.nombre}</p>
-              <p>RUT: {solicitud.trabajador.rut}</p>
-            </div>
-          </section>
+            <main className="space-y-10">
+                <section className="grid grid-cols-2 gap-8">
+                    <div>
+                        <p className="font-bold mb-1" style={{ fontSize: '13.165pt' }}>Empresa</p>
+                        <p style={{ fontSize: '10.527pt' }}>{empresa.razonSocial}</p>
+                        <p style={{ fontSize: '10.527pt' }}>RUT: {empresa.rut}</p>
+                    </div>
+                    <div>
+                        <p className="font-bold mb-1" style={{ fontSize: '13.165pt' }}>Trabajador</p>
+                        <p style={{ fontSize: '10.527pt' }}>{solicitud.trabajador.nombre}</p>
+                        <p style={{ fontSize: '10.527pt' }}>RUT: {solicitud.trabajador.rut}</p>
+                    </div>
+                </section>
 
-          {/* Sección de Exámenes */}
-          <section>
-             <h4 className="font-bold text-base pb-2">Exámenes a Realizar</h4>
-            <hr className="border-gray-900 mb-4" />
-            <ul className="space-y-2 list-disc list-inside text-base ml-2">
-              {solicitud.examenes.map(exam => (
-                <li key={exam.id}>{exam.nombre}</li>
-              ))}
-            </ul>
-          </section>
-          
-          <hr className="border-gray-900" />
-
-          {/* Información de la Clínica */}
-          <section className="space-y-4">
-             <h4 className="font-bold text-base text-center">Información para el Paciente</h4>
-              <div>
-                  <p className="font-bold text-lg">Centro Medico Araval</p>
-                  <p>Juan Martinez 235, Taltal Chile</p>
-                  <p>+56 9 7541 1515</p>
-                  <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
-              </div>
-          </section>
-
-          <hr className="border-gray-900" />
-        </main>
-        
-        {/* Pie de página */}
-        <footer className="text-center text-xs text-gray-500 pt-8">
-            <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
-        </footer>
-      </div>
+                <section>
+                    <h4 className="font-bold" style={{ fontSize: '13.165pt' }}>Exámenes a Realizar</h4>
+                    <hr className="border-gray-900 my-2" />
+                    <ul className="space-y-1">
+                        {solicitud.examenes.map(exam => (
+                            <li key={exam.id} className="flex items-start" style={{ fontSize: '10.527pt' }}>
+                                <span className="mr-2">•</span>
+                                <span>{exam.nombre}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+                
+                <section>
+                    <h4 className="font-bold text-center" style={{ fontSize: '13.165pt' }}>Información para el Paciente</h4>
+                     <hr className="border-gray-900 my-2" />
+                </section>
+                
+                <section>
+                    <p className="font-bold" style={{ fontSize: '13.165pt' }}>Centro Medico Araval</p>
+                    <div style={{ fontSize: '10.527pt' }} className="mt-1">
+                        <p>Juan Martinez 235, Taltal Chile</p>
+                        <p>+56 9 7541 1515</p>
+                        <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
+                    </div>
+                     <hr className="border-gray-900 mt-4" />
+                </section>
+            </main>
+            
+            <footer className="fixed bottom-0 left-0 right-0 text-center" style={{ paddingBottom: '100px'}}>
+                 <p style={{ fontSize: '10.527pt' }}>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
+            </footer>
+        </div>
     </div>
 );
 
@@ -149,7 +154,6 @@ export function VistaCotizacion() {
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
     
-    // Make annexes temporarily visible for capture
     annexContainer.style.display = 'block';
     annexContainer.style.position = 'fixed';
     annexContainer.style.left = '0';
@@ -159,7 +163,6 @@ export function VistaCotizacion() {
 
 
     try {
-      // 1. Process Main Quote
       const mainCanvas = await html2canvas(quoteElement, { scale: 2, useCORS: true });
       const mainImgData = mainCanvas.toDataURL('image/png');
       const mainRatio = mainCanvas.height / mainCanvas.width;
@@ -167,7 +170,6 @@ export function VistaCotizacion() {
       
       pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
       
-      // 2. Process Annexes
       const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
       for (let i = 0; i < annexElements.length; i++) {
         const annexElement = annexElements[i];
@@ -188,7 +190,6 @@ export function VistaCotizacion() {
           variant: "destructive"
       })
     } finally {
-      // Restore styles
       if (buttonContainer) buttonContainer.style.display = 'flex';
       
       annexContainer.style.display = 'none';
@@ -242,8 +243,8 @@ export function VistaCotizacion() {
       </div>
 
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
-        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-16">
-            <header className="flex justify-between items-start pb-6 border-b-2 border-primary bg-primary text-primary-foreground -m-16 mb-8 p-16">
+        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-12">
+            <header className="flex justify-between items-start pb-6 border-b-2 border-primary bg-primary text-primary-foreground -m-12 mb-8 p-12">
                 <div>
                     <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
                     <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
