@@ -16,9 +16,9 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
-    <div className="order-page-container bg-white text-black p-10">
+    <div className="order-page-container bg-white text-black p-12">
         <div className="max-w-4xl mx-auto space-y-8">
-            <header className="flex justify-between items-center">
+            <header className="flex justify-between items-start pb-6">
                 <div className="bg-primary text-primary-foreground px-4 py-2">
                     <h3 className="text-base font-bold">Orden de Examen Ocupacionales</h3>
                 </div>
@@ -33,22 +33,22 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
 
             <main className="space-y-6">
                 <section className="grid grid-cols-2 gap-8">
-                    <div>
-                        <p className="font-bold text-lg mb-1">Empresa</p>
-                        <p>{empresa.razonSocial}</p>
-                        <p>RUT: {empresa.rut}</p>
+                    <div className="space-y-2">
+                        <h3 className="font-headline text-lg font-semibold text-gray-700">Empresa</h3>
+                        <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {empresa.razonSocial}</p>
+                        <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {empresa.rut}</p>
                     </div>
-                    <div>
-                        <p className="font-bold text-lg mb-1">Trabajador</p>
-                        <p>{solicitud.trabajador.nombre}</p>
-                        <p>RUT: {solicitud.trabajador.rut}</p>
+                    <div className="space-y-2">
+                        <h3 className="font-headline text-lg font-semibold text-gray-700">Trabajador</h3>
+                        <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {solicitud.trabajador.nombre}</p>
+                        <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {solicitud.trabajador.rut}</p>
                     </div>
                 </section>
 
                 <section>
-                    <h4 className="font-bold text-lg">Exámenes a Realizar</h4>
-                    <hr className="border-gray-900 my-2" />
-                    <ul className="space-y-1 list-disc list-inside">
+                    <h3 className="font-headline text-lg font-semibold text-gray-700">Exámenes a Realizar</h3>
+                    <hr className="my-2" />
+                    <ul className="space-y-1 list-disc list-inside text-sm">
                         {solicitud.examenes.map(exam => (
                             <li key={exam.id}>
                                 {exam.nombre}
@@ -58,13 +58,13 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
                 
                 <section>
-                    <h4 className="font-bold text-lg text-center">Información para el Paciente</h4>
-                     <hr className="border-gray-900 my-2" />
+                    <h3 className="font-headline text-lg font-semibold text-gray-700 text-center">Información para el Paciente</h3>
+                     <hr className="my-2" />
                 </section>
                 
-                <section>
-                    <p className="font-bold text-lg">Centro Medico Araval</p>
-                    <div className="mt-1">
+                <section className="space-y-2">
+                    <h3 className="font-headline text-lg font-semibold text-gray-700">Centro Medico Araval</h3>
+                    <div className="mt-1 text-sm space-y-1">
                         <p>Juan Martinez 235, Taltal Chile</p>
                         <p>+56 9 7541 1515</p>
                         <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
@@ -72,7 +72,7 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
             </main>
             
-            <footer className="text-center text-sm pt-8">
+            <footer className="text-center text-xs text-gray-500 pt-8">
                  <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
             </footer>
         </div>
@@ -234,7 +234,7 @@ export function VistaCotizacion() {
 
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
         <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none px-12 py-8">
-            <header className="flex justify-between items-start pb-6 border-b-2 border-primary bg-primary text-primary-foreground -m-12 mb-8 p-12 -mx-12">
+            <header className="flex justify-between items-start pb-6 bg-primary text-primary-foreground -m-12 mb-8 p-12 -mx-12">
                 <div>
                     <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
                     <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
