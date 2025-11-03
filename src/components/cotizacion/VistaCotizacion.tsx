@@ -16,13 +16,12 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
-    <div className="order-page-container bg-white p-8">
-      <div className="max-w-4xl mx-auto my-12 p-8 border border-gray-200 bg-white shadow-md font-sans">
-
+    <div className="order-page-container bg-white p-8 font-sans text-sm">
+      <div className="max-w-4xl mx-auto">
         {/* Encabezado */}
-        <header className="flex justify-between items-center mb-10">
-          <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg">
-            <h3 className="text-lg font-semibold">Orden de Examen Ocupacionales</h3>
+        <header className="flex justify-between items-center mb-10 pb-4 border-b-2 border-gray-200">
+          <div className="bg-primary text-primary-foreground px-4 py-2">
+            <h3 className="text-lg font-semibold tracking-wider">Orden de Examen Ocupacionales</h3>
           </div>
           <Image 
             src="/images/logo.png" 
@@ -34,48 +33,49 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
         </header>
 
         {/* Cuerpo del Formulario */}
-        <main className="text-sm text-gray-700">
+        <main className="text-gray-800">
           {/* Sección de Datos */}
-          <section className="grid grid-cols-2 gap-8 mb-8">
+          <section className="grid grid-cols-2 gap-8 mb-10">
             <div>
-              <p className="font-semibold text-base text-gray-800 mb-1">Empresa</p>
-              <p>{empresa.razonSocial}</p>
-              <p>RUT: {empresa.rut}</p>
+              <p className="font-bold text-base mb-2">Empresa</p>
+              <p><strong className="font-semibold w-24 inline-block">Razón Social:</strong> {empresa.razonSocial}</p>
+              <p><strong className="font-semibold w-24 inline-block">RUT:</strong> {empresa.rut}</p>
             </div>
             <div>
-              <p className="font-semibold text-base text-gray-800 mb-1">Trabajador</p>
-              <p>{solicitud.trabajador.nombre}</p>
-              <p>RUT: {solicitud.trabajador.rut}</p>
+              <p className="font-bold text-base mb-2">Trabajador</p>
+              <p><strong className="font-semibold w-24 inline-block">Nombre:</strong> {solicitud.trabajador.nombre}</p>
+              <p><strong className="font-semibold w-24 inline-block">RUT:</strong> {solicitud.trabajador.rut}</p>
             </div>
           </section>
 
           {/* Sección de Exámenes */}
           <section className="mb-12">
-            <h4 className="font-semibold text-base text-gray-800 border-b pb-2 mb-4">Exámenes a Realizar</h4>
-            <ul className="space-y-2 list-disc list-inside text-base">
+            <h4 className="font-bold text-base border-b pb-2 mb-4">Exámenes a Realizar</h4>
+            <ul className="space-y-2 list-disc list-inside text-base ml-4">
               {solicitud.examenes.map(exam => (
                 <li key={exam.id}>{exam.nombre}</li>
               ))}
             </ul>
           </section>
           
-          <Separator className="my-8" />
+          <Separator className="my-10" />
 
           {/* Información de la Clínica */}
           <section>
-             <h4 className="font-semibold text-base text-gray-800 text-center mb-4">Información para el Paciente</h4>
-              <div className="text-center">
-                  <p className="font-bold text-lg text-gray-900">Centro Medico Araval</p>
+             <h4 className="font-bold text-base text-center mb-4">Información para el Paciente</h4>
+              <div className="text-center text-base">
+                  <p className="font-bold text-lg">Centro Medico Araval</p>
                   <p>Juan Martinez 235, Taltal Chile</p>
                   <p>+56 9 7541 1515</p>
                   <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
               </div>
           </section>
         </main>
+        
+        <footer className="text-center text-xs text-gray-400 mt-16 pt-4 border-t">
+          Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.
+        </footer>
       </div>
-      <footer className="text-center text-xs text-gray-400 mt-8 absolute bottom-8 w-full left-0">
-        Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.
-      </footer>
     </div>
 );
 
@@ -240,12 +240,12 @@ export function VistaCotizacion() {
       </div>
 
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
-        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-16">
-           <header className="flex justify-between items-start pb-6 border-b-2 border-primary">
+        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-12">
+            <header className="flex justify-between items-start pb-6 border-b-2 border-primary bg-primary text-primary-foreground -m-12 mb-8 p-12">
                 <div>
-                    <h2 className="text-3xl font-bold font-headline text-primary">COTIZACIÓN</h2>
-                    <p className="mt-1 text-sm text-gray-500">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                    <p className="mt-1 text-sm text-gray-500">Fecha: {quote.fecha}</p>
+                    <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
+                    <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
+                    <p className="mt-1 text-sm">Fecha: {quote.fecha}</p>
                 </div>
                  <Image
                     src="/images/logo.png"
@@ -254,6 +254,7 @@ export function VistaCotizacion() {
                     height={40}
                     priority
                     unoptimized
+                    style={{ filter: 'brightness(0) invert(1)' }}
                 />
             </header>
 
@@ -294,8 +295,8 @@ export function VistaCotizacion() {
               <h3 className="font-headline text-lg font-semibold mb-2 text-gray-700">Detalle de Servicios Consolidados</h3>
               <div className="border rounded-lg overflow-hidden">
                 <Table>
-                  <TableHeader className="bg-primary">
-                    <TableRow>
+                  <TableHeader>
+                    <TableRow className="bg-primary hover:bg-primary">
                       <TableHead className="w-[70%] font-semibold text-primary-foreground text-sm py-2 px-4">Examen</TableHead>
                       <TableHead className="text-right font-semibold text-primary-foreground text-sm py-2 px-4">Valor Unitario</TableHead>
                     </TableRow>
@@ -388,3 +389,4 @@ export function VistaCotizacion() {
     </>
   );
 }
+
