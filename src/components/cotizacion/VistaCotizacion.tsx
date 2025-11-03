@@ -17,10 +17,10 @@ import { useToast } from '@/hooks/use-toast';
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
     <div className="order-page-container bg-white text-black p-8 print-container">
-        <div className="max-w-4xl mx-auto text-xs space-y-2">
-            <header className="flex justify-between items-start">
-                 <div className="bg-primary text-primary-foreground p-2 -ml-2">
-                    <h2 className="font-bold text-base">Orden de Examen Ocupacionales</h2>
+        <div className="max-w-4xl mx-auto text-sm space-y-4 font-sans">
+            <header className="flex justify-between items-center mb-10">
+                 <div className="bg-[#3b82f6] text-white py-2 px-4 rounded-md">
+                    <h2 className="font-semibold text-base tracking-wide">Orden de Examen Ocupacionales</h2>
                 </div>
                  <Image
                     src="/images/logo.png"
@@ -32,24 +32,24 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 />
             </header>
 
-            <main className="space-y-3">
-                <section className="grid grid-cols-2 gap-4 pt-4">
+            <main className="space-y-8">
+                <section className="grid grid-cols-2 gap-8">
                     <div>
-                        <h3 className="font-bold text-sm">Empresa</h3>
-                        <p>Razón Social: {empresa.razonSocial}</p>
+                        <h3 className="font-bold text-base mb-1">Empresa</h3>
+                        <p>{empresa.razonSocial}</p>
                         <p>RUT: {empresa.rut}</p>
                     </div>
                     <div>
-                        <h3 className="font-bold text-sm">Trabajador</h3>
-                        <p>Nombre: {solicitud.trabajador.nombre}</p>
+                        <h3 className="font-bold text-base mb-1">Trabajador</h3>
+                        <p>{solicitud.trabajador.nombre}</p>
                         <p>RUT: {solicitud.trabajador.rut}</p>
                     </div>
                 </section>
                 
                 <section>
-                    <h3 className="font-bold text-sm">Exámenes a Realizar</h3>
-                    <hr className="my-1 border-gray-400"/>
-                    <ul className="list-disc list-inside">
+                    <h3 className="font-bold text-base">Exámenes a Realizar</h3>
+                    <hr className="my-2 border-gray-400"/>
+                    <ul className="list-disc list-inside space-y-1 pl-2">
                         {solicitud.examenes.map(exam => (
                             <li key={exam.id}>
                                 {exam.nombre}
@@ -57,23 +57,24 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                         ))}
                     </ul>
                 </section>
-                
-                <section>
-                    <h3 className="font-bold text-sm">Información para el Paciente</h3>
-                     <hr className="my-1 border-gray-400"/>
+
+                <section className='pt-4'>
+                    <h3 className="font-bold text-base text-center">Información para el Paciente</h3>
+                     <hr className="my-2 border-gray-400"/>
                 </section>
                 
-                <section>
-                    <h3 className="font-bold text-sm">Centro Medico Araval</h3>
-                    <div className='text-gray-600'>
+                <section className='pt-4'>
+                    <h3 className="font-bold text-base">Centro Medico Araval</h3>
+                    <div className='text-gray-700 space-y-0.5 mt-1'>
                         <p>Juan Martinez 235, Taltal Chile</p>
                         <p>+56 9 7541 1515</p>
                         <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
                     </div>
+                    <hr className="my-3 border-gray-400"/>
                 </section>
             </main>
             
-            <footer className="text-center text-gray-500 text-[9px] pt-10">
+            <footer className="text-center text-gray-500 text-xs pt-24">
                  <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
             </footer>
         </div>
