@@ -17,15 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
     <div className="order-page-container bg-white text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
-        <div 
-            className="max-w-4xl mx-auto space-y-8" 
-            style={{ 
-                paddingTop: '170px', 
-                paddingBottom: '230px', 
-                paddingLeft: '60px', 
-                paddingRight: '60px' 
-            }}
-        >
+        <div className="max-w-4xl mx-auto space-y-8 px-[60px] pt-[170px] pb-[230px]">
             <header className="flex justify-between items-center">
                 <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg">
                     <h3 className="text-base font-semibold leading-none" style={{ fontSize: '13.165pt' }}>Orden de Examen Ocupacionales</h3>
@@ -67,7 +59,7 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
                 
                 <section>
-                    <h4 className="font-bold text-center" style={{ fontSize: '13.165pt' }}>Información para el Paciente</h4>
+                    <h4 className="font-bold" style={{ fontSize: '13.165pt' }}>Información para el Paciente</h4>
                      <hr className="border-gray-900 my-2" />
                 </section>
                 
@@ -78,7 +70,6 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                         <p>+56 9 7541 1515</p>
                         <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
                     </div>
-                     <hr className="border-gray-900 mt-4" />
                 </section>
             </main>
             
@@ -243,8 +234,8 @@ export function VistaCotizacion() {
       </div>
 
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
-        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-12">
-            <header className="flex justify-between items-start pb-6 border-b-2 border-primary bg-primary text-primary-foreground -m-12 mb-8 p-12">
+        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none px-12 py-8">
+            <header className="flex justify-between items-start pb-6 border-b-2 border-primary bg-primary text-primary-foreground -m-12 mb-8 p-12 -mx-12">
                 <div>
                     <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
                     <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
