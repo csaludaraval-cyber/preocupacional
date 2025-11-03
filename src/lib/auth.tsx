@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserWithRole(null);
       setLoadingRole(false);
       // If user logs out or session expires, redirect to login if not already on a public page
-      if (!publicRoutes.includes(pathname)) {
+      if (!publicRoutes.includes(pathname) && pathname !== '/cotizacion') {
           router.push('/login');
       }
     }
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: userWithRole,
     loading,
     logout,
-  }), [userWithRole, loading, logout]);
+  }), [userWithRole, loading, () => logout]); // eslint-disable-line react-hooks/exhaustive-deps
   
   const isPublicRoute = publicRoutes.includes(pathname) || pathname === '/cotizacion';
 
