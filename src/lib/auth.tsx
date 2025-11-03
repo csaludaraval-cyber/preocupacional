@@ -36,24 +36,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { user: firebaseUser, auth, firestore, isUserLoading, areServicesAvailable } = useFirebase();
 
   useEffect(() => {
-    // We are loading if Firebase services are not ready OR if the user state is being checked.
     const isLoading = !areServicesAvailable || isUserLoading;
     setLoading(isLoading);
 
     if (isLoading) {
-      return; // Wait until Firebase is fully initialized and user state is known.
+      return;
     }
+
+    const isPublicPath = publicRoutes.includes(pathname) || pathname.startsWith(quoteRoute);
 
     const handleUser = async (fbUser: FirebaseUser | null) => {
       if (fbUser && firestore) {
-        // If there's a Firebase user, fetch their role.
         try {
           const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
           const adminRoleDoc = await getDoc(adminRoleRef);
           
           const extendedUser: User = {
             ...fbUser,
-            uid: fbUser.uid, // ensure uid is there
+            uid: fbUser.uid,
             role: adminRoleDoc.exists() ? 'admin' : 'standard',
           };
           setUserWithRole(extendedUser);
@@ -63,10 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' });
         }
       } else {
-        // No Firebase user.
         setUserWithRole(null);
-        // If not a public route, redirect to login.
-        if (!publicRoutes.includes(pathname) && pathname !== quoteRoute) {
+        if (!isPublicPath) {
             router.push('/login');
         }
       }
@@ -91,9 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   }), [userWithRole, loading, auth]);
   
-  // Render a global loading screen if we're still figuring out auth state,
-  // unless it's a public route where content can be shown immediately.
-  const isPublicPath = publicRoutes.includes(pathname) || pathname === quoteRoute;
+  const isPublicPath = publicRoutes.includes(pathname) || pathname.startsWith(quoteRoute);
   if (loading && !isPublicPath) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -102,8 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  // If the path is not public, and we're done loading, and there's still no user,
-  // it means the redirect is in progress. Render nothing to avoid flashes of content.
   if (!isPublicPath && !loading && !userWithRole) {
     return null;
   }
