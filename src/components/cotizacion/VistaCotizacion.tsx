@@ -17,10 +17,10 @@ import { useToast } from '@/hooks/use-toast';
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
     <div className="order-page-container bg-white p-12 font-sans text-sm">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Encabezado */}
-        <header className="flex justify-between items-center mb-10">
+        <header className="flex justify-between items-center">
           <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg">
             <h3 className="text-base font-semibold">Orden de Examen Ocupacionales</h3>
           </div>
@@ -39,19 +39,20 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
           <section className="grid grid-cols-2 gap-8">
             <div>
               <p className="font-bold text-gray-500 mb-1">Empresa</p>
-              <p className="font-semibold">{empresa.razonSocial}</p>
+              <p>{empresa.razonSocial}</p>
               <p>RUT: {empresa.rut}</p>
             </div>
             <div>
               <p className="font-bold text-gray-500 mb-1">Trabajador</p>
-              <p className="font-semibold">{solicitud.trabajador.nombre}</p>
+              <p>{solicitud.trabajador.nombre}</p>
               <p>RUT: {solicitud.trabajador.rut}</p>
             </div>
           </section>
 
           {/* Sección de Exámenes */}
           <section>
-             <h4 className="font-bold text-base pb-2 border-b-2 border-gray-900 mb-4">Exámenes a Realizar</h4>
+             <h4 className="font-bold text-base pb-2">Exámenes a Realizar</h4>
+            <hr className="border-gray-900 mb-4" />
             <ul className="space-y-2 list-disc list-inside text-base ml-2">
               {solicitud.examenes.map(exam => (
                 <li key={exam.id}>{exam.nombre}</li>
@@ -59,11 +60,11 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
             </ul>
           </section>
           
-          <Separator className="my-8 bg-gray-900 h-[1.5px]" />
+          <hr className="border-gray-900" />
 
           {/* Información de la Clínica */}
-          <section className="text-center">
-             <h4 className="font-bold text-base text-gray-500 mb-4">Información para el Paciente</h4>
+          <section className="space-y-4">
+             <h4 className="font-bold text-base text-center">Información para el Paciente</h4>
               <div>
                   <p className="font-bold text-lg">Centro Medico Araval</p>
                   <p>Juan Martinez 235, Taltal Chile</p>
@@ -71,7 +72,14 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                   <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
               </div>
           </section>
+
+          <hr className="border-gray-900" />
         </main>
+        
+        {/* Pie de página */}
+        <footer className="text-center text-xs text-gray-500 pt-8">
+            <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
+        </footer>
       </div>
     </div>
 );
@@ -234,8 +242,8 @@ export function VistaCotizacion() {
       </div>
 
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
-        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-12">
-            <header className="flex justify-between items-start pb-6 border-b-2 border-primary bg-primary text-primary-foreground -m-12 mb-8 p-12">
+        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-16">
+            <header className="flex justify-between items-start pb-6 border-b-2 border-primary bg-primary text-primary-foreground -m-16 mb-8 p-16">
                 <div>
                     <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
                     <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
