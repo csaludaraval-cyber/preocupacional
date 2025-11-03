@@ -1,10 +1,9 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { firebaseConfig } from '@/firebase/config';
+import { initializeFirebase } from '@/firebase';
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const firestore = getFirestore(app);
+// This file is now a bridge to the central initialization
+const { app, auth, firestore } = initializeFirebase();
 
 export { app, auth, firestore };

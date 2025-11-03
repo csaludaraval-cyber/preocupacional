@@ -11,7 +11,7 @@ import React, {
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { useFirebase } from '@/firebase/provider'; // Use the central hook
+import { useFirebase } from '@/firebase'; // Use the central hook
 import type { User } from './types';
 import { Loader2 } from 'lucide-react';
 
@@ -42,7 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const adminRoleDoc = await getDoc(adminRoleRef);
       
       const extendedUser: User = {
-        ...fbUser,
         // Re-structure to avoid spreading a FirebaseUser object
         uid: fbUser.uid,
         email: fbUser.email,
@@ -106,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   const isPublicRoute = publicRoutes.includes(pathname);
 
-  if (loading) {
+  if (loading && !isPublicRoute) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />

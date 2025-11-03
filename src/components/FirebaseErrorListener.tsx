@@ -25,11 +25,9 @@ export function FirebaseErrorListener() {
   }, []);
 
   if (error) {
-    // throw error; // This can be too disruptive. Let's log it instead for now, or handle it via a toast.
-    console.error("Caught a Firestore Permission Error:", error.message);
-    // Optionally, reset the error state so subsequent renders don't keep throwing.
-    // Be cautious with this as it might hide persistent issues.
-    // setError(null); 
+    // This will be caught by Next.js's error boundary (error.js or global-error.js)
+    // which is useful for development overlay.
+    throw error;
   }
 
   // This component renders nothing.

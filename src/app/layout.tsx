@@ -3,7 +3,6 @@ import './globals.css';
 import { AuthProvider } from '@/lib/auth';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 export const metadata: Metadata = {
   title: 'Araval Cotizaciones',
@@ -28,7 +27,6 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <Toaster />
-            <FirebaseErrorListener />
           </AuthProvider>
         </FirebaseClientProvider>
       </body>
