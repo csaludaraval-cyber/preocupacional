@@ -14,82 +14,68 @@ import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
-// --- NUEVO DISEÑO COMPONENTE OrdenDeExamen ---
-const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
-    <div id={`annex-page-${index}`} className="order-page-container bg-white" style={{ pageBreakBefore: 'always' }}>
-      <div className="max-w-3xl mx-auto my-12 p-8 border border-gray-400 bg-white shadow-sm">
-          {/* Encabezado del Formulario */}
-          <header className="flex justify-between items-center pb-4 border-b border-gray-300 mb-6">
-            <h3 className="text-xl font-bold font-headline text-gray-800">Orden de Examen Ocupacional</h3>
-            <Image 
-              src="/images/logo.png" 
-              alt="Araval Logo" 
-              width={120} 
-              height={32} 
-              unoptimized
-            />
-          </header>
 
-          {/* Cuerpo del Formulario */}
-          <main className="text-sm">
-            {/* Sección de Datos */}
-            <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-8 p-4 border border-gray-200 rounded-md">
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase">Empresa</p>
-                    <p className="font-medium text-gray-900">{empresa.razonSocial}</p>
-                    <p className="text-xs text-gray-600">RUT: {empresa.rut}</p>
-                </div>
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase">Trabajador</p>
-                    <p className="font-medium text-gray-900">{solicitud.trabajador.nombre}</p>
-                    <p className="text-xs text-gray-600">RUT: {solicitud.trabajador.rut}</p>
-                </div>
+const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
+    <div className="order-page-container bg-white p-8">
+      <div className="max-w-4xl mx-auto my-12 p-8 border border-gray-200 bg-white shadow-md font-sans">
+
+        {/* Encabezado */}
+        <header className="flex justify-between items-center mb-10">
+          <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg">
+            <h3 className="text-lg font-semibold">Orden de Examen Ocupacionales</h3>
+          </div>
+          <Image 
+            src="/images/logo.png" 
+            alt="Araval Logo" 
+            width={140} 
+            height={40} 
+            unoptimized
+          />
+        </header>
+
+        {/* Cuerpo del Formulario */}
+        <main className="text-sm text-gray-700">
+          {/* Sección de Datos */}
+          <section className="grid grid-cols-2 gap-8 mb-8">
+            <div>
+              <p className="font-semibold text-base text-gray-800 mb-1">Empresa</p>
+              <p>{empresa.razonSocial}</p>
+              <p>RUT: {empresa.rut}</p>
             </div>
-
-            {/* Sección de Exámenes */}
-            <div className="mb-8">
-                <h4 className="font-semibold text-gray-700 border-b pb-2 mb-3">Exámenes a Realizar</h4>
-                <div className="p-4 bg-gray-50 rounded-md">
-                  <ul className="space-y-1.5 list-disc list-inside text-gray-800 text-sm">
-                    {solicitud.examenes.map(exam => (
-                      <li key={exam.id}>{exam.nombre}</li>
-                    ))}
-                  </ul>
-                </div>
+            <div>
+              <p className="font-semibold text-base text-gray-800 mb-1">Trabajador</p>
+              <p>{solicitud.trabajador.nombre}</p>
+              <p>RUT: {solicitud.trabajador.rut}</p>
             </div>
+          </section>
 
-             {/* Información de la Clínica */}
-             <div className="border-t pt-6">
-                <h4 className="font-semibold text-gray-700 mb-3 text-center">Información para el Paciente</h4>
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50 text-gray-800">
-                    <p className="font-bold text-base text-center mb-3">Centro Médico Araval</p>
-                    <div className='text-xs space-y-2'>
-                        <div className="flex items-center gap-3">
-                            <MapPin className="h-4 w-4 text-primary shrink-0"/>
-                            <span>Juan Martinez 235, Taltal, Chile</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Phone className="h-4 w-4 text-primary shrink-0"/>
-                            <span>+56 9 7541 1515</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Clock className="h-4 w-4 text-primary shrink-0"/>
-                            <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
-                        </div>
-                    </div>
-                </div>
-             </div>
-          </main>
+          {/* Sección de Exámenes */}
+          <section className="mb-12">
+            <h4 className="font-semibold text-base text-gray-800 border-b pb-2 mb-4">Exámenes a Realizar</h4>
+            <ul className="space-y-2 list-disc list-inside text-base">
+              {solicitud.examenes.map(exam => (
+                <li key={exam.id}>{exam.nombre}</li>
+              ))}
+            </ul>
+          </section>
+          
+          <Separator className="my-8" />
 
-          {/* Pie de Firma */}
-          <footer className="mt-24 text-center text-sm">
-            <div className="inline-block">
-              <div className="border-t border-gray-400 w-64 pt-2">
-                <p className="text-gray-700">Firma y Timbre Autorizado</p>
+          {/* Información de la Clínica */}
+          <section>
+             <h4 className="font-semibold text-base text-gray-800 text-center mb-4">Información para el Paciente</h4>
+              <div className="text-center">
+                  <p className="font-bold text-lg text-gray-900">Centro Medico Araval</p>
+                  <p>Juan Martinez 235, Taltal Chile</p>
+                  <p>+56 9 7541 1515</p>
+                  <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
               </div>
-            </div>
-          </footer>
+          </section>
+        </main>
       </div>
+      <footer className="text-center text-xs text-gray-400 mt-8 absolute bottom-8 w-full left-0">
+        Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.
+      </footer>
     </div>
 );
 
@@ -159,7 +145,7 @@ export function VistaCotizacion() {
     if (buttonContainer) buttonContainer.style.display = 'none';
     
     // Make annexes temporarily visible for capture
-    annexContainer.style.visibility = 'visible';
+    annexContainer.style.display = 'block';
     annexContainer.style.position = 'fixed';
     annexContainer.style.left = '0';
     annexContainer.style.top = '0';
@@ -180,6 +166,10 @@ export function VistaCotizacion() {
       const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
       for (let i = 0; i < annexElements.length; i++) {
         const annexElement = annexElements[i];
+        // Ensure the element has a defined size before capturing
+        annexElement.style.width = '8.5in';
+        annexElement.style.height = '11in';
+        
         const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true, windowWidth: annexElement.scrollWidth, windowHeight: annexElement.scrollHeight });
         const annexImgData = annexCanvas.toDataURL('image/png');
         const annexRatio = annexCanvas.height / annexCanvas.width;
@@ -199,12 +189,11 @@ export function VistaCotizacion() {
       // Restore styles
       if (buttonContainer) buttonContainer.style.display = 'flex';
       
-      annexContainer.style.position = '';
-      annexContainer.style.visibility = 'hidden';
-      annexContainer.style.left = '';
-      annexContainer.style.top = '';
+      annexContainer.style.display = 'none';
+      annexContainer.style.position = 'absolute';
+      annexContainer.style.left = '-9999px';
       annexContainer.style.zIndex = '';
-      annexContainer.style.opacity = '';
+      annexContainer.style.opacity = '0';
 
       setLoadingPdf(false);
 
@@ -258,7 +247,7 @@ export function VistaCotizacion() {
                     <p className="mt-1 text-sm text-gray-500">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
                     <p className="mt-1 text-sm text-gray-500">Fecha: {quote.fecha}</p>
                 </div>
-                <Image
+                 <Image
                     src="/images/logo.png"
                     alt="Araval Logo"
                     width={150}
@@ -315,7 +304,7 @@ export function VistaCotizacion() {
                     {Object.keys(examsByMainCategory).length > 0 ? (
                       Object.entries(examsByMainCategory).map(([category, exams]) => (
                         <React.Fragment key={category}>
-                          <TableRow className="bg-gray-100">
+                           <TableRow className="bg-gray-100">
                             <TableCell colSpan={2} className="font-headline font-semibold text-gray-800 text-sm py-2 px-4">
                               {category}
                             </TableCell>
@@ -366,14 +355,12 @@ export function VistaCotizacion() {
         </div>
       </div>
 
-      <div id="annex-container" style={{ visibility: 'hidden', position: 'absolute', left: '-9999px', top: '0', zIndex: -1 }}>
+      <div id="annex-container" style={{ display: 'none', position: 'absolute', left: '-9999px', top: '0', zIndex: -1, opacity: 0 }}>
            {quote?.solicitudes.map((solicitud, index) => (
                 <OrdenDeExamen 
                     key={solicitud.id || index} 
                     solicitud={solicitud} 
                     empresa={quote.empresa}
-                    quoteId={quote.id ? quote.id.slice(-6) : 'N/A'}
-                    index={index}
                 />
             ))}
       </div>
