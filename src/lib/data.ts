@@ -70,25 +70,28 @@ export async function seedInitialExams() {
   const examsCollection = collection(firestore, 'examenes');
   const snapshot = await getDocs(examsCollection);
   
-  // We'll overwrite existing data to ensure the new catalog is applied
-  const batch = writeBatch(firestore);
-  snapshot.docs.forEach(doc => batch.delete(doc.ref));
-  await batch.commit();
-
-  const newBatch = writeBatch(firestore);
-  catalogoExamenes.forEach(examen => {
-      const docRef = doc(examsCollection); // Firestore generates ID
-      newBatch.set(docRef, examen);
-  });
-  await newBatch.commit();
-  console.log('New exams catalog has been seeded.');
+  // We'll only seed if the collection is empty
+  if (snapshot.empty) {
+      console.log('Exams collection is empty, seeding initial data...');
+      const batch = writeBatch(firestore);
+      catalogoExamenes.forEach(examen => {
+          const docRef = doc(examsCollection); // Firestore generates ID
+          batch.set(docRef, examen);
+      });
+      await batch.commit();
+      console.log('Initial exams have been seeded.');
+  }
 }
 
 
 export async function getExams(): Promise<Examen[]> {
-  await seedInitialExams(); // Seed data if collection is empty
   const examsCollection = collection(firestore, 'examenes');
   const snapshot = await getDocs(examsCollection);
+  if (snapshot.empty) {
+    await seedInitialExams();
+    const newSnapshot = await getDocs(examsCollection);
+    return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Examen));
+  }
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Examen));
 }
 
