@@ -17,7 +17,7 @@ import Paso1DatosGenerales from '@/components/cotizacion/Paso1DatosGenerales';
 import Paso2SeleccionExamenes from '@/components/cotizacion/Paso2SeleccionExamenes';
 
 
-const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '' };
+const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
 const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
 
 
@@ -259,5 +259,3 @@ export function FormularioSolicitud() {
     </div>
   );
 }
-
-    

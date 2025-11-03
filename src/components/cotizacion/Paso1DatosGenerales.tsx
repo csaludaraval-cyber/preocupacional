@@ -11,18 +11,17 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '../ui/separator';
 
 interface Props {
   empresa: Empresa;
   setEmpresa: Dispatch<SetStateAction<Empresa>>;
-  solicitante: Trabajador; // This is the contact person
-  setSolicitante: Dispatch<SetStateAction<Trabajador>>;
-  trabajador: Trabajador; // This is the worker being edited
+  trabajador: Trabajador;
   setTrabajador: Dispatch<SetStateAction<Trabajador>>;
+  solicitante?: Trabajador;
+  setSolicitante?: Dispatch<SetStateAction<Trabajador>>;
 }
 
-export default function Paso1DatosGenerales({ empresa, setEmpresa, solicitante, setSolicitante, trabajador, setTrabajador }: Props) {
+export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, setTrabajador, solicitante, setSolicitante }: Props) {
   const [isSearching, setIsSearching] = useState(false);
   const { toast } = useToast();
 
@@ -37,9 +36,9 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, solicitante, 
       if (docSnap.exists()) {
         const data = docSnap.data() as Empresa;
         setEmpresa(data);
-        // If there's a contact email in the fetched company data, pre-fill the applicant's email
-        if(data.email && !solicitante.mail) {
-          setSolicitante(prev => ({...prev, mail: data.email}));
+        // If there's a contact email and the setSolicitante function is available, pre-fill.
+        if(data.email && setSolicitante && solicitante && !solicitante.mail) {
+          setSolicitante(prev => ({...(prev || {} as Trabajador), mail: data.email}));
         }
         toast({
           title: 'Empresa Encontrada',
@@ -56,7 +55,7 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, solicitante, 
     } finally {
       setIsSearching(false);
     }
-  }, [empresa.rut, setEmpresa, setSolicitante, solicitante.mail, toast]);
+  }, [empresa.rut, setEmpresa, setSolicitante, solicitante, toast]);
   
   return (
     <div className="space-y-6">
@@ -106,24 +105,26 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, solicitante, 
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-4">
-          <Contact className="h-6 w-6 text-primary" />
-          <CardTitle className="font-headline text-xl">Datos del Solicitante (Contacto)</CardTitle>
-        </CardHeader>
-         <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                    <Label htmlFor="nombre-solicitante">Nombre Contacto</Label>
-                    <Input id="nombre-solicitante" value={solicitante.nombre} onChange={e => setSolicitante({...solicitante, nombre: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="mail-solicitante">Mail Contacto</Label>
-                    <Input id="mail-solicitante" type="email" value={solicitante.mail} onChange={e => setSolicitante({...solicitante, mail: e.target.value})} />
-                </div>
-            </div>
-         </CardContent>
-      </Card>
+      {solicitante && setSolicitante && (
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-4">
+            <Contact className="h-6 w-6 text-primary" />
+            <CardTitle className="font-headline text-xl">Datos del Solicitante (Contacto)</CardTitle>
+          </CardHeader>
+           <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                      <Label htmlFor="nombre-solicitante">Nombre Contacto</Label>
+                      <Input id="nombre-solicitante" value={solicitante.nombre} onChange={e => setSolicitante({...solicitante, nombre: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="mail-solicitante">Mail Contacto</Label>
+                      <Input id="mail-solicitante" type="email" value={solicitante.mail} onChange={e => setSolicitante({...solicitante, mail: e.target.value})} />
+                  </div>
+              </div>
+           </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center gap-4">
