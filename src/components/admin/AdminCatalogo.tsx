@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
@@ -51,7 +52,7 @@ export function AdminCatalogo() {
     if (!authLoading) {
       fetchExams();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, toast]);
   
   const filteredExams = useMemo(() => {
     if (!searchTerm) return exams;
