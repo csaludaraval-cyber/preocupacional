@@ -6,13 +6,14 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download, Mail, Building, User, Users, Loader2 } from 'lucide-react';
+import { Download, Mail, Building, User, Users, Loader2, Send } from 'lucide-react';
 import type { Cotizacion, Empresa, SolicitudTrabajador, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
@@ -85,6 +86,7 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
 export function VistaCotizacion() {
   const [quote, setQuote] = useState<Cotizacion | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
@@ -127,15 +129,15 @@ export function VistaCotizacion() {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
   };
-
-  const handleExportPDF = async () => {
+  
+  const generatePdfBlob = async (includeAnnexes = true): Promise<Blob> => {
     const quoteElement = document.getElementById('printable-quote');
     const annexContainer = document.getElementById('annex-container');
 
-    if (!quoteElement || !annexContainer || !quote) return;
-
-    setLoadingPdf(true);
-
+    if (!quoteElement || !annexContainer || !quote) {
+        throw new Error("Elementos para generar PDF no encontrados.");
+    }
+    
     const pdf = new jsPDF({
       orientation: 'p',
       unit: 'pt',
@@ -143,15 +145,18 @@ export function VistaCotizacion() {
     });
     const pdfWidth = pdf.internal.pageSize.getWidth();
     
+    // Ocultar botones temporalmente
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
     
-    annexContainer.style.display = 'block';
-    annexContainer.style.position = 'fixed';
-    annexContainer.style.left = '0';
-    annexContainer.style.top = '0';
-    annexContainer.style.zIndex = '-1'; 
-    annexContainer.style.opacity = '1';
+    if (includeAnnexes) {
+        annexContainer.style.display = 'block';
+        annexContainer.style.position = 'fixed';
+        annexContainer.style.left = '0';
+        annexContainer.style.top = '0';
+        annexContainer.style.zIndex = '-1'; 
+        annexContainer.style.opacity = '1';
+    }
 
 
     try {
@@ -162,45 +167,110 @@ export function VistaCotizacion() {
       
       pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
       
-      const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
-      for (let i = 0; i < annexElements.length; i++) {
-        const annexElement = annexElements[i];
-        
-        const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true });
-        const annexImgData = annexCanvas.toDataURL('image/png');
-        const annexRatio = annexCanvas.height / annexCanvas.width;
-        const annexImgHeight = pdfWidth * annexRatio;
+      if(includeAnnexes) {
+          const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
+          for (let i = 0; i < annexElements.length; i++) {
+            const annexElement = annexElements[i];
+            
+            const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true });
+            const annexImgData = annexCanvas.toDataURL('image/png');
+            const annexRatio = annexCanvas.height / annexCanvas.width;
+            const annexImgHeight = pdfWidth * annexRatio;
 
-        pdf.addPage();
-        pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
+            pdf.addPage();
+            pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
+          }
       }
     } catch (error) {
-      console.error("Error generating PDF:", error);
+      console.error("Error durante generación de PDF:", error);
+      throw error; // Propagar el error
+    } finally {
+        // Restaurar visibilidad de elementos
+      if (buttonContainer) buttonContainer.style.display = 'flex';
+      if (includeAnnexes) {
+          annexContainer.style.display = 'none';
+          annexContainer.style.position = 'absolute';
+          annexContainer.style.left = '-9999px';
+          annexContainer.style.zIndex = '';
+          annexContainer.style.opacity = '0';
+      }
+    }
+    return pdf.output('blob');
+  }
+
+  const handleExportPDF = async () => {
+    if (loadingPdf) return;
+    setLoadingPdf(true);
+    try {
+        const blob = await generatePdfBlob();
+        const date = new Date();
+        const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+        const month = monthNames[date.getMonth()];
+        const day = date.getDate();
+        const correlative = quote?.id ? quote.id.slice(-6) : "000000";
+        const fileName = `Cot-${month}${day}-${correlative}.pdf`;
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+    } catch (error) {
       toast({
           title: "Error al generar PDF",
-          description: "Hubo un problema al crear el archivo. Revisa la consola.",
+          description: "Hubo un problema al crear el archivo.",
           variant: "destructive"
       })
     } finally {
-      if (buttonContainer) buttonContainer.style.display = 'flex';
-      
-      annexContainer.style.display = 'none';
-      annexContainer.style.position = 'absolute';
-      annexContainer.style.left = '-9999px';
-      annexContainer.style.zIndex = '';
-      annexContainer.style.opacity = '0';
-
       setLoadingPdf(false);
-
-      const date = new Date();
-      const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-      const month = monthNames[date.getMonth()];
-      const day = date.getDate();
-      const correlative = quote.id ? quote.id.slice(-6) : "000000";
-      const fileName = `Cot-${month}${day}-${correlative}.pdf`;
-      pdf.save(fileName);
     }
   };
+
+  const handleSendEmail = async () => {
+      if (!quote) return;
+      setSendingEmail(true);
+
+      try {
+        // 1. Generar el PDF en base64
+        const pdfBlob = await generatePdfBlob();
+        const reader = new FileReader();
+        reader.readAsDataURL(pdfBlob);
+        reader.onloadend = async () => {
+            const base64data = reader.result;
+            if (typeof base64data !== 'string') {
+                throw new Error("Error convirtiendo PDF a Base64");
+            }
+            
+            const pdfBase64 = base64data.split(',')[1]; // Remover el prefijo 'data:application/pdf;base64,'
+
+            // 2. Llamar al flow de Genkit
+            await enviarCotizacion({
+                clienteEmail: quote.empresa.email,
+                cotizacionId: quote.id?.slice(-6) || 'S/N',
+                pdfBase64: pdfBase64,
+            });
+
+            toast({
+                title: "Correo Enviado",
+                description: `La cotización fue enviada a ${quote.empresa.email}.`
+            });
+        };
+
+      } catch (error: any) {
+          console.error("Error al enviar correo:", error);
+          toast({
+              title: "Error al Enviar Correo",
+              description: error.message || "No se pudo enviar la cotización.",
+              variant: "destructive",
+          });
+      } finally {
+          setSendingEmail(false);
+      }
+  };
+
 
   if (!quote) {
     return (
@@ -211,7 +281,6 @@ export function VistaCotizacion() {
     );
   }
 
-  const mailToLink = `mailto:${quote.solicitante.mail}?subject=${encodeURIComponent(`Cotización de Servicios Araval Nº ${quote.id?.slice(-6)}`)}&body=${encodeURIComponent(`Estimado(a) ${quote.solicitante.nombre},\n\nAdjunto encontrará la cotización Nº ${quote.id?.slice(-6)} solicitada.\n\nPor favor, recuerde adjuntar el archivo PDF antes de enviar.\n\nSaludos cordiales,\nEquipo Araval.`)}`;
   const neto = quote.total;
   const iva = neto * 0.19;
   const totalFinal = neto + iva;
@@ -219,13 +288,14 @@ export function VistaCotizacion() {
   return (
     <>
       <div id="button-container" className="flex justify-end gap-2 mb-4 print:hidden">
-        <Button asChild variant="secondary">
-          <a href={mailToLink}>
-            <Mail className="mr-2 h-4 w-4" />
-            Enviar por Email
-          </a>
+        <Button onClick={handleSendEmail} disabled={sendingEmail || loadingPdf}>
+          {sendingEmail ? (
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</>
+          ) : (
+            <><Send className="mr-2 h-4 w-4" /> Enviar por Email</>
+          )}
         </Button>
-        <Button onClick={handleExportPDF} disabled={loadingPdf}>
+        <Button onClick={handleExportPDF} disabled={loadingPdf || sendingEmail} variant="secondary">
           {loadingPdf ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Exportando...</>
           ) : (
@@ -260,6 +330,7 @@ export function VistaCotizacion() {
                 <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {quote.empresa.razonSocial}</p>
                 <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.empresa.rut}</p>
                 <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
+                <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.empresa.email}</p>
               </div>
               <div className="space-y-2">
                 <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500" />Datos Solicitante</h3>
