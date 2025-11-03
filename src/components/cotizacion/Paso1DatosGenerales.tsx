@@ -1,9 +1,9 @@
+
 "use client";
 
 import { type Dispatch, type SetStateAction, useState, useCallback } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { Building, User, Loader2 } from 'lucide-react';
-import { useDebounce } from 'use-debounce';
+import { Building, User, Loader2, Contact } from 'lucide-react';
 
 import { firestore } from '@/lib/firebase';
 import type { Empresa, Trabajador } from '@/lib/types';
@@ -11,15 +11,18 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '../ui/separator';
 
 interface Props {
   empresa: Empresa;
   setEmpresa: Dispatch<SetStateAction<Empresa>>;
-  trabajador: Trabajador;
+  solicitante: Trabajador; // This is the contact person
+  setSolicitante: Dispatch<SetStateAction<Trabajador>>;
+  trabajador: Trabajador; // This is the worker being edited
   setTrabajador: Dispatch<SetStateAction<Trabajador>>;
 }
 
-export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, setTrabajador }: Props) {
+export default function Paso1DatosGenerales({ empresa, setEmpresa, solicitante, setSolicitante, trabajador, setTrabajador }: Props) {
   const [isSearching, setIsSearching] = useState(false);
   const { toast } = useToast();
 
@@ -32,10 +35,15 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
       const docSnap = await getDoc(empresaRef);
 
       if (docSnap.exists()) {
-        setEmpresa(docSnap.data() as Empresa);
+        const data = docSnap.data() as Empresa;
+        setEmpresa(data);
+        // If there's a contact email in the fetched company data, pre-fill the applicant's email
+        if(data.email && !solicitante.mail) {
+          setSolicitante(prev => ({...prev, mail: data.email}));
+        }
         toast({
           title: 'Empresa Encontrada',
-          description: `Se cargaron los datos de ${docSnap.data().razonSocial}.`,
+          description: `Se cargaron los datos de ${data.razonSocial}.`,
         });
       }
     } catch (error) {
@@ -48,7 +56,7 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
     } finally {
       setIsSearching(false);
     }
-  }, [empresa.rut, setEmpresa, toast]);
+  }, [empresa.rut, setEmpresa, setSolicitante, solicitante.mail, toast]);
   
   return (
     <div className="space-y-6">
@@ -73,7 +81,7 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
               <Input id="giro" value={empresa.giro} onChange={e => setEmpresa({...empresa, giro: e.target.value})} />
             </div>
              <div className="space-y-2">
-              <Label htmlFor="email-empresa">Email Empresa</Label>
+              <Label htmlFor="email-empresa">Email Empresa (para cotización)</Label>
               <Input id="email-empresa" type="email" value={empresa.email} onChange={e => setEmpresa({...empresa, email: e.target.value})} />
             </div>
           </div>
@@ -100,8 +108,27 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
 
       <Card>
         <CardHeader className="flex flex-row items-center gap-4">
+          <Contact className="h-6 w-6 text-primary" />
+          <CardTitle className="font-headline text-xl">Datos del Solicitante (Contacto)</CardTitle>
+        </CardHeader>
+         <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                    <Label htmlFor="nombre-solicitante">Nombre Contacto</Label>
+                    <Input id="nombre-solicitante" value={solicitante.nombre} onChange={e => setSolicitante({...solicitante, nombre: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="mail-solicitante">Mail Contacto</Label>
+                    <Input id="mail-solicitante" type="email" value={solicitante.mail} onChange={e => setSolicitante({...solicitante, mail: e.target.value})} />
+                </div>
+            </div>
+         </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-4">
           <User className="h-6 w-6 text-primary" />
-          <CardTitle className="font-headline text-xl">Datos del Solicitante / Contacto</CardTitle>
+          <CardTitle className="font-headline text-xl">Datos del Trabajador a Evaluar</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -121,10 +148,6 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
               <Label htmlFor="centro-costos">Centro de Costos</Label>
               <Input id="centro-costos" value={trabajador.centroDeCostos} onChange={e => setTrabajador({...trabajador, centroDeCostos: e.target.value})} />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="mail">Mail de Contacto</Label>
-            <Input id="mail" type="email" value={trabajador.mail} onChange={e => setTrabajador({...trabajador, mail: e.target.value})} />
           </div>
         </CardContent>
       </Card>

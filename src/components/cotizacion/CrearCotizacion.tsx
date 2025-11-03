@@ -1,16 +1,16 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Sparkles, PlusCircle, Trash2, Users } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import type { Empresa, Examen, Trabajador, Cotizacion, SolicitudTrabajador } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,20 +22,26 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
 const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
+const initialSolicitante: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
 
 export function CrearCotizacion() {
   const [step, setStep] = useState(1);
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
-  const [solicitante, setSolicitante] = useState<Trabajador>(initialTrabajador);
-  // We now manage a list of solicitudes (worker + their exams)
-  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([{id: 'default', trabajador: solicitante, examenes: []}]);
-  
+  // State for the main contact person (applicant)
+  const [solicitante, setSolicitante] = useState<Trabajador>(initialSolicitante);
+  // State for the list of workers and their exams
+  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([
+    { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }
+  ]);
+  const [currentSolicitudIndex, setCurrentSolicitudIndex] = useState(0);
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const allExams = solicitudes.flatMap(s => s.examenes);
+  const allExams = useMemo(() => solicitudes.flatMap(s => s.examenes), [solicitudes]);
+  const currentSolicitud = solicitudes[currentSolicitudIndex];
 
   useEffect(() => {
     const solicitudData = searchParams.get('solicitud');
@@ -43,23 +49,14 @@ export function CrearCotizacion() {
       try {
         const parsedData = JSON.parse(decodeURIComponent(solicitudData));
         setEmpresa(parsedData.empresa || initialEmpresa);
-        setSolicitante(parsedData.solicitante || initialTrabajador);
+        // The main contact is set to the 'solicitante'
+        setSolicitante(parsedData.solicitante || initialSolicitante);
         
-        // If the incoming data has the new structure, use it.
         if (parsedData.solicitudes && parsedData.solicitudes.length > 0) {
-            setSolicitudes(parsedData.solicitudes);
-        } else {
-           // Fallback for old structure for safety, though it should be deprecated.
-           const allExams = parsedData.examenes || [];
-           const allWorkers = parsedData.trabajadores || [parsedData.solicitante];
-           const newSolicitudes = allWorkers.map((trabajador: Trabajador, index: number) => ({
-               id: String(index),
-               trabajador,
-               examenes: allExams, // This is not ideal, but it's a fallback.
-           }));
-           setSolicitudes(newSolicitudes);
+            setSolicitudes(parsedData.solicitudes.map((s: any) => ({...s, id: s.id || crypto.randomUUID() })));
+            setCurrentSolicitudIndex(0);
         }
-
+        
         toast({
             title: "Solicitud Cargada",
             description: "Los datos de la solicitud se han cargado en el formulario."
@@ -75,43 +72,62 @@ export function CrearCotizacion() {
     }
   }, [searchParams, toast]);
 
-  useEffect(() => {
-    // Sync solicitante with the first worker in the list
-    if (solicitudes.length > 0 && solicitudes[0].trabajador) {
-        setSolicitante(solicitudes[0].trabajador);
-    }
-  }, [solicitudes]);
-
   const totalSteps = 2;
   const progress = (step / totalSteps) * 100;
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, totalSteps));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
-  const handleExamToggle = (exam: Examen, checked: boolean) => {
-    // For a single-worker quote, we just update the first solicitud
+  const updateCurrentTrabajador = (trabajador: Trabajador) => {
     const newSolicitudes = [...solicitudes];
-    const currentExams = newSolicitudes[0].examenes;
-    newSolicitudes[0].examenes = checked
-        ? [...currentExams, exam]
-        : currentExams.filter(e => e.id !== exam.id);
+    newSolicitudes[currentSolicitudIndex].trabajador = trabajador;
+    setSolicitudes(newSolicitudes);
+  };
+  
+  const handleExamToggle = (exam: Examen, checked: boolean) => {
+    const newSolicitudes = [...solicitudes];
+    const currentExams = newSolicitudes[currentSolicitudIndex].examenes;
+    newSolicitudes[currentSolicitudIndex].examenes = checked
+      ? [...currentExams, exam]
+      : currentExams.filter(e => e.id !== exam.id);
     setSolicitudes(newSolicitudes);
   };
 
   const handleClearSelection = () => {
-    // Clear exams from all solicitudes
     setSolicitudes(solicitudes.map(s => ({...s, examenes: []})));
   };
 
+  const addTrabajador = () => {
+    setStep(1); 
+    const newId = crypto.randomUUID();
+    const newSolicitud: SolicitudTrabajador = { id: newId, trabajador: initialTrabajador, examenes: [] };
+    setSolicitudes(prev => [...prev, newSolicitud]);
+    setCurrentSolicitudIndex(solicitudes.length);
+  };
+
+  const removeTrabajador = (indexToRemove: number) => {
+    if (solicitudes.length <= 1) {
+        toast({ title: "Acción no permitida", description: "Debe haber al menos un trabajador.", variant: "destructive" });
+        return;
+    }
+    setSolicitudes(prev => prev.filter((_, index) => index !== indexToRemove));
+    if (currentSolicitudIndex >= indexToRemove && currentSolicitudIndex > 0) {
+      setCurrentSolicitudIndex(prev => prev - 1);
+    }
+  };
+
+  const selectTrabajador = (index: number) => {
+    setCurrentSolicitudIndex(index);
+    setStep(1);
+  }
+
   const saveEmpresaData = async () => {
     if (!empresa.rut) return;
-
     try {
       const empresaRef = doc(firestore, 'empresas', empresa.rut);
       await setDoc(empresaRef, empresa, { merge: true });
     } catch (error) {
       console.error("Error saving company data:", error);
-      // We don't block quote generation for this, just log it
       toast({
         variant: "destructive",
         title: "Error no crítico",
@@ -122,19 +138,24 @@ export function CrearCotizacion() {
 
   const handleGenerateQuote = async () => {
     if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'Error de Autenticación',
-        description: 'Debes estar autenticado para crear una cotización.'
-      });
+      toast({ variant: 'destructive', title: 'Error de Autenticación', description: 'Debes estar autenticado para crear una cotización.' });
       return;
     }
-    
     if (!empresa.rut || !empresa.razonSocial) {
       toast({ variant: 'destructive', title: 'Datos incompletos', description: 'El RUT y Razón Social de la empresa son obligatorios.'});
       setStep(1);
       return;
     }
+    if (solicitudes.some(s => !s.trabajador.nombre || !s.trabajador.rut)) {
+        toast({ title: "Datos incompletos", description: "El nombre y RUT de cada trabajador son obligatorios.", variant: "destructive"});
+        setStep(1);
+        return;
+    }
+     if (solicitudes.every(s => s.examenes.length === 0)) {
+        toast({ title: "Sin exámenes", description: "Debe seleccionar al menos un examen para un trabajador.", variant: "destructive"});
+        setStep(2);
+        return;
+     }
 
     await saveEmpresaData();
 
@@ -146,7 +167,7 @@ export function CrearCotizacion() {
       fechaCreacion: serverTimestamp(),
       total: total,
       empresaData: empresa,
-      solicitanteData: solicitante, // The main contact
+      solicitanteData: solicitante, // Main contact
       solicitudesData: solicitudes, // The detailed list of workers and their exams
     };
 
@@ -172,7 +193,6 @@ export function CrearCotizacion() {
             requestResourceData: newQuoteFirestore,
         });
         errorEmitter.emit('permission-error', permissionError);
-
         toast({
             variant: 'destructive',
             title: 'Error de Permiso',
@@ -185,13 +205,12 @@ export function CrearCotizacion() {
     {
       id: 1,
       name: "Datos Generales",
-      component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} trabajador={solicitante} setTrabajador={setSolicitante} />,
+      component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={updateCurrentTrabajador} />,
     },
     {
       id: 2,
-      name: "Selección de Exámenes",
-      // When creating a quote from scratch, we assume one "solicitud" to add exams to.
-      component: <Paso2SeleccionExamenes selectedExams={solicitudes[0]?.examenes || []} onExamToggle={handleExamToggle} showPrice={true} />,
+      name: `Exámenes para ${currentSolicitud?.trabajador?.nombre || `Trabajador ${currentSolicitudIndex + 1}`}`,
+      component: <Paso2SeleccionExamenes selectedExams={currentSolicitud?.examenes || []} onExamToggle={handleExamToggle} showPrice={true} />,
     },
   ];
 
@@ -222,7 +241,7 @@ export function CrearCotizacion() {
             <div className="lg:col-span-2">
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={step}
+                  key={`${step}-${currentSolicitudIndex}`}
                   initial={{ opacity: 0, x: 50 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -50 }}
@@ -233,7 +252,32 @@ export function CrearCotizacion() {
               </AnimatePresence>
             </div>
             
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-4">
+               <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-headline flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Trabajadores ({solicitudes.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 max-h-48 overflow-y-auto">
+                  {solicitudes.map((s, index) => (
+                    <div key={s.id} className="flex items-center justify-between gap-2">
+                      <Button variant={index === currentSolicitudIndex ? 'secondary' : 'ghost'} size="sm" className="flex-grow justify-start" onClick={() => selectTrabajador(index)}>
+                          {s.trabajador.nombre || `Trabajador ${index + 1}`}
+                      </Button>
+                      {solicitudes.length > 1 && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeTrabajador(index)}>
+                          <Trash2 className="h-4 w-4 text-destructive"/>
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+                 <CardContent className='pt-2'>
+                    <Button variant="outline" size="sm" className="w-full" onClick={addTrabajador}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Añadir Trabajador
+                    </Button>
+                 </CardContent>
+              </Card>
+
               <ResumenCotizacion 
                 selectedExams={allExams} 
                 onClear={handleClearSelection}
