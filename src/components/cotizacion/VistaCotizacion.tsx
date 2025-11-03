@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, 'useEffect', 'useState', 'useMemo' from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
     <div className="order-page-container bg-white text-black p-8 print-container">
         {/* Using arbitrary values to match the specific design requirements */}
-        <div className="max-w-4xl mx-auto space-y-4 text-xs">
+        <div className="max-w-4xl mx-auto space-y-8 text-xs">
             <header className="flex justify-between items-start pb-4">
                 <div>
                     <h3 className="text-base font-bold text-gray-800">Empresa</h3>
@@ -32,7 +32,7 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </div>
             </header>
 
-            <main className="space-y-6">
+            <main className="space-y-10">
                 <section>
                     <h3 className="text-base font-bold text-gray-800 border-b pb-1 mb-2">Exámenes a Realizar</h3>
                     <ul className="space-y-1 list-disc list-inside">
@@ -48,7 +48,7 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                     <h3 className="text-base font-bold text-gray-800 border-b pb-1">Información para el Paciente</h3>
                 </section>
                 
-                <section className="space-y-2 pt-4">
+                <section className="space-y-4 pt-4">
                     <h3 className="text-base font-bold text-gray-800">Centro Medico Araval</h3>
                     <div className="text-gray-600">
                         <p>Juan Martinez 235, Taltal Chile</p>
@@ -58,7 +58,7 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
             </main>
             
-            <footer className="text-center text-gray-500 pt-16 text-xs">
+            <footer className="text-center text-gray-500 pt-32 text-[10px]">
                  <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
             </footer>
         </div>
