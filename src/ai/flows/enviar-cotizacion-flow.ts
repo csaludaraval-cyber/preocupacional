@@ -2,7 +2,7 @@
 /**
  * @fileOverview Flow de Genkit para el envío de cotizaciones por correo electrónico.
  *
- * - enviarCotizacionFlow - La función principal que gestiona la lógica de envío.
+ * - enviarCotizacion - La función exportada que el frontend llamará.
  * - EnviarCotizacionInput - El tipo de entrada para la función.
  */
 
@@ -38,6 +38,7 @@ const enviarCotizacionFlow = ai.defineFlow(
     const SMTP_PASS = process.env.SMTP_PASS;
 
     if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
+      console.error('SMTP environment variables not set');
       throw new Error('Las variables de entorno SMTP no están configuradas en el servidor.');
     }
 
