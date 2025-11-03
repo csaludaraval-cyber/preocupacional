@@ -4,84 +4,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { Download, Mail, Building, User, Users, Loader2, Send } from 'lucide-react';
+import { Download, Loader2, Send } from 'lucide-react';
 import type { Cotizacion, Empresa, SolicitudTrabajador, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
-
-
-const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
-    <div className="order-page-container bg-white text-black p-8 print-container">
-        <div className="max-w-4xl mx-auto text-sm space-y-4 font-sans">
-            <header className="flex justify-between items-center mb-10">
-                 <div className="bg-[#3b82f6] text-white py-2 px-4 rounded-md">
-                    <h2 className="font-semibold text-base tracking-wide">Orden de Examen Ocupacionales</h2>
-                </div>
-                 <Image
-                    src="/images/logo.png"
-                    alt="Araval Logo"
-                    width={150}
-                    height={40}
-                    priority
-                    unoptimized
-                />
-            </header>
-
-            <main className="space-y-8">
-                <section className="grid grid-cols-2 gap-8">
-                    <div>
-                        <h3 className="font-bold text-base mb-1">Empresa</h3>
-                        <p>{empresa.razonSocial}</p>
-                        <p>RUT: {empresa.rut}</p>
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-base mb-1">Trabajador</h3>
-                        <p>{solicitud.trabajador.nombre}</p>
-                        <p>RUT: {solicitud.trabajador.rut}</p>
-                    </div>
-                </section>
-                
-                <section>
-                    <h3 className="font-bold text-base">Exámenes a Realizar</h3>
-                    <hr className="my-2 border-gray-400"/>
-                    <ul className="list-disc list-inside space-y-1 pl-2">
-                        {solicitud.examenes.map(exam => (
-                            <li key={exam.id}>
-                                {exam.nombre}
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-
-                <section className='pt-4'>
-                    <h3 className="font-bold text-base text-center">Información para el Paciente</h3>
-                     <hr className="my-2 border-gray-400"/>
-                </section>
-                
-                <section className='pt-4'>
-                    <h3 className="font-bold text-base">Centro Medico Araval</h3>
-                    <div className='text-gray-700 space-y-0.5 mt-1'>
-                        <p>Juan Martinez 235, Taltal Chile</p>
-                        <p>+56 9 7541 1515</p>
-                        <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
-                    </div>
-                    <hr className="my-3 border-gray-400"/>
-                </section>
-            </main>
-            
-            <footer className="text-center text-gray-500 text-xs pt-24">
-                 <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
-            </footer>
-        </div>
-    </div>
-);
-
+import { GeneradorPDF, OrdenDeExamen } from './GeneradorPDF';
+import { DetalleCotizacion } from './DetalleCotizacion';
 
 export function VistaCotizacion() {
   const [quote, setQuote] = useState<Cotizacion | null>(null);
@@ -89,30 +20,6 @@ export function VistaCotizacion() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const searchParams = useSearchParams();
   const { toast } = useToast();
-
-  const allExams = useMemo(() => {
-    if (!quote?.solicitudes) return [];
-    return quote.solicitudes.flatMap(s => s.examenes);
-  }, [quote]);
-
-  const examsByMainCategory = useMemo(() => {
-    if (!allExams) return {};
-    const uniqueExams = new Map<string, Examen>();
-    allExams.forEach(exam => {
-        if (!uniqueExams.has(exam.id)) {
-            uniqueExams.set(exam.id, exam);
-        }
-    });
-
-    return Array.from(uniqueExams.values()).reduce((acc, exam) => {
-      const { categoria } = exam;
-      if (!acc[categoria]) {
-        acc[categoria] = [];
-      }
-      acc[categoria].push(exam);
-      return acc;
-    }, {} as Record<string, Examen[]>);
-  }, [allExams]);
 
   useEffect(() => {
     const data = searchParams.get('data');
@@ -125,84 +32,12 @@ export function VistaCotizacion() {
       }
     }
   }, [searchParams]);
-  
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
-  };
-  
-  const generatePdfBlob = async (includeAnnexes = true): Promise<Blob> => {
-    const quoteElement = document.getElementById('printable-quote');
-    const annexContainer = document.getElementById('annex-container');
-
-    if (!quoteElement || !annexContainer || !quote) {
-        throw new Error("Elementos para generar PDF no encontrados.");
-    }
-    
-    const pdf = new jsPDF({
-      orientation: 'p',
-      unit: 'pt',
-      format: 'letter',
-    });
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    
-    // Ocultar botones temporalmente
-    const buttonContainer = document.getElementById('button-container');
-    if (buttonContainer) buttonContainer.style.display = 'none';
-    
-    if (includeAnnexes) {
-        annexContainer.style.display = 'block';
-        annexContainer.style.position = 'fixed';
-        annexContainer.style.left = '0';
-        annexContainer.style.top = '0';
-        annexContainer.style.zIndex = '-1'; 
-        annexContainer.style.opacity = '1';
-    }
-
-
-    try {
-      const mainCanvas = await html2canvas(quoteElement, { scale: 2, useCORS: true });
-      const mainImgData = mainCanvas.toDataURL('image/png');
-      const mainRatio = mainCanvas.height / mainCanvas.width;
-      let mainImgHeight = pdfWidth * mainRatio;
-      
-      pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
-      
-      if(includeAnnexes) {
-          const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
-          for (let i = 0; i < annexElements.length; i++) {
-            const annexElement = annexElements[i];
-            
-            const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true });
-            const annexImgData = annexCanvas.toDataURL('image/png');
-            const annexRatio = annexCanvas.height / annexCanvas.width;
-            const annexImgHeight = pdfWidth * annexRatio;
-
-            pdf.addPage();
-            pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
-          }
-      }
-    } catch (error) {
-      console.error("Error durante generación de PDF:", error);
-      throw error; // Propagar el error
-    } finally {
-        // Restaurar visibilidad de elementos
-      if (buttonContainer) buttonContainer.style.display = 'flex';
-      if (includeAnnexes) {
-          annexContainer.style.display = 'none';
-          annexContainer.style.position = 'absolute';
-          annexContainer.style.left = '-9999px';
-          annexContainer.style.zIndex = '';
-          annexContainer.style.opacity = '0';
-      }
-    }
-    return pdf.output('blob');
-  }
 
   const handleExportPDF = async () => {
-    if (loadingPdf) return;
+    if (loadingPdf || !quote) return;
     setLoadingPdf(true);
     try {
-        const blob = await generatePdfBlob();
+        const blob = await GeneradorPDF.generar(quote);
         const date = new Date();
         const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
         const month = monthNames[date.getMonth()];
@@ -219,6 +54,7 @@ export function VistaCotizacion() {
         URL.revokeObjectURL(link.href);
 
     } catch (error) {
+      console.error("Error al generar PDF:", error);
       toast({
           title: "Error al generar PDF",
           description: "Hubo un problema al crear el archivo.",
@@ -234,18 +70,17 @@ export function VistaCotizacion() {
       setSendingEmail(true);
 
       try {
-        // 1. Generar el PDF en base64
-        const pdfBlob = await generatePdfBlob();
+        // 1. Generar el PDF en Blob y luego en base64
+        const pdfBlob = await GeneradorPDF.generar(quote);
         const reader = new FileReader();
-        reader.readAsDataURL(pdfBlob);
+        
         reader.onloadend = async () => {
             const base64data = reader.result;
             if (typeof base64data !== 'string') {
                 throw new Error("Error convirtiendo PDF a Base64");
             }
+            const pdfBase64 = base64data.split(',')[1];
             
-            const pdfBase64 = base64data.split(',')[1]; // Remover el prefijo 'data:application/pdf;base64,'
-
             // 2. Llamar al flow de Genkit
             await enviarCotizacion({
                 clienteEmail: quote.empresa.email,
@@ -258,6 +93,12 @@ export function VistaCotizacion() {
                 description: "El correo con la cotizacion formal se ha enviado con exito al cliente."
             });
         };
+        
+        reader.onerror = () => {
+            throw new Error("Fallo la lectura del Blob del PDF.");
+        };
+
+        reader.readAsDataURL(pdfBlob);
 
       } catch (error: any) {
           console.error("Error al enviar correo:", error);
@@ -281,10 +122,6 @@ export function VistaCotizacion() {
     );
   }
 
-  const neto = quote.total;
-  const iva = neto * 0.19;
-  const totalFinal = neto + iva;
-
   return (
     <>
       <div id="button-container" className="flex justify-end gap-2 mb-4 print:hidden">
@@ -304,132 +141,8 @@ export function VistaCotizacion() {
         </Button>
       </div>
 
-      <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
-        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none px-12 py-8">
-            <header className="flex justify-between items-start pb-6 bg-primary text-primary-foreground -m-12 mb-8 p-12 -mx-12">
-                <div>
-                    <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
-                    <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                    <p className="mt-1 text-sm">Fecha: {quote.fecha}</p>
-                </div>
-                 <Image
-                    src="/images/logo.png"
-                    alt="Araval Logo"
-                    width={150}
-                    height={40}
-                    priority
-                    unoptimized
-                    style={{ filter: 'brightness(0) invert(1)' }}
-                />
-            </header>
-
-          <main className="py-8">
-            <section className="grid grid-cols-2 gap-8 mb-8">
-              <div className="space-y-2">
-                <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><Building className="h-5 w-5 text-gray-500" />Datos Empresa</h3>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {quote.empresa.razonSocial}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.empresa.rut}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.empresa.email}</p>
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500" />Datos Solicitante</h3>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {quote.solicitante.nombre}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.solicitante.rut}</p>
-                <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.solicitante.mail}</p>
-              </div>
-            </section>
-
-            {quote.solicitudes && quote.solicitudes.length > 0 && (
-              <section className="mb-8">
-                <Card className="shadow-sm border-gray-200">
-                  <CardHeader className="p-3 bg-primary text-primary-foreground rounded-t-lg">
-                    <CardTitle className="font-headline text-base flex items-center gap-2"><Users className="h-5 w-5" />Trabajadores Incluidos ({quote.solicitudes.length})</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 text-sm">
-                     <ul className="space-y-1 list-disc list-inside text-muted-foreground columns-2 md:columns-3">
-                      {quote.solicitudes.map((s, i) => (
-                        <li key={s.id || i}><span className="text-foreground font-medium">{s.trabajador.nombre}</span></li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </section>
-            )}
-
-            <section>
-              <h3 className="font-headline text-lg font-semibold mb-2 text-gray-700">Detalle de Servicios Consolidados</h3>
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-primary hover:bg-primary">
-                      <TableHead className="w-[70%] font-semibold text-primary-foreground text-sm py-2 px-4">Examen</TableHead>
-                      <TableHead className="text-right font-semibold text-primary-foreground text-sm py-2 px-4">Valor Unitario</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Object.keys(examsByMainCategory).length > 0 ? (
-                      Object.entries(examsByMainCategory).map(([category, exams]) => (
-                        <React.Fragment key={category}>
-                           <TableRow className="bg-gray-100">
-                            <TableCell colSpan={2} className="font-headline font-semibold text-gray-800 text-sm py-2 px-4">
-                              {category}
-                            </TableCell>
-                          </TableRow>
-                          {exams.map((exam) => (
-                            <TableRow key={exam.id} className="border-b-0 text-sm">
-                              <TableCell className="font-medium text-gray-800 pl-8 py-2 px-4">{exam.nombre}</TableCell>
-                              <TableCell className="text-right font-medium text-gray-700 py-2 px-4">{formatCurrency(exam.valor)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </React.Fragment>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={2} className="text-center text-gray-500 py-8 text-sm">
-                          No hay exámenes seleccionados.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </section>
-
-            <section className="mt-8 flex justify-end">
-              <div className="w-full max-w-sm space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Neto</span>
-                  <span className="font-semibold text-gray-800">{formatCurrency(neto)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">IVA (19%)</span>
-                  <span className="font-semibold text-gray-800">{formatCurrency(iva)}</span>
-                </div>
-                <Separator className="my-2" />
-                <div className="flex justify-between items-center text-lg font-bold bg-primary text-primary-foreground p-3 rounded-lg">
-                  <span>TOTAL A PAGAR</span>
-                  <span>{formatCurrency(totalFinal)}</span>
-                </div>
-              </div>
-            </section>
-          </main>
-
-          <footer className="mt-8 pt-6 text-center text-xs text-gray-500 border-t">
-            <p>Cotización válida por 30 días. Para agendar, por favor contacte a nuestro equipo.</p>
-            <p className="font-semibold mt-1">contacto@araval.cl | +56 9 7541 1515</p>
-          </footer>
-        </div>
-      </div>
-
-      <div id="annex-container" style={{ display: 'none', position: 'absolute', left: '-9999px', top: '0', zIndex: -1, opacity: 0 }}>
-           {quote?.solicitudes.map((solicitud, index) => (
-                <OrdenDeExamen 
-                    key={solicitud.id || index} 
-                    solicitud={solicitud} 
-                    empresa={quote.empresa}
-                />
-            ))}
+       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
+        <DetalleCotizacion quote={quote} />
       </div>
 
       <style jsx global>{`
@@ -442,12 +155,7 @@ export function VistaCotizacion() {
           #button-container, #pdf-content-area > .bg-gray-100 {
             display: none !important;
           }
-          #printable-quote {
-            box-shadow: none !important;
-            border: none !important;
-            padding: 2rem !important;
-          }
-          .order-page-container {
+           .print-container {
              page-break-before: always;
           }
         }
@@ -455,3 +163,5 @@ export function VistaCotizacion() {
     </>
   );
 }
+
+    

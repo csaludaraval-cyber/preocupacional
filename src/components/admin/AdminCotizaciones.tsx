@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { collection, deleteDoc, doc } from 'firebase/firestore';
-import { Eye, History, Loader2, Search, Shield, Trash2, XCircle } from 'lucide-react';
+import { Eye, History, Loader2, Search, Shield, Trash2, XCircle, Send } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
@@ -18,6 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
+import { GeneradorPDF } from '../cotizacion/GeneradorPDF';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +45,8 @@ export function AdminCotizaciones() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [quoteToDelete, setQuoteToDelete] = useState<WithId<CotizacionFirestore> | null>(null);
+  const [quoteToSend, setQuoteToSend] = useState<Cotizacion | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
   const cotizacionesQuery = useMemoFirebase(() => collection(firestore, 'cotizaciones'), []);
 
@@ -71,6 +75,7 @@ export function AdminCotizaciones() {
           const matchesSearch = 
             quote.empresaData.razonSocial.toLowerCase().includes(lowercasedFilter) ||
             quote.solicitanteData.nombre.toLowerCase().includes(lowercasedFilter) ||
+            quote.solicitanteData.mail.toLowerCase().includes(lowercasedFilter) ||
             quote.id.toLowerCase().includes(lowercasedFilter);
           if (!matchesSearch) return false;
       }
@@ -98,6 +103,50 @@ export function AdminCotizaciones() {
     } finally {
         setQuoteToDelete(null);
     }
+  };
+
+  const handleSendEmail = async () => {
+      if (!quoteToSend) return;
+      setIsSending(true);
+
+      try {
+          const pdfBlob = await GeneradorPDF.generar(quoteToSend);
+          const reader = new FileReader();
+          
+          reader.onloadend = async () => {
+              const base64data = reader.result;
+              if (typeof base64data !== 'string') {
+                  throw new Error("Error convirtiendo PDF a Base64");
+              }
+              const pdfBase64 = base64data.split(',')[1];
+              
+              await enviarCotizacion({
+                  clienteEmail: quoteToSend.empresa.email,
+                  cotizacionId: quoteToSend.id?.slice(-6) || 'S/N',
+                  pdfBase64: pdfBase64,
+              });
+
+              toast({
+                title: "Correo Enviado",
+                description: "El correo con la cotizacion formal se ha enviado con exito al cliente."
+              });
+              setQuoteToSend(null);
+          };
+          reader.onerror = () => {
+             throw new Error("Fallo la lectura del Blob del PDF.");
+          }
+          reader.readAsDataURL(pdfBlob);
+
+      } catch (error: any) {
+          console.error("Error al enviar correo:", error);
+          toast({
+              title: "Error al Enviar Correo",
+              description: error.message || "No se pudo enviar la cotización.",
+              variant: "destructive",
+          });
+      } finally {
+          setIsSending(false);
+      }
   };
 
   const formatCurrency = (value: number) => {
@@ -163,7 +212,7 @@ export function AdminCotizaciones() {
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input 
-                    placeholder="Buscar por empresa, solicitante o N° de documento..."
+                    placeholder="Buscar por empresa, solicitante, email o N° de documento..."
                     className="pl-10"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -200,7 +249,7 @@ export function AdminCotizaciones() {
                         <TableHead>N° Doc</TableHead>
                         <TableHead>Fecha</TableHead>
                         <TableHead>Empresa</TableHead>
-                        <TableHead>Solicitante</TableHead>
+                        <TableHead>Email Solicitante</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead className="text-center">Acciones</TableHead>
                     </TableRow>
@@ -217,50 +266,77 @@ export function AdminCotizaciones() {
                             </TableCell>
                             <TableCell>{formatDate(quote.fechaCreacion)}</TableCell>
                             <TableCell className="font-medium">{quote.empresaData.razonSocial}</TableCell>
-                            <TableCell className="text-muted-foreground">{quote.solicitanteData.nombre}</TableCell>
+                            <TableCell className="text-muted-foreground">{quote.solicitanteData.mail}</TableCell>
                             <TableCell className="text-right font-semibold">{formatCurrency(quote.total)}</TableCell>
                             <TableCell className="text-center">
                                 <div className='flex items-center justify-center gap-1'>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Link href={`/cotizacion?data=${query}`} target="_blank" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10">
-                                                <Eye className="h-4 w-4" />
-                                            </Link>
+                                            <Button asChild variant="ghost" size="icon">
+                                                <Link href={`/cotizacion?data=${query}`} target="_blank">
+                                                    <Eye className="h-4 w-4" />
+                                                </Link>
+                                            </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                             <p>Ver Cotización</p>
                                         </TooltipContent>
                                     </Tooltip>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                           <AlertDialog>
+
+                                    <AlertDialog>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
                                                 <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)}>
+                                                        <Send className="h-4 w-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>Enviar por Email</p></TooltipContent>
+                                        </Tooltip>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Confirmar Envío</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    ¿Confirma el envío de la cotización N° <span className="font-bold">{displayQuote.id?.slice(-6)}</span> al correo <span className="font-bold">{displayQuote.empresa.email}</span>?
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel onClick={() => setQuoteToSend(null)}>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleSendEmail} disabled={isSending}>
+                                                    {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                                                    Confirmar Envío
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+
+                                    <AlertDialog>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
                                                     <Button variant="ghost" size="icon" onClick={() => setQuoteToDelete(quote)}>
                                                         <Trash2 className="h-4 w-4 text-destructive" />
                                                     </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
-                                                            <span className='font-bold'> N° {quote.id.slice(-6)} </span>
-                                                            de los servidores.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel onClick={() => setQuoteToDelete(null)}>Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                                                            Eliminar
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Eliminar Cotización</p>
-                                        </TooltipContent>
-                                    </Tooltip>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>Eliminar Cotización</p></TooltipContent>
+                                        </Tooltip>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
+                                                    <span className='font-bold'> N° {quote.id.slice(-6)} </span>
+                                                    de los servidores.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel onClick={() => setQuoteToDelete(null)}>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                                                    Eliminar
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </div>
                             </TableCell>
                         </TableRow>
@@ -280,3 +356,5 @@ export function AdminCotizaciones() {
     </Card>
   );
 }
+
+    
