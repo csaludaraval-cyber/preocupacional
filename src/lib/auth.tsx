@@ -38,41 +38,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const checkUserRole = async (fbUser: FirebaseUser) => {
       if (!firestore) return;
       setLoadingRole(true);
-      const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
-      const adminRoleDoc = await getDoc(adminRoleRef);
-      
-      const extendedUser: User = {
-        // Re-structure to avoid spreading a FirebaseUser object
-        uid: fbUser.uid,
-        email: fbUser.email,
-        displayName: fbUser.displayName,
-        photoURL: fbUser.photoURL,
-        emailVerified: fbUser.emailVerified,
-        isAnonymous: fbUser.isAnonymous,
-        metadata: fbUser.metadata,
-        providerData: fbUser.providerData,
-        providerId: fbUser.providerId,
-        tenantId: fbUser.tenantId,
-        refreshToken: fbUser.refreshToken,
-        delete: fbUser.delete,
-        getIdToken: fbUser.getIdToken,
-        getIdTokenResult: fbUser.getIdTokenResult,
-        reload: fbUser.reload,
-        toJSON: fbUser.toJSON,
-        // Add our custom role
-        role: adminRoleDoc.exists() ? 'admin' : 'standard',
-      };
-      
-      setUserWithRole(extendedUser);
-      setLoadingRole(false);
+      try {
+        const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
+        const adminRoleDoc = await getDoc(adminRoleRef);
+        
+        const extendedUser: User = {
+          // Re-structure to avoid spreading a FirebaseUser object
+          uid: fbUser.uid,
+          email: fbUser.email,
+          displayName: fbUser.displayName,
+          photoURL: fbUser.photoURL,
+          emailVerified: fbUser.emailVerified,
+          isAnonymous: fbUser.isAnonymous,
+          metadata: fbUser.metadata,
+          providerData: fbUser.providerData,
+          providerId: fbUser.providerId,
+          tenantId: fbUser.tenantId,
+          refreshToken: fbUser.refreshToken,
+          delete: fbUser.delete,
+          getIdToken: fbUser.getIdToken,
+          getIdTokenResult: fbUser.getIdTokenResult,
+          reload: fbUser.reload,
+          toJSON: fbUser.toJSON,
+          // Add our custom role
+          role: adminRoleDoc.exists() ? 'admin' : 'standard',
+        };
+        
+        setUserWithRole(extendedUser);
 
-      // Redirect logic after role is determined
-       if (pathname === '/login' || pathname === '/crear-primer-admin') {
-          if (extendedUser.role === 'admin') {
-              router.push('/admin');
-          } else {
-              router.push('/');
-          }
+        // Redirect logic after role is determined
+        if (pathname === '/login' || pathname === '/crear-primer-admin') {
+            if (extendedUser.role === 'admin') {
+                router.push('/admin');
+            } else {
+                router.push('/');
+            }
+        }
+      } catch (error) {
+        console.error("Error fetching user role:", error);
+        // Set a default user object without a role or handle the error appropriately
+        setUserWithRole(fbUser as User); // Fallback to basic user
+      } finally {
+        setLoadingRole(false);
       }
     };
     
@@ -103,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   }), [userWithRole, loading, logout]);
   
-  const isPublicRoute = publicRoutes.includes(pathname);
+  const isPublicRoute = publicRoutes.includes(pathname) || pathname === '/cotizacion';
 
   if (loading && !isPublicRoute) {
     return (
@@ -113,8 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isPublicRoute && !userWithRole) {
-    // No render while redirecting
+  // This prevents flashing the login page for authenticated users on a protected route.
+  if (!isPublicRoute && !loading && !userWithRole) {
+    // The redirect is handled in the useEffect, so we just prevent rendering.
     return null;
   }
 

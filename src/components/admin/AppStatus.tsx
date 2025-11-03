@@ -40,13 +40,16 @@ export function AppStatus() {
             <AlertTitle>Acceso Denegado</AlertTitle>
             <AlertDescription>
                 No tienes permisos para acceder a esta sección.
-            </AlertDescription>
+            </Alerc/components/admin/AppStatus.tsxtDescription>
         </Alert>
     );
   }
 
+  // isLoading now considers both the central user loading and auth provider loading
+  const isLoading = isUserLoading || authLoading;
+
   const getServiceStatus = (service: any) => {
-    if (isUserLoading || authLoading) return 'loading';
+    if (isLoading) return 'loading';
     return areServicesAvailable && service ? 'operational' : 'error';
   }
 
@@ -73,7 +76,7 @@ export function AppStatus() {
             <StatusIndicator status={firestoreStatus} text="Base de Datos (Firestore)" />
         </div>
 
-        {(userError || !areServicesAvailable) && (
+        {(userError || (authStatus === 'error' || firestoreStatus === 'error' || appStatus === 'error')) && (
             <Alert variant="destructive" className="mt-6">
               <XCircle className="h-4 w-4" />
               <AlertTitle>¡Alerta de Servicio!</AlertTitle>
@@ -81,6 +84,7 @@ export function AppStatus() {
                 Uno o más servicios no están operando correctamente. La funcionalidad de la aplicación puede estar comprometida. 
                 Por favor, informe a soporte técnico para que investiguen el problema.
                 {userError && <pre className='mt-2 text-xs bg-destructive/10 p-2 rounded-md'>{userError.message}</pre>}
+                {!areServicesAvailable && !userError && <p className='mt-2'>El proveedor de Firebase no pudo inicializar los servicios.</p>}
               </AlertDescription>
           </Alert>
         )}
@@ -88,4 +92,3 @@ export function AppStatus() {
     </Card>
   );
 }
-
