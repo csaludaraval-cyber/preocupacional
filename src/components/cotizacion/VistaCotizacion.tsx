@@ -16,12 +16,13 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
-    <div className="order-page-container bg-white p-8 font-sans text-sm">
+    <div className="order-page-container bg-white p-12 font-sans text-sm">
       <div className="max-w-4xl mx-auto">
+        
         {/* Encabezado */}
-        <header className="flex justify-between items-center mb-10 pb-4 border-b-2 border-gray-200">
-          <div className="bg-primary text-primary-foreground px-4 py-2">
-            <h3 className="text-lg font-semibold tracking-wider">Orden de Examen Ocupacionales</h3>
+        <header className="flex justify-between items-center mb-10">
+          <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg">
+            <h3 className="text-base font-semibold">Orden de Examen Ocupacionales</h3>
           </div>
           <Image 
             src="/images/logo.png" 
@@ -33,37 +34,37 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
         </header>
 
         {/* Cuerpo del Formulario */}
-        <main className="text-gray-800">
+        <main className="text-gray-800 space-y-8">
           {/* Sección de Datos */}
-          <section className="grid grid-cols-2 gap-8 mb-10">
+          <section className="grid grid-cols-2 gap-8">
             <div>
-              <p className="font-bold text-base mb-2">Empresa</p>
-              <p><strong className="font-semibold w-24 inline-block">Razón Social:</strong> {empresa.razonSocial}</p>
-              <p><strong className="font-semibold w-24 inline-block">RUT:</strong> {empresa.rut}</p>
+              <p className="font-bold text-gray-500 mb-1">Empresa</p>
+              <p className="font-semibold">{empresa.razonSocial}</p>
+              <p>RUT: {empresa.rut}</p>
             </div>
             <div>
-              <p className="font-bold text-base mb-2">Trabajador</p>
-              <p><strong className="font-semibold w-24 inline-block">Nombre:</strong> {solicitud.trabajador.nombre}</p>
-              <p><strong className="font-semibold w-24 inline-block">RUT:</strong> {solicitud.trabajador.rut}</p>
+              <p className="font-bold text-gray-500 mb-1">Trabajador</p>
+              <p className="font-semibold">{solicitud.trabajador.nombre}</p>
+              <p>RUT: {solicitud.trabajador.rut}</p>
             </div>
           </section>
 
           {/* Sección de Exámenes */}
-          <section className="mb-12">
-            <h4 className="font-bold text-base border-b pb-2 mb-4">Exámenes a Realizar</h4>
-            <ul className="space-y-2 list-disc list-inside text-base ml-4">
+          <section>
+             <h4 className="font-bold text-base pb-2 border-b-2 border-gray-900 mb-4">Exámenes a Realizar</h4>
+            <ul className="space-y-2 list-disc list-inside text-base ml-2">
               {solicitud.examenes.map(exam => (
                 <li key={exam.id}>{exam.nombre}</li>
               ))}
             </ul>
           </section>
           
-          <Separator className="my-10" />
+          <Separator className="my-8 bg-gray-900 h-[1.5px]" />
 
           {/* Información de la Clínica */}
-          <section>
-             <h4 className="font-bold text-base text-center mb-4">Información para el Paciente</h4>
-              <div className="text-center text-base">
+          <section className="text-center">
+             <h4 className="font-bold text-base text-gray-500 mb-4">Información para el Paciente</h4>
+              <div>
                   <p className="font-bold text-lg">Centro Medico Araval</p>
                   <p>Juan Martinez 235, Taltal Chile</p>
                   <p>+56 9 7541 1515</p>
@@ -71,10 +72,6 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
               </div>
           </section>
         </main>
-        
-        <footer className="text-center text-xs text-gray-400 mt-16 pt-4 border-t">
-          Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.
-        </footer>
       </div>
     </div>
 );
@@ -166,11 +163,8 @@ export function VistaCotizacion() {
       const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
       for (let i = 0; i < annexElements.length; i++) {
         const annexElement = annexElements[i];
-        // Ensure the element has a defined size before capturing
-        annexElement.style.width = '8.5in';
-        annexElement.style.height = '11in';
         
-        const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true, windowWidth: annexElement.scrollWidth, windowHeight: annexElement.scrollHeight });
+        const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true });
         const annexImgData = annexCanvas.toDataURL('image/png');
         const annexRatio = annexCanvas.height / annexCanvas.width;
         const annexImgHeight = pdfWidth * annexRatio;
@@ -389,4 +383,3 @@ export function VistaCotizacion() {
     </>
   );
 }
-
