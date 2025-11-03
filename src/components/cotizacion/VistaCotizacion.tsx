@@ -255,7 +255,7 @@ export function VistaCotizacion() {
 
             toast({
                 title: "Correo Enviado",
-                description: `La cotización fue enviada a ${quote.empresa.email}.`
+                description: "El correo con la cotizacion formal se ha enviado con exito al cliente."
             });
         };
 
