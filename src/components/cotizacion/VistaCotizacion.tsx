@@ -16,11 +16,11 @@ import { useToast } from '@/hooks/use-toast';
 // Componente para la Orden de Examen (Anexo)
 const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
     <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto my-8">
-      <div className="p-8 border rounded-lg max-w-2xl mx-auto">
+      <div className="p-8 border rounded-lg max-w-xl mx-auto">
           <header className="bg-gray-50 p-6 rounded-t-lg">
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-2xl font-bold font-headline text-primary">Orden de Examen</h3>
+                <h3 className="text-xl font-bold font-headline text-gray-800">Orden de Examen</h3>
                 <p className="text-sm text-muted-foreground">Referencia Cotización Nº: {quoteId}</p>
               </div>
               <Image 
@@ -33,22 +33,22 @@ const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: Soli
             </div>
           </header>
           <main className="p-6">
-            <div className="grid grid-cols-2 gap-8 mb-6 text-base">
+            <div className="grid grid-cols-2 gap-8 mb-6 text-sm">
               <div className="space-y-2">
                 <h4 className="font-semibold text-gray-700">Paciente:</h4>
-                <p className='text-lg'>{solicitud.trabajador.nombre}</p>
-                <p className="text-sm text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
+                <p>{solicitud.trabajador.nombre}</p>
+                <p className="text-xs text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
               </div>
               <div className="space-y-2">
                 <h4 className="font-semibold text-gray-700">Empresa:</h4>
-                <p className='text-lg'>{empresa.razonSocial}</p>
-                <p className="text-sm text-muted-foreground">RUT: {empresa.rut}</p>
+                <p>{empresa.razonSocial}</p>
+                <p className="text-xs text-muted-foreground">RUT: {empresa.rut}</p>
               </div>
             </div>
 
-            <h4 className="font-semibold text-gray-700 mb-2 text-base">Exámenes a Realizar:</h4>
+            <h4 className="font-semibold text-gray-700 mb-2">Exámenes a Realizar:</h4>
             <div className="border rounded-md p-4 bg-gray-50/50">
-              <ul className="space-y-2 list-disc list-inside text-gray-800 text-base">
+              <ul className="space-y-2 list-disc list-inside text-gray-800 text-sm">
                 {solicitud.examenes.map(exam => (
                   <li key={exam.id}>{exam.nombre}</li>
                 ))}
@@ -58,10 +58,10 @@ const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: Soli
             <Separator className="my-6" />
 
             <div>
-              <h4 className="font-semibold text-gray-700 mb-4 text-center text-base">Información para el Paciente</h4>
+              <h4 className="font-semibold text-gray-700 mb-4 text-center">Información para el Paciente</h4>
               <div className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50/50 text-blue-900">
-                <p className="font-bold text-xl text-center mb-3">Centro Médico Araval</p>
-                <div className='text-sm space-y-2'>
+                <p className="font-bold text-lg text-center mb-3">Centro Médico Araval</p>
+                <div className='text-xs space-y-2'>
                   <div className="flex items-center gap-3">
                     <MapPin className="h-4 w-4 text-blue-600 shrink-0"/>
                     <span>Juan Martinez 235, Taltal, Chile</span>
@@ -76,7 +76,7 @@ const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: Soli
                   </div>
                 </div>
                 <Separator className="my-4 bg-blue-200"/>
-                <p className="text-sm text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
+                <p className="text-xs text-center text-blue-800">Centro Médico, Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
               </div>
             </div>
           </main>
@@ -154,13 +154,13 @@ export function VistaCotizacion() {
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
     
+    // Temporarily make annexes visible for capture
     annexContainer.style.position = 'fixed';
     annexContainer.style.left = '0';
     annexContainer.style.top = '0';
     annexContainer.style.zIndex = '-1'; 
     annexContainer.style.visibility = 'visible';
     annexContainer.style.opacity = '1';
-
 
     try {
       // 1. Process Main Quote
@@ -191,6 +191,7 @@ export function VistaCotizacion() {
           variant: "destructive"
       })
     } finally {
+      // Restore styles
       if (buttonContainer) buttonContainer.style.display = 'flex';
       
       annexContainer.style.position = '';
@@ -245,12 +246,12 @@ export function VistaCotizacion() {
 
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
         <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-12">
-           <header className="bg-primary/10 p-6 rounded-lg mb-8">
+           <header className="bg-primary p-6 rounded-lg mb-8">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-3xl font-bold font-headline text-primary">COTIZACIÓN</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                <p className="mt-1 text-sm text-muted-foreground">Fecha: {quote.fecha}</p>
+                <h2 className="text-3xl font-bold font-headline text-primary-foreground">COTIZACIÓN</h2>
+                <p className="mt-1 text-sm text-primary-foreground/80">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
+                <p className="mt-1 text-sm text-primary-foreground/80">Fecha: {quote.fecha}</p>
               </div>
                <Image
                   src="/images/logo.png"
@@ -259,6 +260,7 @@ export function VistaCotizacion() {
                   height={40}
                   priority
                   unoptimized
+                  className="brightness-0 invert"
                 />
             </div>
           </header>
@@ -310,8 +312,8 @@ export function VistaCotizacion() {
                     {Object.keys(examsByMainCategory).length > 0 ? (
                       Object.entries(examsByMainCategory).map(([category, exams]) => (
                         <React.Fragment key={category}>
-                          <TableRow className="bg-primary/90">
-                            <TableCell colSpan={2} className="font-headline font-semibold text-primary-foreground text-sm py-2 px-4">
+                          <TableRow className="bg-gray-100">
+                            <TableCell colSpan={2} className="font-headline font-semibold text-gray-800 text-sm py-2 px-4">
                               {category}
                             </TableCell>
                           </TableRow>
