@@ -17,27 +17,41 @@ import { useToast } from '@/hooks/use-toast';
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
     <div className="order-page-container bg-white text-black p-8 print-container">
-        {/* Using arbitrary values to match the specific design requirements */}
-        <div className="max-w-4xl mx-auto space-y-8 text-xs">
-            <header className="flex justify-between items-start pb-4">
-                <div>
-                    <h3 className="text-base font-bold text-gray-800">Empresa</h3>
-                    <p className="text-gray-600">Razón Social: {empresa.razonSocial}</p>
-                    <p className="text-gray-600">RUT: {empresa.rut}</p>
+        <div className="max-w-4xl mx-auto text-xs space-y-2">
+            <header className="flex justify-between items-start">
+                 <div className="bg-primary text-primary-foreground p-2 -ml-2">
+                    <h2 className="font-bold text-base">Orden de Examen Ocupacionales</h2>
                 </div>
-                <div className="text-right">
-                    <h3 className="text-base font-bold text-gray-800">Trabajador</h3>
-                    <p className="text-gray-600">Nombre: {solicitud.trabajador.nombre}</p>
-                    <p className="text-gray-600">RUT: {solicitud.trabajador.rut}</p>
-                </div>
+                 <Image
+                    src="/images/logo.png"
+                    alt="Araval Logo"
+                    width={150}
+                    height={40}
+                    priority
+                    unoptimized
+                />
             </header>
 
-            <main className="space-y-10">
+            <main className="space-y-3">
+                <section className="grid grid-cols-2 gap-4 pt-4">
+                    <div>
+                        <h3 className="font-bold text-sm">Empresa</h3>
+                        <p>Razón Social: {empresa.razonSocial}</p>
+                        <p>RUT: {empresa.rut}</p>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-sm">Trabajador</h3>
+                        <p>Nombre: {solicitud.trabajador.nombre}</p>
+                        <p>RUT: {solicitud.trabajador.rut}</p>
+                    </div>
+                </section>
+                
                 <section>
-                    <h3 className="text-base font-bold text-gray-800 border-b pb-1 mb-2">Exámenes a Realizar</h3>
-                    <ul className="space-y-1 list-disc list-inside">
+                    <h3 className="font-bold text-sm">Exámenes a Realizar</h3>
+                    <hr className="my-1 border-gray-400"/>
+                    <ul className="list-disc list-inside">
                         {solicitud.examenes.map(exam => (
-                            <li key={exam.id} className="text-gray-700">
+                            <li key={exam.id}>
                                 {exam.nombre}
                             </li>
                         ))}
@@ -45,20 +59,21 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
                 
                 <section>
-                    <h3 className="text-base font-bold text-gray-800 border-b pb-1">Información para el Paciente</h3>
+                    <h3 className="font-bold text-sm">Información para el Paciente</h3>
+                     <hr className="my-1 border-gray-400"/>
                 </section>
                 
-                <section className="space-y-4 pt-4">
-                    <h3 className="text-base font-bold text-gray-800">Centro Medico Araval</h3>
-                    <div className="text-gray-600">
+                <section>
+                    <h3 className="font-bold text-sm">Centro Medico Araval</h3>
+                    <div className='text-gray-600'>
                         <p>Juan Martinez 235, Taltal Chile</p>
-                        <p className="pt-2">+56 9 7541 1515</p>
+                        <p>+56 9 7541 1515</p>
                         <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
                     </div>
                 </section>
             </main>
             
-            <footer className="text-center text-gray-500 pt-32 text-[10px]">
+            <footer className="text-center text-gray-500 text-[9px] pt-10">
                  <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
             </footer>
         </div>
