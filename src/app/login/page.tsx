@@ -5,7 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useFirebase } from '@/firebase'; // Use the central hook
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -26,13 +26,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { auth } = useFirebase(); // Get auth from our provider
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Use the auth instance from the context
       await signInWithEmailAndPassword(auth, email, password);
-      router.push('/');
+      // The AuthProvider will handle redirection based on role
+      // We can optimistically push to a default page
+      router.push('/'); 
     } catch (error: any) {
       toast({
         variant: 'destructive',
