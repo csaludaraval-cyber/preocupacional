@@ -16,9 +16,9 @@ import { useToast } from '@/hooks/use-toast';
 
 // --- NUEVO DISEÑO COMPONENTE OrdenDeExamen ---
 const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
-    <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto my-8 p-8" style={{ pageBreakBefore: 'always' }}>
+    <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto my-8 p-12" style={{ pageBreakBefore: 'always' }}>
       {/* Contenedor estilo Voucher */}
-      <div className="max-w-lg mx-auto border-2 border-dashed rounded-xl p-6 bg-white shadow-lg">
+      <div className="max-w-lg mx-auto border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white shadow-lg">
           <header className="flex justify-between items-start pb-4 border-b-2 border-gray-200">
             <div>
               <h3 className="text-xl font-bold font-headline text-gray-800">Orden de Examen</h3>
@@ -146,12 +146,12 @@ export function VistaCotizacion() {
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
     
-    // Make annexes temporarily visible for capture but off-screen
+    // Make annexes temporarily visible for capture
+    annexContainer.style.visibility = 'visible';
     annexContainer.style.position = 'fixed';
     annexContainer.style.left = '0';
     annexContainer.style.top = '0';
     annexContainer.style.zIndex = '-1'; 
-    annexContainer.style.visibility = 'visible';
     annexContainer.style.opacity = '1';
 
 
@@ -188,11 +188,12 @@ export function VistaCotizacion() {
       if (buttonContainer) buttonContainer.style.display = 'flex';
       
       annexContainer.style.position = '';
+      annexContainer.style.visibility = 'hidden';
       annexContainer.style.left = '';
       annexContainer.style.top = '';
       annexContainer.style.zIndex = '';
-      annexContainer.style.visibility = 'hidden';
       annexContainer.style.opacity = '';
+
       setLoadingPdf(false);
 
       const date = new Date();
@@ -238,13 +239,12 @@ export function VistaCotizacion() {
       </div>
 
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
-        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-12">
-           <header className="bg-primary p-6 rounded-lg mb-8">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-3xl font-bold font-headline text-primary-foreground">COTIZACIÓN</h2>
-                <p className="mt-1 text-sm text-primary-foreground/80">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                <p className="mt-1 text-sm text-primary-foreground/80">Fecha: {quote.fecha}</p>
+        <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-16">
+           <header className="flex justify-between items-start pb-6 border-b-2 border-gray-200">
+            <div>
+                <h2 className="text-3xl font-bold font-headline text-primary">COTIZACIÓN</h2>
+                <p className="mt-1 text-sm text-gray-500">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
+                <p className="mt-1 text-sm text-gray-500">Fecha: {quote.fecha}</p>
               </div>
                <Image
                   src="/images/logo.png"
@@ -253,12 +253,10 @@ export function VistaCotizacion() {
                   height={40}
                   priority
                   unoptimized
-                  className="brightness-0 invert"
                 />
-            </div>
-          </header>
+            </header>
 
-          <main>
+          <main className="py-8">
             <section className="grid grid-cols-2 gap-8 mb-8">
               <div className="space-y-2">
                 <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><Building className="h-5 w-5 text-gray-500" />Datos Empresa</h3>
@@ -391,4 +389,3 @@ export function VistaCotizacion() {
     </>
   );
 }
-
