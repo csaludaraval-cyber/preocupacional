@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { 
@@ -11,7 +12,7 @@ import React, {
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { useFirebase } from '@/firebase'; // Use the central hook
+import { useFirebase } from '@/firebase'; 
 import type { User } from './types';
 import { Loader2 } from 'lucide-react';
 
@@ -31,10 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Get user and auth services from the central provider
-  const { user: firebaseUser, auth, firestore, isUserLoading } = useFirebase();
+  const { user: firebaseUser, auth, firestore, isUserLoading, areServicesAvailable } = useFirebase();
 
   useEffect(() => {
+    // Wait until firebase services are actually available
+    if (!areServicesAvailable) return;
+
     const checkUserRole = async (fbUser: FirebaseUser) => {
       if (!firestore) return;
       setLoadingRole(true);
@@ -43,30 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const adminRoleDoc = await getDoc(adminRoleRef);
         
         const extendedUser: User = {
-          // Re-structure to avoid spreading a FirebaseUser object
-          uid: fbUser.uid,
-          email: fbUser.email,
-          displayName: fbUser.displayName,
-          photoURL: fbUser.photoURL,
-          emailVerified: fbUser.emailVerified,
-          isAnonymous: fbUser.isAnonymous,
-          metadata: fbUser.metadata,
-          providerData: fbUser.providerData,
-          providerId: fbUser.providerId,
-          tenantId: fbUser.tenantId,
-          refreshToken: fbUser.refreshToken,
-          delete: fbUser.delete,
-          getIdToken: fbUser.getIdToken,
-          getIdTokenResult: fbUser.getIdTokenResult,
-          reload: fbUser.reload,
-          toJSON: fbUser.toJSON,
-          // Add our custom role
+          ...fbUser,
           role: adminRoleDoc.exists() ? 'admin' : 'standard',
         };
         
         setUserWithRole(extendedUser);
 
-        // Redirect logic after role is determined
         if (pathname === '/login' || pathname === '/crear-primer-admin') {
             if (extendedUser.role === 'admin') {
                 router.push('/admin');
@@ -76,8 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error("Error fetching user role:", error);
-        // Set a default user object without a role or handle the error appropriately
-        setUserWithRole(fbUser as User); // Fallback to basic user
+        setUserWithRole(fbUser as User); 
       } finally {
         setLoadingRole(false);
       }
@@ -88,12 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else if (!isUserLoading) {
       setUserWithRole(null);
       setLoadingRole(false);
-      // If user logs out or session expires, redirect to login if not already on a public page
       if (!publicRoutes.includes(pathname) && pathname !== '/cotizacion') {
           router.push('/login');
       }
     }
-  }, [firebaseUser, isUserLoading, firestore, router, pathname]);
+  }, [firebaseUser, isUserLoading, firestore, router, pathname, areServicesAvailable]);
 
   const logout = async () => {
     if (!auth) return;
@@ -108,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: userWithRole,
     loading,
     logout,
-  }), [userWithRole, loading, () => logout]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [userWithRole, loading, auth]);
   
   const isPublicRoute = publicRoutes.includes(pathname) || pathname === '/cotizacion';
 
@@ -120,9 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  // This prevents flashing the login page for authenticated users on a protected route.
   if (!isPublicRoute && !loading && !userWithRole) {
-    // The redirect is handled in the useEffect, so we just prevent rendering.
     return null;
   }
 
