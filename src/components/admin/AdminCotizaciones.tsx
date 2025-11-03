@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +40,8 @@ export function AdminCotizaciones() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [quoteToDelete, setQuoteToDelete] = useState<WithId<CotizacionFirestore> | null>(null);
 
   const cotizacionesQuery = useMemoFirebase(() => collection(firestore, 'cotizaciones'), []);
@@ -47,15 +50,34 @@ export function AdminCotizaciones() {
   
   const filteredCotizaciones = useMemo(() => {
     if (!cotizaciones) return [];
-    if (!searchTerm) return cotizaciones;
 
-    const lowercasedFilter = searchTerm.toLowerCase();
-    return cotizaciones.filter(quote =>
-      quote.empresaData.razonSocial.toLowerCase().includes(lowercasedFilter) ||
-      quote.solicitanteData.nombre.toLowerCase().includes(lowercasedFilter) ||
-      quote.id.toLowerCase().includes(lowercasedFilter)
-    );
-  }, [cotizaciones, searchTerm]);
+    return cotizaciones.filter(quote => {
+      // Date filtering
+      const quoteDate = quote.fechaCreacion.toDate();
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0); // Start of the day
+        if (quoteDate < start) return false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); // End of the day
+        if (quoteDate > end) return false;
+      }
+
+      // Search term filtering
+      if (searchTerm) {
+          const lowercasedFilter = searchTerm.toLowerCase();
+          const matchesSearch = 
+            quote.empresaData.razonSocial.toLowerCase().includes(lowercasedFilter) ||
+            quote.solicitanteData.nombre.toLowerCase().includes(lowercasedFilter) ||
+            quote.id.toLowerCase().includes(lowercasedFilter);
+          if (!matchesSearch) return false;
+      }
+
+      return true;
+    });
+  }, [cotizaciones, searchTerm, startDate, endDate]);
 
   const handleDelete = async () => {
     if (!quoteToDelete) return;
@@ -137,14 +159,36 @@ export function AdminCotizaciones() {
         <CardDescription>
           Busque y gestione las cotizaciones generadas en el sistema.
         </CardDescription>
-        <div className="relative pt-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input 
-                placeholder="Buscar por empresa, solicitante o N° de documento..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <div className="pt-4 space-y-4">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input 
+                    placeholder="Buscar por empresa, solicitante o N° de documento..."
+                    className="pl-10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className='space-y-2'>
+                    <Label htmlFor='start-date'>Fecha Desde</Label>
+                    <Input 
+                        id="start-date"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                    />
+                </div>
+                <div className='space-y-2'>
+                    <Label htmlFor='end-date'>Fecha Hasta</Label>
+                    <Input 
+                        id="end-date"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                    />
+                </div>
+            </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -226,7 +270,7 @@ export function AdminCotizaciones() {
                     }) : (
                         <TableRow>
                             <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                                No se encontraron cotizaciones.
+                                No se encontraron cotizaciones para los filtros seleccionados.
                             </TableCell>
                         </TableRow>
                     )}
@@ -238,3 +282,5 @@ export function AdminCotizaciones() {
     </Card>
   );
 }
+
+    
