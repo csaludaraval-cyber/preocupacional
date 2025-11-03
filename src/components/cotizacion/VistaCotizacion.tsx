@@ -15,8 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 
 // Componente para la Orden de Examen (Anexo)
 const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
-    <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto">
-      <div className="p-8 border rounded-lg max-w-2xl mx-auto my-8">
+    <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto my-8">
+      <div className="p-8 border rounded-lg max-w-2xl mx-auto">
           <header className="bg-gray-50 p-6 rounded-t-lg">
             <div className="flex justify-between items-center">
               <div>
@@ -154,11 +154,10 @@ export function VistaCotizacion() {
     const buttonContainer = document.getElementById('button-container');
     if (buttonContainer) buttonContainer.style.display = 'none';
     
-    // Make annexes visible but move them off-screen for rendering
     annexContainer.style.position = 'fixed';
     annexContainer.style.left = '0';
     annexContainer.style.top = '0';
-    annexContainer.style.zIndex = '-1'; // Put it behind everything
+    annexContainer.style.zIndex = '-1'; 
     annexContainer.style.visibility = 'visible';
     annexContainer.style.opacity = '1';
 
@@ -169,19 +168,9 @@ export function VistaCotizacion() {
       const mainImgData = mainCanvas.toDataURL('image/png');
       const mainRatio = mainCanvas.height / mainCanvas.width;
       let mainImgHeight = pdfWidth * mainRatio;
-      let mainImgHeightLeft = mainImgHeight;
-
-      let position = 0;
-      pdf.addImage(mainImgData, 'PNG', 0, position, pdfWidth, mainImgHeight);
-      mainImgHeightLeft -= pdf.internal.pageSize.getHeight();
-
-      while (mainImgHeightLeft > 0) {
-        position = -mainImgHeightLeft;
-        pdf.addPage();
-        pdf.addImage(mainImgData, 'PNG', 0, position, pdfWidth, mainImgHeight);
-        mainImgHeightLeft -= pdf.internal.pageSize.getHeight();
-      }
-
+      
+      pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
+      
       // 2. Process Annexes
       const annexElements = annexContainer.querySelectorAll<HTMLDivElement>('.order-page-container');
       for (let i = 0; i < annexElements.length; i++) {
@@ -203,7 +192,7 @@ export function VistaCotizacion() {
       })
     } finally {
       if (buttonContainer) buttonContainer.style.display = 'flex';
-      // Restore annex container styles
+      
       annexContainer.style.position = '';
       annexContainer.style.left = '';
       annexContainer.style.top = '';
@@ -255,10 +244,8 @@ export function VistaCotizacion() {
       </div>
 
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
-
-        {/* --- Main Quotation for Display and PDF --- */}
         <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-12">
-           <header className="bg-gray-50 p-6 rounded-lg mb-8">
+           <header className="bg-primary/10 p-6 rounded-lg mb-8">
             <div className="flex justify-between items-center">
               <div>
                 <h2 className="text-3xl font-bold font-headline text-primary">COTIZACIÓN</h2>
@@ -295,8 +282,8 @@ export function VistaCotizacion() {
             {quote.solicitudes && quote.solicitudes.length > 0 && (
               <section className="mb-8">
                 <Card className="shadow-sm border-gray-200">
-                  <CardHeader className="p-3 bg-gray-50 rounded-t-lg">
-                    <CardTitle className="font-headline text-base flex items-center gap-2"><Users className="h-5 w-5 text-primary" />Trabajadores Incluidos ({quote.solicitudes.length})</CardTitle>
+                  <CardHeader className="p-3 bg-primary text-primary-foreground rounded-t-lg">
+                    <CardTitle className="font-headline text-base flex items-center gap-2"><Users className="h-5 w-5" />Trabajadores Incluidos ({quote.solicitudes.length})</CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 text-sm">
                      <ul className="space-y-1 list-disc list-inside text-muted-foreground columns-2 md:columns-3">
@@ -313,18 +300,18 @@ export function VistaCotizacion() {
               <h3 className="font-headline text-lg font-semibold mb-2 text-gray-700">Detalle de Servicios Consolidados</h3>
               <div className="border rounded-lg overflow-hidden">
                 <Table>
-                  <TableHeader className="bg-gray-50">
+                  <TableHeader className="bg-primary">
                     <TableRow>
-                      <TableHead className="w-[70%] font-semibold text-gray-600 text-sm py-2 px-4">Examen</TableHead>
-                      <TableHead className="text-right font-semibold text-gray-600 text-sm py-2 px-4">Valor Unitario</TableHead>
+                      <TableHead className="w-[70%] font-semibold text-primary-foreground text-sm py-2 px-4">Examen</TableHead>
+                      <TableHead className="text-right font-semibold text-primary-foreground text-sm py-2 px-4">Valor Unitario</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {Object.keys(examsByMainCategory).length > 0 ? (
                       Object.entries(examsByMainCategory).map(([category, exams]) => (
                         <React.Fragment key={category}>
-                          <TableRow className="bg-gray-100/80">
-                            <TableCell colSpan={2} className="font-headline font-semibold text-foreground text-sm py-2 px-4">
+                          <TableRow className="bg-primary/90">
+                            <TableCell colSpan={2} className="font-headline font-semibold text-primary-foreground text-sm py-2 px-4">
                               {category}
                             </TableCell>
                           </TableRow>
@@ -374,7 +361,6 @@ export function VistaCotizacion() {
         </div>
       </div>
 
-      {/* --- Annex Container for PDF Generation ONLY --- */}
       <div id="annex-container" style={{ visibility: 'hidden', position: 'absolute', left: '-9999px', top: '0', zIndex: -1 }}>
            {quote?.solicitudes.map((solicitud, index) => (
                 <OrdenDeExamen 
