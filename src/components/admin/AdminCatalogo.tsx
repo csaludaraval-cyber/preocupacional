@@ -4,8 +4,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Shield, Loader2, Save, Search } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { getExams, updateExamPrice } from '@/lib/data';
-import { examCategories } from '@/lib/constants';
+import { getExams, examCategories } from '@/lib/data';
 import type { Examen } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';

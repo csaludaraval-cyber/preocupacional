@@ -3,8 +3,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import type { Examen } from '@/lib/types';
-import { getExams } from '@/lib/data';
-import { examCategories } from '@/lib/constants';
+import { getExams, examCategories } from '@/lib/data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
