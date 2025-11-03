@@ -40,7 +40,7 @@ export function AppStatus() {
             <AlertTitle>Acceso Denegado</AlertTitle>
             <AlertDescription>
                 No tienes permisos para acceder a esta sección.
-            </Alerc/components/admin/AppStatus.tsxtDescription>
+            </AlertDescription>
         </Alert>
     );
   }
