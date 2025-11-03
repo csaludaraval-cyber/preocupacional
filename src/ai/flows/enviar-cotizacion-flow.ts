@@ -83,9 +83,9 @@ const enviarCotizacionFlow = ai.defineFlow(
         message: `Cotización ${cotizacionId} enviada a ${clienteEmail}.`,
       };
     } catch (error: any) {
-      console.error('Error al enviar el correo:', error);
-      // Lanzar un error que el frontend pueda capturar
-      throw new Error(`Fallo al enviar el correo electrónico: ${error.message}`);
+      console.error('Error detallado de Nodemailer:', error);
+      // Propagar el mensaje de error original y completo de nodemailer
+      throw new Error(error.message);
     }
   }
 );
