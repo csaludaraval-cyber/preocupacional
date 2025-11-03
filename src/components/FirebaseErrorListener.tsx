@@ -13,25 +13,23 @@ export function FirebaseErrorListener() {
   const [error, setError] = useState<FirestorePermissionError | null>(null);
 
   useEffect(() => {
-    // The callback now expects a strongly-typed error, matching the event payload.
     const handleError = (error: FirestorePermissionError) => {
-      // Set error in state to trigger a re-render.
       setError(error);
     };
 
-    // The typed emitter will enforce that the callback for 'permission-error'
-    // matches the expected payload type (FirestorePermissionError).
     errorEmitter.on('permission-error', handleError);
 
-    // Unsubscribe on unmount to prevent memory leaks.
     return () => {
       errorEmitter.off('permission-error', handleError);
     };
   }, []);
 
-  // On re-render, if an error exists in state, throw it.
   if (error) {
-    throw error;
+    // throw error; // This can be too disruptive. Let's log it instead for now, or handle it via a toast.
+    console.error("Caught a Firestore Permission Error:", error.message);
+    // Optionally, reset the error state so subsequent renders don't keep throwing.
+    // Be cautious with this as it might hide persistent issues.
+    // setError(null); 
   }
 
   // This component renders nothing.

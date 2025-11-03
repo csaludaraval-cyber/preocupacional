@@ -9,9 +9,9 @@ import React, {
   type ReactNode 
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
+import { signOut, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, firestore } from './firebase';
+import { useFirebase } from '@/firebase/provider'; // Use the central hook
 import type { User } from './types';
 import { Loader2 } from 'lucide-react';
 
@@ -26,59 +26,83 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const publicRoutes = ['/login', '/crear-primer-admin', '/solicitud'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [userWithRole, setUserWithRole] = useState<User | null>(null);
+  const [loadingRole, setLoadingRole] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
+  // Get user and auth services from the central provider
+  const { user: firebaseUser, auth, firestore, isUserLoading } = useFirebase();
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const adminRoleRef = doc(firestore, 'roles_admin', firebaseUser.uid);
-        const adminRoleDoc = await getDoc(adminRoleRef);
+    const checkUserRole = async (fbUser: FirebaseUser) => {
+      if (!firestore) return;
+      setLoadingRole(true);
+      const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
+      const adminRoleDoc = await getDoc(adminRoleRef);
+      
+      const extendedUser: User = {
+        ...fbUser,
+        // Re-structure to avoid spreading a FirebaseUser object
+        uid: fbUser.uid,
+        email: fbUser.email,
+        displayName: fbUser.displayName,
+        photoURL: fbUser.photoURL,
+        emailVerified: fbUser.emailVerified,
+        isAnonymous: fbUser.isAnonymous,
+        metadata: fbUser.metadata,
+        providerData: fbUser.providerData,
+        providerId: fbUser.providerId,
+        tenantId: fbUser.tenantId,
+        refreshToken: fbUser.refreshToken,
+        delete: fbUser.delete,
+        getIdToken: fbUser.getIdToken,
+        getIdTokenResult: fbUser.getIdTokenResult,
+        reload: fbUser.reload,
+        toJSON: fbUser.toJSON,
+        // Add our custom role
+        role: adminRoleDoc.exists() ? 'admin' : 'standard',
+      };
+      
+      setUserWithRole(extendedUser);
+      setLoadingRole(false);
 
-        const userProfile: User = {
-          ...firebaseUser,
-          role: adminRoleDoc.exists() ? 'admin' : 'standard',
-        };
-        
-        setUser(userProfile);
-        
-        // Redirect logic after user is identified
-        if (pathname === '/login' || pathname === '/crear-primer-admin') {
-            if (userProfile.role === 'admin') {
-                router.push('/admin');
-            } else {
-                router.push('/');
-            }
-        }
-
-      } else {
-        setUser(null);
-        // If user logs out or session expires, redirect to login if not already on a public page
-        if (!publicRoutes.includes(pathname)) {
-            router.push('/login');
-        }
+      // Redirect logic after role is determined
+       if (pathname === '/login' || pathname === '/crear-primer-admin') {
+          if (extendedUser.role === 'admin') {
+              router.push('/admin');
+          } else {
+              router.push('/');
+          }
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [router, pathname]);
+    };
+    
+    if (firebaseUser) {
+      checkUserRole(firebaseUser);
+    } else if (!isUserLoading) {
+      setUserWithRole(null);
+      setLoadingRole(false);
+      // If user logs out or session expires, redirect to login if not already on a public page
+      if (!publicRoutes.includes(pathname)) {
+          router.push('/login');
+      }
+    }
+  }, [firebaseUser, isUserLoading, firestore, router, pathname]);
 
   const logout = async () => {
-    setLoading(true);
+    if (!auth) return;
     await signOut(auth);
-    setUser(null);
+    setUserWithRole(null);
     router.push('/login');
-    // No es necesario setLoading(false) aquí porque el onAuthStateChanged se encargará.
   };
   
+  const loading = isUserLoading || loadingRole;
+
   const value = useMemo(() => ({
-    user,
+    user: userWithRole,
     loading,
     logout,
-  }), [user, loading, logout]);
+  }), [userWithRole, loading, logout]);
   
   const isPublicRoute = publicRoutes.includes(pathname);
 
@@ -90,8 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isPublicRoute && !user) {
-    // No renderiza nada mientras redirige para evitar flashes de contenido.
+  if (!isPublicRoute && !userWithRole) {
+    // No render while redirecting
     return null;
   }
 
