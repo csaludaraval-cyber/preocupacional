@@ -16,39 +16,41 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
-    <div className="order-page-container bg-white text-black p-12 print-container">
-        <div className="max-w-4xl mx-auto space-y-4">
+    <div className="order-page-container bg-white text-black p-8 print-container">
+        {/* The text sizes below are extremely small, using Tailwind's arbitrary value support */}
+        <div className="max-w-4xl mx-auto space-y-2 text-[6px]">
             <header className="flex justify-between items-start pb-2">
-                <div className="bg-primary text-primary-foreground px-3 py-1">
+                <div className="bg-primary text-primary-foreground px-2 py-0.5">
+                    {/* This title remains larger */}
                     <h3 className="text-sm font-bold">Orden de Examen Ocupacionales</h3>
                 </div>
                 <Image 
                     src="/images/logo.png" 
                     alt="Araval Logo" 
-                    width={120} 
-                    height={34} 
+                    width={100} 
+                    height={28} 
                     unoptimized
                 />
             </header>
 
-            <main className="space-y-4">
-                <section className="grid grid-cols-2 gap-8">
+            <main className="space-y-3">
+                <section className="grid grid-cols-2 gap-4">
                     <div className="space-y-0.5">
-                        <h3 className="font-headline text-base font-semibold text-gray-700">Empresa</h3>
-                        <p className="text-xs"><strong className="font-medium text-gray-600">Razón Social:</strong> {empresa.razonSocial}</p>
-                        <p className="text-xs"><strong className="font-medium text-gray-600">RUT:</strong> {empresa.rut}</p>
+                        <h3 className="font-headline font-semibold text-gray-700 text-[7px]">Empresa</h3>
+                        <p><strong className="font-medium text-gray-600">Razón Social:</strong> {empresa.razonSocial}</p>
+                        <p><strong className="font-medium text-gray-600">RUT:</strong> {empresa.rut}</p>
                     </div>
                     <div className="space-y-0.5">
-                        <h3 className="font-headline text-base font-semibold text-gray-700">Trabajador</h3>
-                        <p className="text-xs"><strong className="font-medium text-gray-600">Nombre:</strong> {solicitud.trabajador.nombre}</p>
-                        <p className="text-xs"><strong className="font-medium text-gray-600">RUT:</strong> {solicitud.trabajador.rut}</p>
+                        <h3 className="font-headline font-semibold text-gray-700 text-[7px]">Trabajador</h3>
+                        <p><strong className="font-medium text-gray-600">Nombre:</strong> {solicitud.trabajador.nombre}</p>
+                        <p><strong className="font-medium text-gray-600">RUT:</strong> {solicitud.trabajador.rut}</p>
                     </div>
                 </section>
 
                 <section>
-                    <h3 className="font-headline text-base font-semibold text-gray-700">Exámenes a Realizar</h3>
+                    <h3 className="font-headline font-semibold text-gray-700 text-[7px]">Exámenes a Realizar</h3>
                     <hr className="my-1" />
-                    <ul className="space-y-0.5 list-disc list-inside text-xs">
+                    <ul className="space-y-0.5 list-disc list-inside">
                         {solicitud.examenes.map(exam => (
                             <li key={exam.id}>
                                 {exam.nombre}
@@ -58,13 +60,13 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
                 
                 <section>
-                    <h3 className="font-headline text-base font-semibold text-gray-700">Información para el Paciente</h3>
+                    <h3 className="font-headline font-semibold text-gray-700 text-[7px]">Información para el Paciente</h3>
                      <hr className="my-1" />
                 </section>
                 
                 <section className="space-y-0.5">
-                    <h3 className="font-headline text-base font-semibold text-gray-700">Centro Medico Araval</h3>
-                    <div className="mt-1 text-xs space-y-0.5">
+                    <h3 className="font-headline font-semibold text-gray-700 text-[7px]">Centro Medico Araval</h3>
+                    <div className="mt-1 space-y-0.5">
                         <p>Juan Martinez 235, Taltal Chile</p>
                         <p>+56 9 7541 1515</p>
                         <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
@@ -72,7 +74,7 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
             </main>
             
-            <footer className="text-center text-[10px] text-gray-500 pt-4">
+            <footer className="text-center text-gray-500 pt-4">
                  <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
             </footer>
         </div>
