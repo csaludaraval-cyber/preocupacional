@@ -30,76 +30,73 @@ const quoteRoute = '/cotizacion';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [userWithRole, setUserWithRole] = useState<User | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [loading, setLoading] = useState(true); // Manages UI loading state
   const router = useRouter();
   const pathname = usePathname();
 
   const { user: firebaseUser, auth, firestore, isUserLoading, areServicesAvailable } = useFirebase();
 
   useEffect(() => {
+    // Wait until Firebase is initialized and has checked the user's auth state
     if (isUserLoading || !areServicesAvailable) {
-      return; // Wait until Firebase Auth is initialized and services are ready
+      return; 
     }
 
-    const handleUserRole = async (fbUser: FirebaseUser) => {
-      if (!firestore) return;
-      try {
-        const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
-        const adminRoleDoc = await getDoc(adminRoleRef);
-        const role = adminRoleDoc.exists() ? 'admin' : 'standard';
-        
-        const user: User = {
-          ...fbUser,
-          uid: fbUser.uid,
-          role: role,
-        };
-        setUserWithRole(user);
+    const processUser = async (fbUser: FirebaseUser | null) => {
+      if (fbUser) {
+        // User is signed in, get their role
+        try {
+          if (!firestore) throw new Error("Firestore service is not available.");
+          const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
+          const adminRoleDoc = await getDoc(adminRoleRef);
+          const role = adminRoleDoc.exists() ? 'admin' : 'standard';
+          
+          const user: User = { ...fbUser, uid: fbUser.uid, role: role };
+          setUserWithRole(user);
 
-        // --- REDIRECTION LOGIC FOR AUTHENTICATED USERS ---
-        const isOnLogin = publicRoutes.includes(pathname);
-        if (role === 'admin' && isOnLogin) {
-          router.push(adminOnlyInitialRoute);
-        } else if (isOnLogin) {
-          router.push('/');
+          // Handle redirection for logged-in user
+          const isOnPublicOnlyPage = publicRoutes.includes(pathname);
+          if (isOnPublicOnlyPage) {
+            router.push(role === 'admin' ? adminOnlyInitialRoute : '/');
+          }
+
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+          // Fallback to standard role on error
+          setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' });
         }
-
-      } catch (error) {
-        console.error("Error fetching user role:", error);
-        setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' });
-      } finally {
-        setAuthChecked(true);
+      } else {
+        // User is not signed in
+        setUserWithRole(null);
+        // Handle redirection for non-logged-in user
+        const isProtectedRoute = !publicRoutes.includes(pathname) && !pathname.startsWith(quoteRoute);
+        if (isProtectedRoute) {
+          router.push('/login');
+        }
       }
+      setLoading(false); // Authentication check is complete
     };
 
-    if (firebaseUser) {
-      handleUserRole(firebaseUser);
-    } else {
-      // --- REDIRECTION LOGIC FOR UNAUTHENTICATED USERS ---
-      setUserWithRole(null);
-      setAuthChecked(true);
-      const isProtectedRoute = !publicRoutes.includes(pathname) && !pathname.startsWith(quoteRoute);
-      if (isProtectedRoute) {
-        router.push('/login');
-      }
-    }
+    processUser(firebaseUser);
 
   }, [firebaseUser, isUserLoading, areServicesAvailable, firestore, pathname, router]);
 
   const logout = async () => {
     if (!auth) return;
+    setLoading(true);
     await signOut(auth);
     setUserWithRole(null);
-    setAuthChecked(false);
     router.push('/login');
+    setLoading(false);
   };
   
   const value = useMemo(() => ({
     user: userWithRole,
-    loading: !authChecked,
+    loading: loading,
     logout,
-  }), [userWithRole, authChecked, auth]);
+  }), [userWithRole, loading, auth]);
 
-  if (!authChecked) {
+  if (loading) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
