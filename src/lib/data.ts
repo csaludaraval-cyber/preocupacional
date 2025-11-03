@@ -4,7 +4,7 @@ import { firestore } from '@/lib/firebase';
 import type { Examen } from '@/lib/types';
 
 // This function is for one-time seeding, you might not need it if you manage data via an admin UI
-export async function seedInitialExams() {
+export async function seedInitialExams(): Promise<Examen[]> {
   const catalogoExamenes: Omit<Examen, 'id'>[] = [
     // I. Baterías y Exámenes Ocupacionales
     { "nombre": "BATERIA BASICA CAT A", "categoria": "Baterías y Exámenes Ocupacionales", "subcategoria": "Baterías Básicas", "valor": 0, "unidad": "CLP", "descripcion": "", "esBateria": true },
@@ -68,30 +68,31 @@ export async function seedInitialExams() {
   ];
   
   const examsCollection = collection(firestore, 'examenes');
-  const snapshot = await getDocs(examsCollection);
+  const seededExams: Examen[] = [];
   
-  // We'll only seed if the collection is empty
-  if (snapshot.empty) {
-      console.log('Exams collection is empty, seeding initial data...');
-      const batch = writeBatch(firestore);
-      catalogoExamenes.forEach(examen => {
-          const docRef = doc(examsCollection); // Firestore generates ID
-          batch.set(docRef, examen);
-      });
-      await batch.commit();
-      console.log('Initial exams have been seeded.');
-  }
+  console.log('Seeding initial exams...');
+  const batch = writeBatch(firestore);
+  catalogoExamenes.forEach(examen => {
+      const docRef = doc(examsCollection); // Firestore generates ID
+      batch.set(docRef, examen);
+      seededExams.push({ ...examen, id: docRef.id });
+  });
+  await batch.commit();
+  console.log('Initial exams have been seeded.');
+  return seededExams;
 }
 
 
 export async function getExams(): Promise<Examen[]> {
   const examsCollection = collection(firestore, 'examenes');
   const snapshot = await getDocs(examsCollection);
+  
   if (snapshot.empty) {
-    await seedInitialExams();
-    const newSnapshot = await getDocs(examsCollection);
-    return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Examen));
+    // If it's empty, seed the data and return it directly.
+    return await seedInitialExams();
   }
+
+  // If not empty, just return the data from the snapshot.
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Examen));
 }
 
