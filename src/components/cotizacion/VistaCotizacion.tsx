@@ -16,11 +16,11 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
-    <div className="order-page-container bg-white text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
-        <div className="max-w-4xl mx-auto space-y-8 px-[60px] pt-[170px] pb-[230px]">
+    <div className="order-page-container bg-white text-black p-10">
+        <div className="max-w-4xl mx-auto space-y-8">
             <header className="flex justify-between items-center">
-                <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg">
-                    <h3 className="text-base font-semibold leading-none" style={{ fontSize: '13.165pt' }}>Orden de Examen Ocupacionales</h3>
+                <div className="bg-primary text-primary-foreground px-4 py-2">
+                    <h3 className="text-base font-bold">Orden de Examen Ocupacionales</h3>
                 </div>
                 <Image 
                     src="/images/logo.png" 
@@ -31,41 +31,40 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 />
             </header>
 
-            <main className="space-y-10">
+            <main className="space-y-6">
                 <section className="grid grid-cols-2 gap-8">
                     <div>
-                        <p className="font-bold mb-1" style={{ fontSize: '13.165pt' }}>Empresa</p>
-                        <p style={{ fontSize: '10.527pt' }}>{empresa.razonSocial}</p>
-                        <p style={{ fontSize: '10.527pt' }}>RUT: {empresa.rut}</p>
+                        <p className="font-bold text-lg mb-1">Empresa</p>
+                        <p>{empresa.razonSocial}</p>
+                        <p>RUT: {empresa.rut}</p>
                     </div>
                     <div>
-                        <p className="font-bold mb-1" style={{ fontSize: '13.165pt' }}>Trabajador</p>
-                        <p style={{ fontSize: '10.527pt' }}>{solicitud.trabajador.nombre}</p>
-                        <p style={{ fontSize: '10.527pt' }}>RUT: {solicitud.trabajador.rut}</p>
+                        <p className="font-bold text-lg mb-1">Trabajador</p>
+                        <p>{solicitud.trabajador.nombre}</p>
+                        <p>RUT: {solicitud.trabajador.rut}</p>
                     </div>
                 </section>
 
                 <section>
-                    <h4 className="font-bold" style={{ fontSize: '13.165pt' }}>Exámenes a Realizar</h4>
+                    <h4 className="font-bold text-lg">Exámenes a Realizar</h4>
                     <hr className="border-gray-900 my-2" />
-                    <ul className="space-y-1">
+                    <ul className="space-y-1 list-disc list-inside">
                         {solicitud.examenes.map(exam => (
-                            <li key={exam.id} className="flex items-start" style={{ fontSize: '10.527pt' }}>
-                                <span className="mr-2">•</span>
-                                <span>{exam.nombre}</span>
+                            <li key={exam.id}>
+                                {exam.nombre}
                             </li>
                         ))}
                     </ul>
                 </section>
                 
                 <section>
-                    <h4 className="font-bold" style={{ fontSize: '13.165pt' }}>Información para el Paciente</h4>
+                    <h4 className="font-bold text-lg text-center">Información para el Paciente</h4>
                      <hr className="border-gray-900 my-2" />
                 </section>
                 
                 <section>
-                    <p className="font-bold" style={{ fontSize: '13.165pt' }}>Centro Medico Araval</p>
-                    <div style={{ fontSize: '10.527pt' }} className="mt-1">
+                    <p className="font-bold text-lg">Centro Medico Araval</p>
+                    <div className="mt-1">
                         <p>Juan Martinez 235, Taltal Chile</p>
                         <p>+56 9 7541 1515</p>
                         <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
@@ -73,8 +72,8 @@ const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador,
                 </section>
             </main>
             
-            <footer className="fixed bottom-0 left-0 right-0 text-center" style={{ paddingBottom: '100px'}}>
-                 <p style={{ fontSize: '10.527pt' }}>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
+            <footer className="text-center text-sm pt-8">
+                 <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
             </footer>
         </div>
     </div>
