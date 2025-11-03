@@ -16,66 +16,78 @@ import { useToast } from '@/hooks/use-toast';
 
 // --- NUEVO DISEÑO COMPONENTE OrdenDeExamen ---
 const OrdenDeExamen = ({ solicitud, empresa, quoteId, index }: { solicitud: SolicitudTrabajador, empresa: Empresa, quoteId: string, index: number }) => (
-    <div id={`annex-page-${index}`} className="order-page-container bg-white mx-auto my-8 p-12" style={{ pageBreakBefore: 'always' }}>
-      {/* Contenedor estilo Voucher */}
-      <div className="max-w-lg mx-auto border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white shadow-lg">
-          <header className="flex justify-between items-start pb-4 border-b-2 border-gray-200">
-            <div>
-              <h3 className="text-xl font-bold font-headline text-gray-800">Orden de Examen</h3>
-              <p className="text-xs text-muted-foreground mt-1">Ref. Cotización: {quoteId}</p>
-            </div>
+    <div id={`annex-page-${index}`} className="order-page-container bg-white" style={{ pageBreakBefore: 'always' }}>
+      <div className="max-w-3xl mx-auto my-12 p-8 border border-gray-400 bg-white shadow-sm">
+          {/* Encabezado del Formulario */}
+          <header className="flex justify-between items-center pb-4 border-b border-gray-300 mb-6">
+            <h3 className="text-xl font-bold font-headline text-gray-800">Orden de Examen Ocupacional</h3>
             <Image 
               src="/images/logo.png" 
               alt="Araval Logo" 
-              width={100} 
-              height={26} 
+              width={120} 
+              height={32} 
               unoptimized
             />
           </header>
-          <main className="py-5 text-sm">
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="space-y-1">
-                <h4 className="font-semibold text-gray-600 text-xs uppercase tracking-wider">Paciente:</h4>
-                <p className="font-medium text-gray-900">{solicitud.trabajador.nombre}</p>
-                <p className="text-xs text-muted-foreground">RUT: {solicitud.trabajador.rut}</p>
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-semibold text-gray-600 text-xs uppercase tracking-wider">Empresa:</h4>
-                <p className="font-medium text-gray-900">{empresa.razonSocial}</p>
-                <p className="text-xs text-muted-foreground">RUT: {empresa.rut}</p>
-              </div>
+
+          {/* Cuerpo del Formulario */}
+          <main className="text-sm">
+            {/* Sección de Datos */}
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-8 p-4 border border-gray-200 rounded-md">
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase">Empresa</p>
+                    <p className="font-medium text-gray-900">{empresa.razonSocial}</p>
+                    <p className="text-xs text-gray-600">RUT: {empresa.rut}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase">Trabajador</p>
+                    <p className="font-medium text-gray-900">{solicitud.trabajador.nombre}</p>
+                    <p className="text-xs text-gray-600">RUT: {solicitud.trabajador.rut}</p>
+                </div>
             </div>
 
-            <h4 className="font-semibold text-gray-600 text-xs uppercase tracking-wider mb-2">Exámenes a Realizar:</h4>
-            <div className="border rounded-md p-3 bg-gray-50/70">
-              <ul className="space-y-1.5 list-disc list-inside text-gray-800 text-sm">
-                {solicitud.examenes.map(exam => (
-                  <li key={exam.id}>{exam.nombre}</li>
-                ))}
-              </ul>
-            </div>
-          </main>
-          <footer className="pt-4 border-t-2 border-gray-200">
-             <h4 className="font-semibold text-gray-700 mb-3 text-center text-sm">Información para el Paciente</h4>
-              <div className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50/50 text-blue-900">
-                <p className="font-bold text-base text-center mb-3">Centro Médico Araval</p>
-                <div className='text-xs space-y-2'>
-                  <div className="flex items-center gap-3">
-                    <MapPin className="h-4 w-4 text-blue-600 shrink-0"/>
-                    <span>Juan Martinez 235, Taltal, Chile</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-blue-600 shrink-0"/>
-                    <span>+56 9 7541 1515</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-4 w-4 text-blue-600 shrink-0"/>
-                    <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
-                  </div>
+            {/* Sección de Exámenes */}
+            <div className="mb-8">
+                <h4 className="font-semibold text-gray-700 border-b pb-2 mb-3">Exámenes a Realizar</h4>
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <ul className="space-y-1.5 list-disc list-inside text-gray-800 text-sm">
+                    {solicitud.examenes.map(exam => (
+                      <li key={exam.id}>{exam.nombre}</li>
+                    ))}
+                  </ul>
                 </div>
-                <Separator className="my-3 bg-blue-200"/>
-                <p className="text-xs text-center text-blue-800">Laboratorio Clínico, Salud Ocupacional, Toma De Muestras.</p>
+            </div>
+
+             {/* Información de la Clínica */}
+             <div className="border-t pt-6">
+                <h4 className="font-semibold text-gray-700 mb-3 text-center">Información para el Paciente</h4>
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50 text-gray-800">
+                    <p className="font-bold text-base text-center mb-3">Centro Médico Araval</p>
+                    <div className='text-xs space-y-2'>
+                        <div className="flex items-center gap-3">
+                            <MapPin className="h-4 w-4 text-primary shrink-0"/>
+                            <span>Juan Martinez 235, Taltal, Chile</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Phone className="h-4 w-4 text-primary shrink-0"/>
+                            <span>+56 9 7541 1515</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Clock className="h-4 w-4 text-primary shrink-0"/>
+                            <span>Lunes a Viernes: 08:00-12:00 / 15:00-20:00</span>
+                        </div>
+                    </div>
+                </div>
+             </div>
+          </main>
+
+          {/* Pie de Firma */}
+          <footer className="mt-24 text-center text-sm">
+            <div className="inline-block">
+              <div className="border-t border-gray-400 w-64 pt-2">
+                <p className="text-gray-700">Firma y Timbre Autorizado</p>
               </div>
+            </div>
           </footer>
       </div>
     </div>
@@ -240,19 +252,19 @@ export function VistaCotizacion() {
 
       <div id="pdf-content-area" className="bg-gray-100 p-0 sm:p-4 print:p-0 print:bg-white">
         <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none p-16">
-           <header className="flex justify-between items-start pb-6 border-b-2 border-gray-200">
-            <div>
-                <h2 className="text-3xl font-bold font-headline text-primary">COTIZACIÓN</h2>
-                <p className="mt-1 text-sm text-gray-500">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                <p className="mt-1 text-sm text-gray-500">Fecha: {quote.fecha}</p>
-              </div>
-               <Image
-                  src="/images/logo.png"
-                  alt="Araval Logo"
-                  width={150}
-                  height={40}
-                  priority
-                  unoptimized
+           <header className="flex justify-between items-start pb-6 border-b-2 border-primary">
+                <div>
+                    <h2 className="text-3xl font-bold font-headline text-primary">COTIZACIÓN</h2>
+                    <p className="mt-1 text-sm text-gray-500">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
+                    <p className="mt-1 text-sm text-gray-500">Fecha: {quote.fecha}</p>
+                </div>
+                <Image
+                    src="/images/logo.png"
+                    alt="Araval Logo"
+                    width={150}
+                    height={40}
+                    priority
+                    unoptimized
                 />
             </header>
 
