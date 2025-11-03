@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import type { Empresa, Examen, Trabajador, Cotizacion, SolicitudTrabajador } from '@/lib/types';
@@ -20,7 +20,7 @@ import ResumenCotizacion from './ResumenCotizacion';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '' };
+const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
 const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
 
 export function CrearCotizacion() {
@@ -103,7 +103,24 @@ export function CrearCotizacion() {
     setSolicitudes(solicitudes.map(s => ({...s, examenes: []})));
   };
 
-  const handleGenerateQuote = () => {
+  const saveEmpresaData = async () => {
+    if (!empresa.rut) return;
+
+    try {
+      const empresaRef = doc(firestore, 'empresas', empresa.rut);
+      await setDoc(empresaRef, empresa, { merge: true });
+    } catch (error) {
+      console.error("Error saving company data:", error);
+      // We don't block quote generation for this, just log it
+      toast({
+        variant: "destructive",
+        title: "Error no crítico",
+        description: "No se pudieron guardar los datos de la empresa para futuras cotizaciones.",
+      });
+    }
+  };
+
+  const handleGenerateQuote = async () => {
     if (!user) {
       toast({
         variant: 'destructive',
@@ -112,6 +129,14 @@ export function CrearCotizacion() {
       });
       return;
     }
+    
+    if (!empresa.rut || !empresa.razonSocial) {
+      toast({ variant: 'destructive', title: 'Datos incompletos', description: 'El RUT y Razón Social de la empresa son obligatorios.'});
+      setStep(1);
+      return;
+    }
+
+    await saveEmpresaData();
 
     const total = allExams.reduce((acc, exam) => acc + exam.valor, 0);
 

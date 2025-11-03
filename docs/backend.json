@@ -21,13 +21,39 @@
         "direccion": {
           "type": "string",
           "description": "Dirección de facturación de la empresa."
+        },
+        "giro": {
+          "type": "string",
+          "description": "Giro comercial de la empresa."
+        },
+        "ciudad": {
+            "type": "string",
+            "description": "Ciudad de la empresa."
+        },
+        "comuna": {
+            "type": "string",
+            "description": "Comuna de la empresa."
+        },
+        "region": {
+            "type": "string",
+            "description": "Región de la empresa."
+        },
+        "email": {
+            "type": "string",
+            "description": "Email de contacto de la empresa.",
+            "format": "email"
         }
       },
       "required": [
         "id",
         "razonSocial",
         "rut",
-        "direccion"
+        "direccion",
+        "giro",
+        "ciudad",
+        "comuna",
+        "region",
+        "email"
       ]
     },
     "Solicitante": {
@@ -211,7 +237,7 @@
       "schema": {
         "$ref": "#/entities/Empresa"
       },
-      "description": "Almacena la información de las empresas."
+      "description": "Almacena la información de las empresas. Se usa para autocompletar datos de clientes recurrentes."
     },
     "/solicitantes/{solicitanteId}": {
       "schema": {

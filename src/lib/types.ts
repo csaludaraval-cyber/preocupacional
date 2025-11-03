@@ -16,6 +16,11 @@ export type Empresa = {
   razonSocial: string;
   rut: string;
   direccion: string;
+  giro: string;
+  ciudad: string;
+  comuna: string;
+  region: string;
+  email: string;
 };
 
 export type Trabajador = {
