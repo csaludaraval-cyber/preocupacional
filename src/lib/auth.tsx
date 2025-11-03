@@ -30,21 +30,24 @@ const quoteRoute = '/cotizacion';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [userWithRole, setUserWithRole] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Manages UI loading state
+  const [loading, setLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
-  const { user: firebaseUser, auth, firestore, isUserLoading, areServicesAvailable } = useFirebase();
+  const { user: firebaseUser, auth, firestore, isUserLoading } = useFirebase();
 
   useEffect(() => {
-    // Wait until Firebase is initialized and has checked the user's auth state
-    if (isUserLoading || !areServicesAvailable) {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isUserLoading || !isClient) {
       return; 
     }
 
     const processUser = async (fbUser: FirebaseUser | null) => {
       if (fbUser) {
-        // User is signed in, get their role
         try {
           if (!firestore) throw new Error("Firestore service is not available.");
           const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
@@ -54,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const user: User = { ...fbUser, uid: fbUser.uid, role: role };
           setUserWithRole(user);
 
-          // Handle redirection for logged-in user
           const isOnPublicOnlyPage = publicRoutes.includes(pathname);
           if (isOnPublicOnlyPage) {
             router.push(role === 'admin' ? adminOnlyInitialRoute : '/');
@@ -62,24 +64,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         } catch (error) {
           console.error("Error fetching user role:", error);
-          // Fallback to standard role on error
           setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' });
+        } finally {
+          setLoading(false);
         }
       } else {
-        // User is not signed in
         setUserWithRole(null);
-        // Handle redirection for non-logged-in user
         const isProtectedRoute = !publicRoutes.includes(pathname) && !pathname.startsWith(quoteRoute);
         if (isProtectedRoute) {
           router.push('/login');
         }
+        setLoading(false);
       }
-      setLoading(false); // Authentication check is complete
     };
 
     processUser(firebaseUser);
 
-  }, [firebaseUser, isUserLoading, areServicesAvailable, firestore, pathname, router]);
+  }, [firebaseUser, isUserLoading, isClient, firestore, pathname, router]);
 
   const logout = async () => {
     if (!auth) return;
@@ -96,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   }), [userWithRole, loading, auth]);
 
-  if (loading) {
+  if (loading && isClient) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
