@@ -5,7 +5,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Shield, Loader2, Save, Search } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { getExams, examCategories } from '@/lib/data';
+import { getExams, examCategories, updateExamPrice } from '@/lib/data';
 import type { Examen } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -52,7 +52,7 @@ export function AdminCatalogo() {
     if (!authLoading) {
       fetchExams();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, toast]);
   
   const filteredExams = useMemo(() => {
     if (!searchTerm) return exams;
