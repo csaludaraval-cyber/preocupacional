@@ -1,5 +1,5 @@
+
 // src/app/page.tsx
-// AÑADIR: Importar Suspense de React
 import { Suspense } from 'react';
 import { Header } from '@/components/layout/Header';
 import { CrearCotizacion } from '@/components/cotizacion/CrearCotizacion';
