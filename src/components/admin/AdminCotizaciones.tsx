@@ -39,8 +39,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { GeneradorPDF } from '@/components/cotizacion/GeneradorPDF';
-import { enviarCotizacion, type EnviarCotizacionInput } from '@/ai/flows/enviar-cotizacion-flow';
+import { GeneradorPDF, OrdenDeExamen } from '@/components/cotizacion/GeneradorPDF';
+import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { updateQuoteStatus, deleteQuote } from '@/lib/firestore';
 import type { Cotizacion } from '@/lib/types';
@@ -68,6 +68,8 @@ export default function AdminCotizaciones() {
 
 
   const handleSendEmail = async (quote: Cotizacion) => {
+    if (!quote) return;
+
     const recipientEmail = quote.solicitante?.mail;
 
     if (!recipientEmail) {
@@ -80,8 +82,6 @@ export default function AdminCotizaciones() {
     }
 
     setIsSending(true);
-    let success = false;
-
     try {
       const pdfBlob = await GeneradorPDF.generar(quote);
       const pdfBase64 = await new Promise<string>((resolve, reject) => {
@@ -91,7 +91,7 @@ export default function AdminCotizaciones() {
           if (typeof base64data !== 'string') return reject(new Error('Error convirtiendo PDF a Base64'));
           resolve(base64data.split(',')[1]);
         };
-        reader.onerror = () => reject(new Error('Fallo la lectura del Blob del PDF.'));
+        reader.onerror = (error) => reject(new Error('Fallo la lectura del Blob del PDF: ' + error));
         reader.readAsDataURL(pdfBlob);
       });
 
@@ -109,7 +109,7 @@ export default function AdminCotizaciones() {
         title: 'Correo Enviado',
         description: `La cotización se ha enviado a ${recipientEmail}.`,
       });
-      success = true;
+      setQuoteToSend(null); // Close dialog on success
 
     } catch (error: any) {
       console.error('Error al enviar cotización:', error);
@@ -120,9 +120,6 @@ export default function AdminCotizaciones() {
       });
     } finally {
       setIsSending(false);
-      if (success) {
-        setQuoteToSend(null); // Close dialog on success
-      }
     }
   };
 
@@ -149,7 +146,7 @@ export default function AdminCotizaciones() {
   };
 
   const handleDelete = async (quote: Cotizacion | null) => {
-    if (!quote) return;
+    if (!quote || !quote.id) return;
     setIsDeleting(true);
     try {
       await deleteQuote(quote.id);
@@ -185,7 +182,12 @@ export default function AdminCotizaciones() {
   };
 
   const sortedQuotes = useMemo(() => {
-    return [...quotes].sort((a, b) => b.fechaCreacion.toMillis() - a.fechaCreacion.toMillis());
+    if (!quotes) return [];
+    return [...quotes].sort((a, b) => {
+        const dateA = a.fechaCreacion?.toMillis() || 0;
+        const dateB = b.fechaCreacion?.toMillis() || 0;
+        return dateB - dateA;
+    });
   }, [quotes]);
 
   if (isLoading) {
@@ -252,7 +254,7 @@ export default function AdminCotizaciones() {
                     </TableCell>
                     <TableCell>{quote.solicitante.mail}</TableCell>
                     <TableCell>
-                      {format(quote.fechaCreacion.toDate(), 'dd/MM/yyyy HH:mm', { locale: es })}
+                      {quote.fechaCreacion ? format(quote.fechaCreacion.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}
                     </TableCell>
                     <TableCell className="font-bold text-lg text-primary">
                       {new Intl.NumberFormat('es-CL', {
@@ -362,7 +364,7 @@ export default function AdminCotizaciones() {
               </div>
 
               <div className="flex-grow overflow-y-auto bg-gray-100 p-4 rounded-lg">
-                <GeneradorPDF.OrdenDeExamen solicitud={quoteToSend.solicitudes[0]} empresa={quoteToSend.empresa} />
+                <OrdenDeExamen solicitud={quoteToSend.solicitudes[0]} empresa={quoteToSend.empresa} />
               </div>
             </>
           )}
