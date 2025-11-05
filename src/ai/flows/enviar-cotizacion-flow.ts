@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Flow de Genkit para el envío de cotizaciones por correo electrónico.
@@ -6,7 +7,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import * as nodemailer from 'nodemailer';
 import { EnviarCotizacionInputSchema, type EnviarCotizacionInput } from '@/lib/types';
 
@@ -53,8 +54,47 @@ const enviarCotizacionFlow = ai.defineFlow(
         subject: `Cotización de Servicios Araval N° ${cotizacionId}`,
         html: `
           <p>Estimado/a,</p>
-          <p>Junto con saludar, adjuntamos la cotización de servicios solicitada.</p>
-          <p>Para cualquier consulta o para coordinar la toma de exámenes, no dude en contactarnos.</p>
+          <p>Gracias por su interés en nuestros servicios. Para coordinar la atención de los pacientes en nuestro Laboratorio Clínico ARAVAL TALTAL, le detallamos los pasos a seguir:</p>
+          
+          <h3 style="font-weight: bold; margin-top: 20px;">Pasos para agendar una hora</h3>
+          <ol>
+            <li>
+              <b>Realizar el pago</b>
+              <p style="margin: 0; padding-left: 15px;">• Los datos de transferencia se encuentran más abajo en este correo.</p>
+            </li>
+          </ol>
+
+          <p><b>IMPORTANTE:</b> En el correo de confirmación, indicar el número de folio de la cotización previamente enviada, para agilizar el proceso de validación y agendamiento.</p>
+
+          <h3 style="font-weight: bold; margin-top: 20px;">Datos de Transferencia</h3>
+          <ul style="list-style: none; padding: 0;">
+            <li>• <b>Nombre:</b> Araval Fisioterapia y Medicina Spa.</li>
+            <li>• <b>Giro:</b> Servicio Médico Rehabilitación Kinésica Ejercicio Físico y Venta Otr</li>
+            <li>• <b>RUT:</b> 77.102.661-3</li>
+            <li>• <b>Banco:</b> Banco Estado</li>
+            <li>• <b>Cuenta corriente N°:</b> 027-0-002475-2</li>
+            <li>• <b>Correo para envío del comprobante:</b> pagos@aravalcsalud.cl</li>
+          </ul>
+
+          <h3 style="font-weight: bold; margin-top: 20px;">Dirección de nuestra sucursal en TALTAL es:</h3>
+          <p>
+            <b>Dirección:</b> Juan Martínez Nº 235 - Taltal.<br>
+            (CENTRO DE SALUD ARAVAL)
+          </p>
+
+          <p><b>Horario de atención:</b> 08:00 - 12:00, 15:00 - 17:00 Hrs</p>
+
+          <h3 style="font-weight: bold; margin-top: 20px;">Indicaciones para el paciente el día del examen:</h3>
+          <ul style="list-style: none; padding: 0;">
+            <li>• <b>Ayuno obligatorio:</b> mínimo 8 horas, máximo 12 horas.</li>
+            <li>• Llevar <b>cédula de identidad</b>.</li>
+            <li>• Usar <b>lentes ópticos</b>, en caso de necesitarlos.</li>
+            <li>• Presentar <b>licencia de conducir</b>, si tiene agendado un examen psicotécnico.</li>
+            <li>• <b>No suspender la ingesta de medicamentos</b> según tratamiento médico.</li>
+          </ul>
+
+          <p>Si tiene alguna consulta adicional o necesita más información, estamos disponibles para asistirle.</p>
+          <p>Quedamos atentos a su confirmación.</p>
           <br/>
           <p>Saludos cordiales,</p>
           <p><b>Equipo Araval</b></p>
