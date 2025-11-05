@@ -56,7 +56,7 @@ const enviarCotizacionFlow = ai.defineFlow(
     // Enviar correo
     try {
       const info = await transporter.sendMail({
-        from: `Equipo Araval <${SMTP_USER}>`,
+        from: `"Equipo Araval" <${process.env.SMTP_USER || 'preocupacional@aravalcsalud.cl'}>`,
         to: clienteEmail,
         subject: `Cotización de Servicios Araval N° ${cotizacionId}`,
         html: `
