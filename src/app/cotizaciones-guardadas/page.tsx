@@ -1,5 +1,5 @@
 import { Header } from '@/components/layout/Header';
-import { AdminCotizaciones } from '@/components/admin/AdminCotizaciones';
+import AdminCotizaciones from '@/components/admin/AdminCotizaciones';
 import { Suspense } from 'react';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
