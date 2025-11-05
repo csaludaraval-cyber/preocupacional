@@ -164,5 +164,3 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
     </div>
   );
 }
-
-    

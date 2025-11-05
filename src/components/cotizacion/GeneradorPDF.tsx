@@ -152,5 +152,3 @@ export class GeneradorPDF {
     return pdf.output('blob');
   }
 }
-
-    
