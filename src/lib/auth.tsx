@@ -57,11 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const user: User = { ...fbUser, uid: fbUser.uid, role: role };
           setUserWithRole(user);
 
-          const isOnPublicOnlyPage = publicRoutes.includes(pathname);
-          if (isOnPublicOnlyPage) {
-            router.push(role === 'admin' ? adminOnlyInitialRoute : '/');
-          }
-
         } catch (error) {
           console.error("Error fetching user role:", error);
           setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' });
