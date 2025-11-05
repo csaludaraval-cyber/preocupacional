@@ -24,6 +24,7 @@ const enviarCotizacionFlow = ai.defineFlow(
   async (input) => {
     const { clienteEmail, cotizacionId, pdfBase64 } = input;
 
+    // VALIDACIÓN EXPLÍCITA de variables de entorno
     const SMTP_HOST = process.env.SMTP_HOST;
     const SMTP_PORT = process.env.SMTP_PORT;
     const SMTP_USER = process.env.SMTP_USER;
@@ -31,13 +32,14 @@ const enviarCotizacionFlow = ai.defineFlow(
 
     if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
       console.error('SMTP environment variables not set');
+      // Lanzar un error que será capturado por el frontend
       throw new Error('Las variables de entorno del servidor de correo (SMTP) no están configuradas.');
     }
 
     const transporter = nodemailer.createTransport({
       host: SMTP_HOST,
       port: parseInt(SMTP_PORT, 10),
-      secure: parseInt(SMTP_PORT, 10) === 465,
+      secure: parseInt(SMTP_PORT, 10) === 465, // true for 465, false for other ports
       auth: {
         user: SMTP_USER,
         pass: SMTP_PASS,
