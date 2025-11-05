@@ -111,6 +111,17 @@ export function AdminCotizaciones() {
       if (!quoteToSend) return;
       setIsSending(true);
 
+      const recipientEmail = quoteToSend.solicitante?.mail;
+      if (!recipientEmail) {
+        toast({
+            title: "Error: Email no encontrado",
+            description: "No se encontró un email de solicitante para enviar la cotización.",
+            variant: "destructive",
+        });
+        setIsSending(false);
+        return;
+      }
+
       try {
           const pdfBlob = await GeneradorPDF.generar(quoteToSend);
           const reader = new FileReader();
@@ -123,14 +134,14 @@ export function AdminCotizaciones() {
               const pdfBase64 = base64data.split(',')[1];
               
               await enviarCotizacion({
-                  clienteEmail: quoteToSend.solicitante?.mail || quoteToSend.empresa.email,
+                  clienteEmail: recipientEmail,
                   cotizacionId: quoteToSend.id?.slice(-6) || 'S/N',
                   pdfBase64: pdfBase64,
               });
 
               toast({
                 title: "Correo Enviado",
-                description: `La cotización se ha enviado a ${quoteToSend.solicitante?.mail || quoteToSend.empresa.email}.`
+                description: `La cotización se ha enviado a ${recipientEmail}.`
               });
               setQuoteToSend(null);
           };
@@ -259,6 +270,7 @@ export function AdminCotizaciones() {
                 <TableBody>
                     {filteredCotizaciones.length > 0 ? filteredCotizaciones.map((quote) => {
                       const displayQuote = prepareQuoteForDisplay(quote);
+                      const recipientEmail = displayQuote.solicitante?.mail;
                       const query = encodeURIComponent(JSON.stringify(displayQuote));
 
                       return (
@@ -268,7 +280,7 @@ export function AdminCotizaciones() {
                             </TableCell>
                             <TableCell>{formatDate(quote.fechaCreacion)}</TableCell>
                             <TableCell className="font-medium">{quote.empresaData?.razonSocial || 'N/A'}</TableCell>
-                            <TableCell className="text-muted-foreground">{quote.solicitanteData?.mail || 'N/A'}</TableCell>
+                            <TableCell className="text-muted-foreground">{recipientEmail || 'N/A'}</TableCell>
                             <TableCell className="text-right font-semibold">{formatCurrency(quote.total)}</TableCell>
                             <TableCell className="text-center">
                                 <div className='flex items-center justify-center gap-1'>
@@ -289,28 +301,30 @@ export function AdminCotizaciones() {
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!displayQuote.solicitante?.mail && !displayQuote.empresa?.email}>
+                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!recipientEmail}>
                                                         <Send className="h-4 w-4" />
                                                     </Button>
                                                 </AlertDialogTrigger>
                                             </TooltipTrigger>
-                                            <TooltipContent><p>{(displayQuote.solicitante?.mail || displayQuote.empresa?.email) ? 'Enviar por Email' : 'Email no disponible'}</p></TooltipContent>
+                                            <TooltipContent><p>{recipientEmail ? 'Enviar por Email' : 'Email no disponible'}</p></TooltipContent>
                                         </Tooltip>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Confirmar Envío</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    ¿Confirma el envío de la cotización N° <span className="font-bold">{displayQuote.id?.slice(-6)}</span> al correo <span className="font-bold">{displayQuote.solicitante?.mail || displayQuote.empresa?.email}</span>?
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel onClick={() => setQuoteToSend(null)}>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={handleSendEmail} disabled={isSending}>
-                                                    {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                                                    Confirmar Envío
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
+                                        {quoteToSend && (
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Confirmar Envío</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        ¿Confirma el envío de la cotización N° <span className="font-bold">{quoteToSend.id?.slice(-6)}</span> al correo <span className="font-bold">{quoteToSend.solicitante?.mail}</span>?
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel onClick={() => setQuoteToSend(null)}>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={handleSendEmail} disabled={isSending}>
+                                                        {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                                                        Confirmar Envío
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        )}
                                     </AlertDialog>
 
                                     <AlertDialog>
@@ -322,22 +336,24 @@ export function AdminCotizaciones() {
                                             </TooltipTrigger>
                                             <TooltipContent><p>Eliminar Cotización</p></TooltipContent>
                                         </Tooltip>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
-                                                    <span className='font-bold'> N° {quoteToDelete?.id.slice(-6)} </span>
-                                                    de los servidores.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel onClick={() => setQuoteToDelete(null)}>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                                                    Eliminar
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
+                                        {quoteToDelete && (
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
+                                                        <span className='font-bold'> N° {quoteToDelete.id.slice(-6)} </span>
+                                                        de los servidores.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel onClick={() => setQuoteToDelete(null)}>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                                                        Eliminar
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        )}
                                     </AlertDialog>
                                 </div>
                             </TableCell>
