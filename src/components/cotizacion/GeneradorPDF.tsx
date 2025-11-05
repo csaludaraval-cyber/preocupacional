@@ -17,7 +17,7 @@ export const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrab
                     <h2 className="font-semibold text-base tracking-wide">Orden de Examen Ocupacionales</h2>
                 </div>
                  <Image
-                    src="/images/logo.png"
+                    src="/logo.png"
                     alt="Araval Logo"
                     width={150}
                     height={40}

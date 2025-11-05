@@ -28,7 +28,7 @@ export function Header() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/" className="flex items-center gap-3">
           <Image 
-            src="/images/logo.png" 
+            src="/logo.png" 
             alt="Araval Logo" 
             width={150} 
             height={40} 
