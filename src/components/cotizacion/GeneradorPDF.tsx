@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -100,8 +101,11 @@ export class GeneradorPDF {
     let pdf: jsPDF | undefined;
 
     try {
-        // 2. Renderizar los componentes en el contenedor temporal
-        await new Promise<void>(resolve => root.render(contentToRender, () => resolve()));
+        // 2. Renderizar los componentes en el contenedor temporal (compatible con React 18)
+        root.render(contentToRender);
+
+        // Esperar a que el renderizado se complete en el siguiente ciclo de eventos
+        await new Promise(resolve => setTimeout(resolve, 0));
         
         // 3. Inicializar jsPDF
         pdf = new jsPDF({
