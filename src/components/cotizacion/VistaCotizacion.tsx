@@ -7,11 +7,10 @@ import { Download, Loader2, Send } from 'lucide-react';
 import type { Cotizacion } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { enviarCotizacionFlow } from '@/ai/flows/enviar-cotizacion-flow';
+import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { GeneradorPDF } from './GeneradorPDF';
 import { DetalleCotizacion } from './DetalleCotizacion';
 
-// Helper function to convert Blob to Base64
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -20,7 +19,6 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
       if (typeof base64data !== 'string') {
         return reject(new Error('Error convirtiendo PDF a Base64'));
       }
-      // Remove the data URI prefix
       resolve(base64data.split(',')[1]);
     };
     reader.onerror = (error) => {
@@ -29,6 +27,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     reader.readAsDataURL(blob);
   });
 };
+
 
 export function VistaCotizacion() {
   const [quote, setQuote] = useState<Cotizacion | null>(null);
@@ -99,7 +98,7 @@ export function VistaCotizacion() {
         const pdfBlob = await GeneradorPDF.generar(quote);
         const pdfBase64 = await blobToBase64(pdfBlob);
         
-        await enviarCotizacionFlow({
+        await enviarCotizacion({
             clienteEmail: recipientEmail,
             cotizacionId: quote.id?.slice(-6) || 'S/N',
             pdfBase64: pdfBase64,
@@ -173,5 +172,3 @@ export function VistaCotizacion() {
     </>
   );
 }
-
-    

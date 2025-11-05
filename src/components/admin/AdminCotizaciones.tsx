@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { GeneradorPDF, OrdenDeExamen } from '@/components/cotizacion/GeneradorPDF';
-import { enviarCotizacionFlow } from '@/ai/flows/enviar-cotizacion-flow';
+import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { updateQuoteStatus, deleteQuote } from '@/lib/firestore';
 import type { Cotizacion } from '@/lib/types';
@@ -53,23 +53,21 @@ const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'se
   RECHAZADA: 'destructive',
 };
 
-// Helper function to convert Blob to Base64
 const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64data = reader.result;
-      if (typeof base64data !== 'string') {
-        return reject(new Error('Error convirtiendo PDF a Base64'));
-      }
-      // Remove the data URI prefix
-      resolve(base64data.split(',')[1]);
-    };
-    reader.onerror = (error) => {
-      reject(new Error('Fallo la lectura del Blob del PDF: ' + error));
-    };
-    reader.readAsDataURL(blob);
-  });
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64data = reader.result;
+        if (typeof base64data !== 'string') {
+          return reject(new Error('Error convirtiendo PDF a Base64'));
+        }
+        resolve(base64data.split(',')[1]);
+      };
+      reader.onerror = (error) => {
+        reject(new Error('Fallo la lectura del Blob del PDF: ' + error));
+      };
+      reader.readAsDataURL(blob);
+    });
 };
 
 
@@ -106,7 +104,7 @@ export default function AdminCotizaciones() {
       const pdfBlob = await GeneradorPDF.generar(quote);
       const pdfBase64 = await blobToBase64(pdfBlob);
 
-      await enviarCotizacionFlow({
+      await enviarCotizacion({
         clienteEmail: recipientEmail,
         cotizacionId: quote.id?.slice(-6) || 'S/N',
         pdfBase64: pdfBase64,
@@ -406,5 +404,3 @@ export default function AdminCotizaciones() {
     </TooltipProvider>
   );
 }
-
-    
