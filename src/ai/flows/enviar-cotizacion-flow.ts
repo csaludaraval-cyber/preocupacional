@@ -84,8 +84,8 @@ const enviarCotizacionFlow = ai.defineFlow(
       };
     } catch (error: any) {
       console.error('Error detallado de Nodemailer:', error);
-      // Propagar el mensaje de error original y completo de nodemailer
-      throw new Error(error.message);
+      // Propagar el mensaje de error original y completo de nodemailer para que el frontend lo capture.
+      throw new Error(`Error de Nodemailer: ${error.message}`);
     }
   }
 );
