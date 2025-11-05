@@ -86,14 +86,14 @@ export function AdminCotizaciones() {
     }).sort((a, b) => b.fechaCreacion.toMillis() - a.fechaCreacion.toMillis());
   }, [cotizaciones, searchTerm, startDate, endDate]);
 
-  const handleDelete = async () => {
-    if (!quoteToDelete) return;
+  const handleDelete = async (quote: WithId<CotizacionFirestore>) => {
+    if (!quote) return;
 
     try {
-        await deleteDoc(doc(firestore, 'cotizaciones', quoteToDelete.id));
+        await deleteDoc(doc(firestore, 'cotizaciones', quote.id));
         toast({
             title: 'Cotización Eliminada',
-            description: `La cotización N° ${quoteToDelete.id.slice(-6)} ha sido eliminada.`,
+            description: `La cotización N° ${quote.id.slice(-6)} ha sido eliminada.`,
         });
     } catch (e) {
         console.error("Error deleting document: ", e);
@@ -107,11 +107,11 @@ export function AdminCotizaciones() {
     }
   };
 
-  const handleSendEmail = async () => {
-      if (!quoteToSend) return;
+  const handleSendEmail = async (quote: Cotizacion) => {
+      if (!quote) return;
       setIsSending(true);
 
-      const recipientEmail = quoteToSend.solicitante?.mail;
+      const recipientEmail = quote.solicitante?.mail;
       if (!recipientEmail) {
         toast({
             title: "Error: Email no encontrado",
@@ -123,7 +123,7 @@ export function AdminCotizaciones() {
       }
 
       try {
-          const pdfBlob = await GeneradorPDF.generar(quoteToSend);
+          const pdfBlob = await GeneradorPDF.generar(quote);
           const reader = new FileReader();
           
           reader.onloadend = async () => {
@@ -135,7 +135,7 @@ export function AdminCotizaciones() {
               
               await enviarCotizacion({
                   clienteEmail: recipientEmail,
-                  cotizacionId: quoteToSend.id?.slice(-6) || 'S/N',
+                  cotizacionId: quote.id?.slice(-6) || 'S/N',
                   pdfBase64: pdfBase64,
               });
 
@@ -297,14 +297,12 @@ export function AdminCotizaciones() {
                                         </TooltipContent>
                                     </Tooltip>
 
-                                    <AlertDialog>
+                                    <AlertDialog open={!!quoteToSend} onOpenChange={(open) => !open && setQuoteToSend(null)}>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!recipientEmail}>
-                                                        <Send className="h-4 w-4" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
+                                                <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!recipientEmail}>
+                                                    <Send className="h-4 w-4" />
+                                                </Button>
                                             </TooltipTrigger>
                                             <TooltipContent><p>{recipientEmail ? 'Enviar por Email' : 'Email no disponible'}</p></TooltipContent>
                                         </Tooltip>
@@ -317,8 +315,8 @@ export function AdminCotizaciones() {
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
-                                                    <AlertDialogCancel onClick={() => setQuoteToSend(null)}>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={handleSendEmail} disabled={isSending}>
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleSendEmail(quoteToSend)} disabled={isSending}>
                                                         {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                                                         Confirmar Envío
                                                     </AlertDialogAction>
@@ -327,7 +325,7 @@ export function AdminCotizaciones() {
                                         )}
                                     </AlertDialog>
 
-                                    <AlertDialog>
+                                    <AlertDialog open={!!quoteToDelete} onOpenChange={(open) => !open && setQuoteToDelete(null)}>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                     <Button variant="ghost" size="icon" onClick={() => setQuoteToDelete(quote)}>
@@ -347,8 +345,8 @@ export function AdminCotizaciones() {
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
-                                                    <AlertDialogCancel onClick={() => setQuoteToDelete(null)}>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDelete(quoteToDelete)} className="bg-destructive hover:bg-destructive/90">
                                                         Eliminar
                                                     </AlertDialogAction>
                                                 </AlertDialogFooter>
