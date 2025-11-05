@@ -50,11 +50,11 @@ export function VistaCotizacion() {
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al generar PDF:", error);
       toast({
           title: "Error al generar PDF",
-          description: "Hubo un problema al crear el archivo.",
+          description: error.message || "Hubo un problema al crear el archivo.",
           variant: "destructive"
       })
     } finally {
@@ -64,44 +64,60 @@ export function VistaCotizacion() {
 
   const handleSendEmail = async () => {
       if (!quote) return;
+
+      const recipientEmail = quote.solicitante?.mail;
+      if (!recipientEmail) {
+        toast({
+          title: 'Error de Destinatario',
+          description: 'No se encontró un correo de solicitante para enviar.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       setSendingEmail(true);
-
       try {
-        // 1. Generar el PDF en Blob y luego en base64
         const pdfBlob = await GeneradorPDF.generar(quote);
-        const reader = new FileReader();
         
-        reader.onloadend = async () => {
-            const base64data = reader.result;
-            if (typeof base64data !== 'string') {
-                throw new Error("Error convirtiendo PDF a Base64");
-            }
-            const pdfBase64 = base64data.split(',')[1];
+        // Usamos una promesa para manejar el resultado del FileReader
+        await new Promise<void>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                try {
+                    const base64data = reader.result;
+                    if (typeof base64data !== 'string') {
+                        throw new Error("Error convirtiendo PDF a Base64");
+                    }
+                    const pdfBase64 = base64data.split(',')[1];
+                    
+                    await enviarCotizacion({
+                        clienteEmail: recipientEmail,
+                        cotizacionId: quote.id?.slice(-6) || 'S/N',
+                        pdfBase64: pdfBase64,
+                    });
+
+                    toast({
+                        title: "Correo Enviado",
+                        description: `El correo con la cotización se ha enviado a ${recipientEmail}.`
+                    });
+                    resolve();
+                } catch(e) {
+                    reject(e);
+                }
+            };
             
-            // 2. Llamar al flow de Genkit
-            await enviarCotizacion({
-                clienteEmail: quote.solicitante.mail, // CORREGIDO: Usar email del solicitante
-                cotizacionId: quote.id?.slice(-6) || 'S/N',
-                pdfBase64: pdfBase64,
-            });
+            reader.onerror = () => {
+                reject(new Error("Fallo la lectura del Blob del PDF."));
+            };
 
-            toast({
-                title: "Correo Enviado",
-                description: `El correo con la cotización se ha enviado a ${quote.solicitante.mail}.`
-            });
-        };
-        
-        reader.onerror = () => {
-            throw new Error("Fallo la lectura del Blob del PDF.");
-        };
-
-        reader.readAsDataURL(pdfBlob);
+            reader.readAsDataURL(pdfBlob);
+        });
 
       } catch (error: any) {
           console.error("Error al enviar correo:", error);
           toast({
               title: "Error al Enviar Correo",
-              description: error.message || "No se pudo enviar la cotización.",
+              description: error.message || "No se pudo enviar la cotización. Revise la consola para más detalles.",
               variant: "destructive",
           });
       } finally {

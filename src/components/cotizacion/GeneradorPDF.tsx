@@ -12,7 +12,7 @@ export const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrab
     <div className="order-page-container bg-white text-black p-8 print-container">
         <div className="max-w-4xl mx-auto text-sm space-y-4 font-sans">
             <header className="flex justify-between items-center mb-10">
-                 <div className="bg-[#3b82f6] text-white py-2 px-4 rounded-md">
+                 <div className="bg-primary text-primary-foreground py-2 px-4 rounded-md">
                     <h2 className="font-semibold text-base tracking-wide">Orden de Examen Ocupacionales</h2>
                 </div>
                  <div className="text-2xl font-bold font-headline text-primary">
@@ -83,7 +83,6 @@ export class GeneradorPDF {
 
     const root = ReactDOM.createRoot(container);
 
-    // Envolver todo en un Fragmento para el renderizado
     const contentToRender = (
         <React.Fragment>
             <div id="printable-quote-temp">
@@ -134,9 +133,10 @@ export class GeneradorPDF {
             pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
           }
       }
-    } catch (error) {
-      console.error("Error durante generación de PDF:", error);
-      throw error;
+    } catch (error: any) {
+      console.error("Error durante la generación de canvas/PDF:", error);
+      // Re-lanzar el error para que pueda ser atrapado por la función que llama
+      throw new Error(`Fallo en la generación del PDF: ${error.message}`);
     } finally {
         // Limpiar el contenedor temporal
         root.unmount();
@@ -146,3 +146,5 @@ export class GeneradorPDF {
     return pdf.output('blob');
   }
 }
+
+    

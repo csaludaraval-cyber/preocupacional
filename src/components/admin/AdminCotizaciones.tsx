@@ -29,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   Tooltip,
@@ -47,6 +46,7 @@ export function AdminCotizaciones() {
   const [quoteToDelete, setQuoteToDelete] = useState<WithId<CotizacionFirestore> | null>(null);
   const [quoteToSend, setQuoteToSend] = useState<Cotizacion | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const cotizacionesQuery = useMemoFirebase(() => collection(firestore, 'cotizaciones'), []);
 
@@ -56,20 +56,18 @@ export function AdminCotizaciones() {
     if (!cotizaciones) return [];
 
     return cotizaciones.filter(quote => {
-      // Date filtering
       const quoteDate = quote.fechaCreacion.toDate();
       if (startDate) {
         const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0); // Start of the day
+        start.setHours(0, 0, 0, 0); 
         if (quoteDate < start) return false;
       }
       if (endDate) {
         const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999); // End of the day
+        end.setHours(23, 59, 59, 999); 
         if (quoteDate > end) return false;
       }
 
-      // Search term filtering
       if (searchTerm) {
           const lowercasedFilter = searchTerm.toLowerCase();
           const empresaMatch = quote.empresaData?.razonSocial?.toLowerCase().includes(lowercasedFilter);
@@ -88,29 +86,29 @@ export function AdminCotizaciones() {
 
   const handleDelete = async (quote: WithId<CotizacionFirestore>) => {
     if (!quote) return;
-
+    setIsDeleting(true);
     try {
         await deleteDoc(doc(firestore, 'cotizaciones', quote.id));
         toast({
             title: 'Cotización Eliminada',
             description: `La cotización N° ${quote.id.slice(-6)} ha sido eliminada.`,
         });
-    } catch (e) {
+    } catch (e: any) {
         console.error("Error deleting document: ", e);
         toast({
             variant: "destructive",
             title: "Error al eliminar",
-            description: "No se pudo eliminar la cotización.",
+            description: e.message || "No se pudo eliminar la cotización.",
         });
     } finally {
+        setIsDeleting(false);
         setQuoteToDelete(null);
     }
   };
 
   const handleSendEmail = async (quote: Cotizacion) => {
       if (!quote) return;
-      setIsSending(true);
-
+      
       const recipientEmail = quote.solicitante?.mail;
       if (!recipientEmail) {
         toast({
@@ -118,47 +116,55 @@ export function AdminCotizaciones() {
             description: "No se encontró un email de solicitante para enviar la cotización.",
             variant: "destructive",
         });
-        setIsSending(false);
         return;
       }
-
+      
+      setIsSending(true);
       try {
           const pdfBlob = await GeneradorPDF.generar(quote);
           const reader = new FileReader();
           
-          reader.onloadend = async () => {
-              const base64data = reader.result;
-              if (typeof base64data !== 'string') {
-                  throw new Error("Error convirtiendo PDF a Base64");
-              }
-              const pdfBase64 = base64data.split(',')[1];
-              
-              await enviarCotizacion({
-                  clienteEmail: recipientEmail,
-                  cotizacionId: quote.id?.slice(-6) || 'S/N',
-                  pdfBase64: pdfBase64,
-              });
+          // Usamos una promesa para manejar el resultado del FileReader
+          await new Promise<void>((resolve, reject) => {
+              reader.onloadend = async () => {
+                  try {
+                      const base64data = reader.result;
+                      if (typeof base64data !== 'string') {
+                          throw new Error("Error convirtiendo PDF a Base64");
+                      }
+                      const pdfBase64 = base64data.split(',')[1];
+                      
+                      await enviarCotizacion({
+                          clienteEmail: recipientEmail,
+                          cotizacionId: quote.id?.slice(-6) || 'S/N',
+                          pdfBase64: pdfBase64,
+                      });
 
-              toast({
-                title: "Correo Enviado",
-                description: `La cotización se ha enviado a ${recipientEmail}.`
-              });
-              setQuoteToSend(null);
-          };
-          reader.onerror = () => {
-             throw new Error("Fallo la lectura del Blob del PDF.");
-          }
-          reader.readAsDataURL(pdfBlob);
+                      toast({
+                        title: "Correo Enviado",
+                        description: `La cotización se ha enviado a ${recipientEmail}.`
+                      });
+                      resolve();
+                  } catch (e) {
+                      reject(e);
+                  }
+              };
+              reader.onerror = () => {
+                 reject(new Error("Fallo la lectura del Blob del PDF."));
+              };
+              reader.readAsDataURL(pdfBlob);
+          });
 
       } catch (error: any) {
           console.error("Error al enviar correo:", error);
           toast({
               title: "Error al Enviar Correo",
-              description: error.message || "No se pudo enviar la cotización.",
+              description: error.message || "No se pudo enviar la cotización. Verifique la consola para más detalles.",
               variant: "destructive",
           });
       } finally {
           setIsSending(false);
+          setQuoteToSend(null);
       }
   };
 
@@ -209,7 +215,6 @@ export function AdminCotizaciones() {
           </Alert>
       )
   }
-
 
   return (
     <Card>
@@ -296,8 +301,8 @@ export function AdminCotizaciones() {
                                             <p>Ver Cotización</p>
                                         </TooltipContent>
                                     </Tooltip>
-
-                                    <AlertDialog open={!!quoteToSend} onOpenChange={(open) => !open && setQuoteToSend(null)}>
+                                    
+                                    <AlertDialog>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!recipientEmail}>
@@ -315,7 +320,7 @@ export function AdminCotizaciones() {
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogCancel onClick={() => setQuoteToSend(null)}>Cancelar</AlertDialogCancel>
                                                     <AlertDialogAction onClick={() => handleSendEmail(quoteToSend)} disabled={isSending}>
                                                         {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                                                         Confirmar Envío
@@ -325,12 +330,12 @@ export function AdminCotizaciones() {
                                         )}
                                     </AlertDialog>
 
-                                    <AlertDialog open={!!quoteToDelete} onOpenChange={(open) => !open && setQuoteToDelete(null)}>
+                                    <AlertDialog>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToDelete(quote)}>
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
+                                                <Button variant="ghost" size="icon" onClick={() => setQuoteToDelete(quote)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
                                             </TooltipTrigger>
                                             <TooltipContent><p>Eliminar Cotización</p></TooltipContent>
                                         </Tooltip>
@@ -345,8 +350,9 @@ export function AdminCotizaciones() {
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDelete(quoteToDelete)} className="bg-destructive hover:bg-destructive/90">
+                                                    <AlertDialogCancel onClick={() => setQuoteToDelete(null)}>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDelete(quoteToDelete)} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                                                        {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                                         Eliminar
                                                     </AlertDialogAction>
                                                 </AlertDialogFooter>
