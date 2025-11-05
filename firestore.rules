@@ -71,14 +71,14 @@ service cloud.firestore {
      * @allow (get, list) if true;
      * @allow create: if isSignedIn() && (request.resource.data.solicitanteId == request.auth.uid);
      * @allow update: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
-     * @allow delete: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
-     * @principle Allows public reads, but restricts writes to authorized users.
+     * @allow delete: if isSignedIn() && (isExistingOwnerCotizacion(resource.data.solicitanteId) || isAdmin());
+     * @principle Allows public reads, but restricts writes to authorized users. Admins can delete any quotation.
      */
     match /cotizaciones/{cotizacionId} {
       allow get, list: if true;
       allow create: if isSignedIn() && (request.resource.data.solicitanteId == request.auth.uid);
       allow update: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
-      allow delete: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
+      allow delete: if isSignedIn() && (isExistingOwnerCotizacion(resource.data.solicitanteId) || isAdmin());
     }
 
     /**
