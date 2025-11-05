@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Download, Loader2, Send } from 'lucide-react';
 import type { Cotizacion } from '@/lib/types';
@@ -10,6 +10,25 @@ import { useToast } from '@/hooks/use-toast';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { GeneradorPDF } from './GeneradorPDF';
 import { DetalleCotizacion } from './DetalleCotizacion';
+
+// Helper function to convert Blob to Base64
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64data = reader.result;
+      if (typeof base64data !== 'string') {
+        return reject(new Error('Error convirtiendo PDF a Base64'));
+      }
+      // Remove the data URI prefix
+      resolve(base64data.split(',')[1]);
+    };
+    reader.onerror = (error) => {
+      reject(new Error('Fallo la lectura del Blob del PDF: ' + error));
+    };
+    reader.readAsDataURL(blob);
+  });
+};
 
 export function VistaCotizacion() {
   const [quote, setQuote] = useState<Cotizacion | null>(null);
@@ -78,39 +97,17 @@ export function VistaCotizacion() {
       setSendingEmail(true);
       try {
         const pdfBlob = await GeneradorPDF.generar(quote);
+        const pdfBase64 = await blobToBase64(pdfBlob);
         
-        // Usamos una promesa para manejar el resultado del FileReader
-        await new Promise<void>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                try {
-                    const base64data = reader.result;
-                    if (typeof base64data !== 'string') {
-                        throw new Error("Error convirtiendo PDF a Base64");
-                    }
-                    const pdfBase64 = base64data.split(',')[1];
-                    
-                    await enviarCotizacion({
-                        clienteEmail: recipientEmail,
-                        cotizacionId: quote.id?.slice(-6) || 'S/N',
-                        pdfBase64: pdfBase64,
-                    });
+        await enviarCotizacion({
+            clienteEmail: recipientEmail,
+            cotizacionId: quote.id?.slice(-6) || 'S/N',
+            pdfBase64: pdfBase64,
+        });
 
-                    toast({
-                        title: "Correo Enviado",
-                        description: `El correo con la cotización se ha enviado a ${recipientEmail}.`
-                    });
-                    resolve();
-                } catch(e) {
-                    reject(e);
-                }
-            };
-            
-            reader.onerror = () => {
-                reject(new Error("Fallo la lectura del Blob del PDF."));
-            };
-
-            reader.readAsDataURL(pdfBlob);
+        toast({
+            title: "Correo Enviado",
+            description: `El correo con la cotización se ha enviado a ${recipientEmail}.`
         });
 
       } catch (error: any) {

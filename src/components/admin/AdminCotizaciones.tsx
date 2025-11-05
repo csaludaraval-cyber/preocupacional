@@ -53,6 +53,26 @@ const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'se
   RECHAZADA: 'destructive',
 };
 
+// Helper function to convert Blob to Base64
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64data = reader.result;
+      if (typeof base64data !== 'string') {
+        return reject(new Error('Error convirtiendo PDF a Base64'));
+      }
+      // Remove the data URI prefix
+      resolve(base64data.split(',')[1]);
+    };
+    reader.onerror = (error) => {
+      reject(new Error('Fallo la lectura del Blob del PDF: ' + error));
+    };
+    reader.readAsDataURL(blob);
+  });
+};
+
+
 export default function AdminCotizaciones() {
   const { quotes, isLoading, error, refetchQuotes } = useCotizaciones();
   
@@ -67,7 +87,7 @@ export default function AdminCotizaciones() {
   const router = useRouter();
 
 
-  const handleSendEmail = async (quote: Cotizacion) => {
+  const handleSendEmail = async (quote: Cotizacion | null) => {
     if (!quote) return;
 
     const recipientEmail = quote.solicitante?.mail;
@@ -84,16 +104,7 @@ export default function AdminCotizaciones() {
     setIsSending(true);
     try {
       const pdfBlob = await GeneradorPDF.generar(quote);
-      const pdfBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64data = reader.result;
-          if (typeof base64data !== 'string') return reject(new Error('Error convirtiendo PDF a Base64'));
-          resolve(base64data.split(',')[1]);
-        };
-        reader.onerror = (error) => reject(new Error('Fallo la lectura del Blob del PDF: ' + error));
-        reader.readAsDataURL(pdfBlob);
-      });
+      const pdfBase64 = await blobToBase64(pdfBlob);
 
       await enviarCotizacion({
         clienteEmail: recipientEmail,
@@ -395,3 +406,5 @@ export default function AdminCotizaciones() {
     </TooltipProvider>
   );
 }
+
+    
