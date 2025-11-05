@@ -2,7 +2,7 @@
 /**
  * @fileOverview Flow de Genkit para el envío de cotizaciones por correo electrónico.
  *
- * - enviarCotizacion - La función exportada que el frontend llamará.
+ * - enviarCotizacionFlow - La función exportada que el frontend llamará.
  * - EnviarCotizacionInput - El tipo de entrada para la función.
  */
 
@@ -11,7 +11,7 @@ import { z } from 'genkit';
 import * as nodemailer from 'nodemailer';
 
 // Esquema de entrada para el flow
-const EnviarCotizacionInputSchema = z.object({
+export const EnviarCotizacionInputSchema = z.object({
   clienteEmail: z.string().email().describe('Correo electrónico del cliente destinatario.'),
   cotizacionId: z.string().describe('ID de la cotización para el asunto y nombre del archivo.'),
   pdfBase64: z.string().describe('Contenido del archivo PDF codificado en Base64.'),
@@ -19,7 +19,7 @@ const EnviarCotizacionInputSchema = z.object({
 export type EnviarCotizacionInput = z.infer<typeof EnviarCotizacionInputSchema>;
 
 // El flow de Genkit
-const enviarCotizacionFlow = ai.defineFlow(
+export const enviarCotizacionFlow = ai.defineFlow(
   {
     name: 'enviarCotizacionFlow',
     inputSchema: EnviarCotizacionInputSchema,
@@ -39,7 +39,8 @@ const enviarCotizacionFlow = ai.defineFlow(
 
     if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
       console.error('SMTP environment variables not set');
-      throw new Error('Las variables de entorno SMTP no están configuradas en el servidor.');
+      // Este error se propagará al frontend.
+      throw new Error('Las variables de entorno del servidor de correo (SMTP) no están configuradas.');
     }
 
     // Configurar el transportador SMTP con nodemailer
@@ -85,12 +86,7 @@ const enviarCotizacionFlow = ai.defineFlow(
     } catch (error: any) {
       console.error('Error detallado de Nodemailer:', error);
       // Propagar el mensaje de error original y completo de nodemailer para que el frontend lo capture.
-      throw new Error(`Error de Nodemailer: ${error.message}`);
+      throw new Error(`Error al contactar el servidor de correo: ${error.message}`);
     }
   }
 );
-
-// Función exportada que el frontend llamará
-export async function enviarCotizacion(input: EnviarCotizacionInput) {
-  return await enviarCotizacionFlow(input);
-}

@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { GeneradorPDF, OrdenDeExamen } from '@/components/cotizacion/GeneradorPDF';
-import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
+import { enviarCotizacionFlow } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { updateQuoteStatus, deleteQuote } from '@/lib/firestore';
 import type { Cotizacion } from '@/lib/types';
@@ -106,7 +106,7 @@ export default function AdminCotizaciones() {
       const pdfBlob = await GeneradorPDF.generar(quote);
       const pdfBase64 = await blobToBase64(pdfBlob);
 
-      await enviarCotizacion({
+      await enviarCotizacionFlow({
         clienteEmail: recipientEmail,
         cotizacionId: quote.id?.slice(-6) || 'S/N',
         pdfBase64: pdfBase64,

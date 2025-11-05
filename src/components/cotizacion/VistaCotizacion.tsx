@@ -7,7 +7,7 @@ import { Download, Loader2, Send } from 'lucide-react';
 import type { Cotizacion } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
+import { enviarCotizacionFlow } from '@/ai/flows/enviar-cotizacion-flow';
 import { GeneradorPDF } from './GeneradorPDF';
 import { DetalleCotizacion } from './DetalleCotizacion';
 
@@ -99,7 +99,7 @@ export function VistaCotizacion() {
         const pdfBlob = await GeneradorPDF.generar(quote);
         const pdfBase64 = await blobToBase64(pdfBlob);
         
-        await enviarCotizacion({
+        await enviarCotizacionFlow({
             clienteEmail: recipientEmail,
             cotizacionId: quote.id?.slice(-6) || 'S/N',
             pdfBase64: pdfBase64,
