@@ -54,14 +54,14 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows admins to read and write exam data.
+     * @description Allows anyone to read exam data, but only admins to write it.
      * @path /examenes/{examenId}
-     * @allow (get, list, create, update, delete) if isSignedIn() && isAdmin()
-     * @deny (create, update, delete) if !isSignedIn() || !isAdmin()
-     * @principle Enforces admin-only access for exam data.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if isSignedIn() && isAdmin();
+     * @principle Public read access for the exam catalog, write access restricted to admins.
      */
     match /examenes/{examenId} {
-      allow get, list: if isSignedIn() && isAdmin();
+      allow get, list: if true;
       allow create, update, delete: if isSignedIn() && isAdmin();
     }
 
