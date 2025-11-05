@@ -123,14 +123,14 @@ export function AdminCotizaciones() {
               const pdfBase64 = base64data.split(',')[1];
               
               await enviarCotizacion({
-                  clienteEmail: quoteToSend.solicitante.mail, // CORREGIDO: Usar email del solicitante
+                  clienteEmail: quoteToSend.solicitante?.mail || quoteToSend.empresa.email,
                   cotizacionId: quoteToSend.id?.slice(-6) || 'S/N',
                   pdfBase64: pdfBase64,
               });
 
               toast({
                 title: "Correo Enviado",
-                description: `La cotización se ha enviado a ${quoteToSend.solicitante.mail}.`
+                description: `La cotización se ha enviado a ${quoteToSend.solicitante?.mail || quoteToSend.empresa.email}.`
               });
               setQuoteToSend(null);
           };
@@ -289,18 +289,18 @@ export function AdminCotizaciones() {
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!displayQuote.solicitante?.mail}>
+                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!displayQuote.solicitante?.mail && !displayQuote.empresa?.email}>
                                                         <Send className="h-4 w-4" />
                                                     </Button>
                                                 </AlertDialogTrigger>
                                             </TooltipTrigger>
-                                            <TooltipContent><p>{displayQuote.solicitante?.mail ? 'Enviar por Email' : 'Email de solicitante no disponible'}</p></TooltipContent>
+                                            <TooltipContent><p>{(displayQuote.solicitante?.mail || displayQuote.empresa?.email) ? 'Enviar por Email' : 'Email no disponible'}</p></TooltipContent>
                                         </Tooltip>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>Confirmar Envío</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    ¿Confirma el envío de la cotización N° <span className="font-bold">{displayQuote.id?.slice(-6)}</span> al correo <span className="font-bold">{displayQuote.solicitante?.mail}</span>?
+                                                    ¿Confirma el envío de la cotización N° <span className="font-bold">{displayQuote.id?.slice(-6)}</span> al correo <span className="font-bold">{displayQuote.solicitante?.mail || displayQuote.empresa?.email}</span>?
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
@@ -327,7 +327,7 @@ export function AdminCotizaciones() {
                                                 <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
                                                 <AlertDialogDescription>
                                                     Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
-                                                    <span className='font-bold'> N° {quote.id.slice(-6)} </span>
+                                                    <span className='font-bold'> N° {quoteToDelete?.id.slice(-6)} </span>
                                                     de los servidores.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
