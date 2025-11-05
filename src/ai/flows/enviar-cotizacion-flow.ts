@@ -69,7 +69,6 @@ const enviarCotizacionFlow = ai.defineFlow(
           <h3 style="font-weight: bold; margin-top: 20px;">Datos de Transferencia</h3>
           <ul style="list-style: none; padding: 0;">
             <li>• <b>Nombre:</b> Araval Fisioterapia y Medicina Spa.</li>
-            <li>• <b>Giro:</b> Servicio Médico Rehabilitación Kinésica Ejercicio Físico y Venta Otr</li>
             <li>• <b>RUT:</b> 77.102.661-3</li>
             <li>• <b>Banco:</b> Banco Estado</li>
             <li>• <b>Cuenta corriente N°:</b> 027-0-002475-2</li>
