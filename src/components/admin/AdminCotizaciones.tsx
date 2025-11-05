@@ -1,382 +1,359 @@
-
 "use client";
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import { collection, deleteDoc, doc } from 'firebase/firestore';
-import { Eye, History, Loader2, Search, Shield, Trash2, XCircle, Send } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
-import { firestore } from '@/lib/firebase';
-import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
-import { useMemoFirebase } from '@/firebase/provider';
-import type { CotizacionFirestore, Cotizacion } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
-import { GeneradorPDF } from '../cotizacion/GeneradorPDF';
+import React, { useMemo, useState } from 'react';
+import { useCotizaciones } from '@/hooks/use-cotizaciones';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Loader2, Send, Download, Check, X, ClipboardCopy } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from '@/components/ui/tooltip';
+import { GeneradorPDF } from '@/components/cotizacion/GeneradorPDF';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
+import { useRouter } from 'next/navigation';
+import { updateQuoteStatus } from '@/lib/firestore';
 
-export function AdminCotizaciones() {
-  const { user, loading: authLoading } = useAuth();
-  const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [quoteToDelete, setQuoteToDelete] = useState<WithId<CotizacionFirestore> | null>(null);
-  const [quoteToSend, setQuoteToSend] = useState<Cotizacion | null>(null);
+// --- NUEVA LÓGICA DE GESTIÓN DE ESTADO ---
+const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'secondary' | 'success'> = {
+  PENDIENTE: 'secondary',
+  ENVIADA: 'default',
+  ACEPTADA: 'success',
+  RECHAZADA: 'destructive',
+};
+
+export default function AdminCotizaciones() {
+  const { quotes, isLoading, error, refetchQuotes } = useCotizaciones();
   const [isSending, setIsSending] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<any>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
 
-  const cotizacionesQuery = useMemoFirebase(() => collection(firestore, 'cotizaciones'), []);
+  const handleSendEmail = async () => {
+    if (!selectedQuote || isSending) return;
 
-  const { data: cotizaciones, isLoading, error } = useCollection<CotizacionFirestore>(cotizacionesQuery);
-  
-  const filteredCotizaciones = useMemo(() => {
-    if (!cotizaciones) return [];
+    const recipientEmail = selectedQuote.solicitante?.mail;
+    if (!recipientEmail) {
+      toast({
+        title: 'Error de Destinatario',
+        description: 'No se encontró un correo de solicitante para enviar.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-    return cotizaciones.filter(quote => {
-      const quoteDate = quote.fechaCreacion.toDate();
-      if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0); 
-        if (quoteDate < start) return false;
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999); 
-        if (quoteDate > end) return false;
-      }
+    setIsSending(true);
+    let success = false;
 
-      if (searchTerm) {
-          const lowercasedFilter = searchTerm.toLowerCase();
-          const empresaMatch = quote.empresaData?.razonSocial?.toLowerCase().includes(lowercasedFilter);
-          const solicitanteNombreMatch = quote.solicitanteData?.nombre?.toLowerCase().includes(lowercasedFilter);
-          const solicitanteMailMatch = quote.solicitanteData?.mail?.toLowerCase().includes(lowercasedFilter);
-          const idMatch = quote.id?.toLowerCase().includes(lowercasedFilter);
-          
-          if (! (empresaMatch || solicitanteNombreMatch || solicitanteMailMatch || idMatch)) {
-            return false;
-          }
-      }
-
-      return true;
-    }).sort((a, b) => b.fechaCreacion.toMillis() - a.fechaCreacion.toMillis());
-  }, [cotizaciones, searchTerm, startDate, endDate]);
-
-  const handleDelete = async (quote: WithId<CotizacionFirestore>) => {
-    if (!quote) return;
-    setIsDeleting(true);
     try {
-        await deleteDoc(doc(firestore, 'cotizaciones', quote.id));
-        toast({
-            title: 'Cotización Eliminada',
-            description: `La cotización N° ${quote.id.slice(-6)} ha sido eliminada.`,
-        });
-    } catch (e: any) {
-        console.error("Error deleting document: ", e);
-        toast({
-            variant: "destructive",
-            title: "Error al eliminar",
-            description: e.message || "No se pudo eliminar la cotización.",
-        });
+      // 1. Generar PDF (GeneradorPDF ya tiene su try/catch interno)
+      const pdfBlob = await GeneradorPDF.generar(selectedQuote);
+
+      // 2. Convertir Blob a Base64
+      const pdfBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64data = reader.result;
+          if (typeof base64data !== 'string') {
+            return reject(new Error('Error convirtiendo PDF a Base64'));
+          }
+          resolve(base64data.split(',')[1]);
+        };
+
+        reader.onerror = () => {
+          reject(new Error('Fallo la lectura del Blob del PDF.'));
+        };
+
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      // 3. Enviar Correo usando el flow de AI
+      await enviarCotizacion({
+        clienteEmail: recipientEmail,
+        cotizacionId: selectedQuote.id?.slice(-6) || 'S/N',
+        pdfBase64: pdfBase64,
+      });
+
+      // 4. Actualizar estado y mostrar éxito
+      await handleUpdateStatus('ENVIADA');
+
+      toast({
+        title: 'Correo Enviado',
+        description: `La cotización se ha enviado a ${recipientEmail} y el estado ha sido actualizado.`,
+      });
+      success = true;
+
+    } catch (error: any) {
+      console.error('Error al enviar cotización:', error);
+      toast({
+        title: 'Error Crítico de Envío',
+        description:
+          error.message ||
+          'No se pudo completar el envío. Revisar consola para más detalles (puede ser el PDF o el servicio de email).',
+        variant: 'destructive',
+      });
     } finally {
-        setIsDeleting(false);
-        setQuoteToDelete(null);
+      // ESTE BLOQUE ES EL CRUCIAL: Detiene el estado de carga SIEMPRE.
+      setIsSending(false);
+      if (success) {
+        setPreviewOpen(false);
+      }
     }
   };
 
-  const handleSendEmail = async (quote: Cotizacion) => {
-      if (!quote) return;
-      
-      const recipientEmail = quote.solicitante?.mail;
-      if (!recipientEmail) {
-        toast({
-            title: "Error: Email no encontrado",
-            description: "No se encontró un email de solicitante para enviar la cotización.",
-            variant: "destructive",
-        });
-        return;
-      }
-      
-      setIsSending(true);
-      try {
-          const pdfBlob = await GeneradorPDF.generar(quote);
-          const reader = new FileReader();
-          
-          // Usamos una promesa para manejar el resultado del FileReader
-          await new Promise<void>((resolve, reject) => {
-              reader.onloadend = async () => {
-                  try {
-                      const base64data = reader.result;
-                      if (typeof base64data !== 'string') {
-                          throw new Error("Error convirtiendo PDF a Base64");
-                      }
-                      const pdfBase64 = base64data.split(',')[1];
-                      
-                      await enviarCotizacion({
-                          clienteEmail: recipientEmail,
-                          cotizacionId: quote.id?.slice(-6) || 'S/N',
-                          pdfBase64: pdfBase64,
-                      });
-
-                      toast({
-                        title: "Correo Enviado",
-                        description: `La cotización se ha enviado a ${recipientEmail}.`
-                      });
-                      resolve();
-                  } catch (e) {
-                      reject(e);
-                  }
-              };
-              reader.onerror = () => {
-                 reject(new Error("Fallo la lectura del Blob del PDF."));
-              };
-              reader.readAsDataURL(pdfBlob);
-          });
-
-      } catch (error: any) {
-          console.error("Error al enviar correo:", error);
-          toast({
-              title: "Error al Enviar Correo",
-              description: error.message || "No se pudo enviar la cotización. Verifique la consola para más detalles.",
-              variant: "destructive",
-          });
-      } finally {
-          setIsSending(false);
-          setQuoteToSend(null);
-      }
+  const handleUpdateStatus = async (newStatus: string) => {
+    if (!selectedQuote) return;
+    setIsUpdatingStatus(true);
+    try {
+      await updateQuoteStatus(selectedQuote.id, newStatus);
+      toast({
+        title: 'Estado Actualizado',
+        description: `La cotización ${selectedQuote.id.slice(-6)} ahora está en estado: ${newStatus}`,
+      });
+      refetchQuotes();
+    } catch (error: any) {
+      console.error('Error al actualizar estado:', error);
+      toast({
+        title: 'Error al Actualizar Estado',
+        description: 'No se pudo guardar el nuevo estado. Intente de nuevo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
-  };
-  
-  const formatDate = (timestamp: any) => {
-      if (!timestamp) return 'N/A';
-      return new Date(timestamp.seconds * 1000).toLocaleDateString('es-CL');
-  }
-
-  const prepareQuoteForDisplay = (quote: WithId<CotizacionFirestore>): Cotizacion => {
-    return {
-      id: quote.id,
-      empresa: quote.empresaData,
-      solicitante: quote.solicitanteData,
-      solicitudes: quote.solicitudesData,
-      total: quote.total,
-      fecha: formatDate(quote.fechaCreacion),
-    };
+  const handlePreviewQuote = (quote: any, viewType: 'preview' | 'download') => {
+    if (viewType === 'preview') {
+      setSelectedQuote(quote);
+      setPreviewOpen(true);
+    } else {
+      const dataString = encodeURIComponent(JSON.stringify(quote));
+      // Redirige a la vista de cotización con los datos para que el usuario pueda descargar o enviar.
+      router.push(`/app/quote-view?data=${dataString}`);
+    }
   };
 
-  if (authLoading || isLoading) {
-    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
-  
-  if (user?.role !== 'admin') {
+  const handleCopyQuoteId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    toast({
+      title: 'Copiado',
+      description: `ID de Cotización (${id.slice(-6)}) copiado al portapapeles.`,
+    });
+  };
+
+  const filteredQuotes = useMemo(() => {
+    return quotes.sort((a, b) => b.fechaCreacion.toMillis() - a.fechaCreacion.toMillis());
+  }, [quotes]);
+
+  if (isLoading) {
     return (
-        <Alert variant="destructive" className="max-w-2xl mx-auto">
-            <Shield className="h-4 w-4" />
-            <AlertTitle>Acceso Denegado</AlertTitle>
-            <AlertDescription>
-                No tienes permisos para acceder a esta sección.
-            </AlertDescription>
-        </Alert>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+        <span className="text-xl text-gray-600">Cargando cotizaciones...</span>
+      </div>
     );
   }
 
   if (error) {
-      return (
-          <Alert variant="destructive" className="max-w-2xl mx-auto">
-              <XCircle className="h-4 w-4" />
-              <AlertTitle>Error al Cargar Datos</AlertTitle>
-              <AlertDescription>
-                  No se pudieron cargar las cotizaciones.
-              </AlertDescription>
-          </Alert>
-      )
+    return (
+      <div className="text-center p-8 bg-red-100 border border-red-400 text-red-700 rounded">
+        <h2 className="text-xl font-bold">Error de Carga</h2>
+        <p>No se pudieron cargar las cotizaciones: {error.message}</p>
+      </div>
+    );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-headline text-3xl flex items-center gap-3">
-            <History className="h-8 w-8 text-primary"/>
-            Historial de Cotizaciones
-        </CardTitle>
-        <CardDescription>
-          Busque y gestione las cotizaciones generadas en el sistema.
-        </CardDescription>
-        <div className="pt-4 space-y-4">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input 
-                    placeholder="Buscar por empresa, solicitante, email o N° de documento..."
-                    className="pl-10"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className='space-y-2'>
-                    <Label htmlFor='start-date'>Fecha Desde</Label>
-                    <Input 
-                        id="start-date"
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                    />
-                </div>
-                <div className='space-y-2'>
-                    <Label htmlFor='end-date'>Fecha Hasta</Label>
-                    <Input 
-                        id="end-date"
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                    />
-                </div>
-            </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <TooltipProvider>
+    <TooltipProvider>
+      <div className="container mx-auto p-4 sm:p-6 bg-white rounded-lg shadow-xl">
+        <h1 className="text-3xl font-bold mb-6 text-gray-800">Administración de Cotizaciones</h1>
+
+        {filteredQuotes.length === 0 ? (
+          <div className="text-center p-10 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+            <p className="text-lg text-gray-500">No hay cotizaciones pendientes ni creadas.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
             <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>N° Doc</TableHead>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Empresa</TableHead>
-                        <TableHead>Email Solicitante</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                        <TableHead className="text-center">Acciones</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {filteredCotizaciones.length > 0 ? filteredCotizaciones.map((quote) => {
-                      const displayQuote = prepareQuoteForDisplay(quote);
-                      const recipientEmail = displayQuote.solicitante?.mail;
-                      const query = encodeURIComponent(JSON.stringify(displayQuote));
-
-                      return (
-                        <TableRow key={quote.id} className="hover:bg-accent/50">
-                            <TableCell className="font-mono text-xs">
-                                <Badge variant="secondary">{quote.id.slice(-6)}</Badge>
-                            </TableCell>
-                            <TableCell>{formatDate(quote.fechaCreacion)}</TableCell>
-                            <TableCell className="font-medium">{quote.empresaData?.razonSocial || 'N/A'}</TableCell>
-                            <TableCell className="text-muted-foreground">{recipientEmail || 'N/A'}</TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(quote.total)}</TableCell>
-                            <TableCell className="text-center">
-                                <div className='flex items-center justify-center gap-1'>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button asChild variant="ghost" size="icon">
-                                                <Link href={`/cotizacion?data=${query}`} target="_blank">
-                                                    <Eye className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Ver Cotización</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                    
-                                    <AlertDialog>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!recipientEmail}>
-                                                    <Send className="h-4 w-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent><p>{recipientEmail ? 'Enviar por Email' : 'Email no disponible'}</p></TooltipContent>
-                                        </Tooltip>
-                                        {quoteToSend && (
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Confirmar Envío</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        ¿Confirma el envío de la cotización N° <span className="font-bold">{quoteToSend.id?.slice(-6)}</span> al correo <span className="font-bold">{quoteToSend.solicitante?.mail}</span>?
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel onClick={() => setQuoteToSend(null)}>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleSendEmail(quoteToSend)} disabled={isSending}>
-                                                        {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                                                        Confirmar Envío
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        )}
-                                    </AlertDialog>
-
-                                    <AlertDialog>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={() => setQuoteToDelete(quote)}>
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent><p>Eliminar Cotización</p></TooltipContent>
-                                        </Tooltip>
-                                        {quoteToDelete && (
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
-                                                        <span className='font-bold'> N° {quoteToDelete.id.slice(-6)} </span>
-                                                        de los servidores.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel onClick={() => setQuoteToDelete(null)}>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDelete(quoteToDelete)} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
-                                                        {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                                        Eliminar
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        )}
-                                    </AlertDialog>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                      )
-                    }) : (
-                        <TableRow>
-                            <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                                No se encontraron cotizaciones para los filtros seleccionados.
-                            </TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
+              <TableHeader className="bg-gray-50">
+                <TableRow>
+                  <TableHead className="w-[100px]">ID</TableHead>
+                  <TableHead>Empresa</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Monto Total</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-center w-[200px]">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredQuotes.map((quote) => (
+                  <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
+                    <TableCell className="font-medium flex items-center space-x-2">
+                      <span>{quote.id.slice(-6)}</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <ClipboardCopy
+                            className="h-4 w-4 cursor-pointer text-gray-400 hover:text-primary transition-colors"
+                            onClick={() => handleCopyQuoteId(quote.id)}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Copiar ID completo</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-semibold text-gray-700">{quote.empresa.razonSocial}</div>
+                      <div className="text-sm text-gray-500">{quote.solicitante.nombre}</div>
+                    </TableCell>
+                    <TableCell>
+                      {format(quote.fechaCreacion.toDate(), 'dd/MM/yyyy HH:mm', { locale: es })}
+                    </TableCell>
+                    <TableCell className="font-bold text-lg text-primary">
+                      {new Intl.NumberFormat('es-CL', {
+                        style: 'currency',
+                        currency: 'CLP',
+                        minimumFractionDigits: 0,
+                      }).format(quote.total || 0)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={QuoteStatusMap[quote.status]}>
+                        {quote.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center space-x-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handlePreviewQuote(quote, 'preview')}
+                            disabled={isSending}
+                          >
+                            {quote.status === 'ENVIADA' ? 'Ver' : 'Gestionar'}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Ver detalles y gestionar envío/estado</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handlePreviewQuote(quote, 'download')}
+                            disabled={isSending}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Ver en página de descarga/exportación</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
             </Table>
-           </TooltipProvider>
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-6xl w-[95%] h-[95%] flex flex-col p-6">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">
+              Gestión de Cotización ID: {selectedQuote?.id?.slice(-6)}
+              <Badge variant={QuoteStatusMap[selectedQuote?.status || 'PENDIENTE']} className="ml-3 text-lg">
+                {selectedQuote?.status}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Área de Botones de Gestión */}
+          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border mb-4 sticky top-0 z-10">
+            <div className="flex space-x-3">
+              <Button
+                onClick={handleSendEmail}
+                disabled={isSending || isUpdatingStatus || selectedQuote?.status === 'ACEPTADA' || selectedQuote?.status === 'RECHAZADA'}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isSending ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</>
+                ) : (
+                  <><Send className="mr-2 h-4 w-4" /> Confirmar Envío / Reenviar</>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handlePreviewQuote(selectedQuote, 'download')}
+                disabled={isSending || isUpdatingStatus}
+              >
+                <Download className="mr-2 h-4 w-4" /> Ver Descarga/Exportación
+              </Button>
+            </div>
+
+            <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => handleUpdateStatus('ACEPTADA')}
+                disabled={isUpdatingStatus || selectedQuote?.status === 'ACEPTADA' || selectedQuote?.status === 'RECHAZADA'}
+                className="text-green-600 border-green-600 hover:bg-green-50"
+              >
+                {isUpdatingStatus ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
+                Marcar como ACEPTADA
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleUpdateStatus('RECHAZADA')}
+                disabled={isUpdatingStatus || selectedQuote?.status === 'ACEPTADA' || selectedQuote?.status === 'RECHAZADA'}
+                className="text-red-600 border-red-600 hover:bg-red-50"
+              >
+                {isUpdatingStatus ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="mr-2 h-4 w-4" />
+                )}
+                Marcar como RECHAZADA
+              </Button>
+            </div>
+          </div>
+
+          {/* Área de Visualización del Detalle (Ocupa el resto del espacio) */}
+          <div className="flex-grow overflow-y-auto bg-gray-100 p-4 rounded-lg">
+            {selectedQuote && <GeneradorPDF.OrdenDeExamen solicitud={selectedQuote.solicitudes[0]} empresa={selectedQuote.empresa} />}
+            {/* NO usar DetalleCotizacion aquí directamente, ya que GeneradorPDF.OrdenDeExamen es un componente */}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </TooltipProvider>
   );
 }
-
-    

@@ -1,4 +1,5 @@
 
+
 import { type User as FirebaseUser } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 
@@ -40,12 +41,14 @@ export type SolicitudTrabajador = {
 
 // This type is for the frontend display and URL passing
 export type Cotizacion = {
-  id?: string;
+  id: string;
   empresa: Empresa;
   solicitante: Trabajador; // This is the main contact for the quote
   solicitudes: SolicitudTrabajador[]; // Contains each worker with their specific exams
   total: number;
   fecha: string;
+  fechaCreacion: Timestamp; // To keep the original timestamp for sorting
+  status: 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA';
 };
 
 // This is the type that is stored in Firestore
@@ -58,6 +61,7 @@ export type CotizacionFirestore = {
   empresaData: Empresa;
   solicitanteData: Trabajador; // Main contact
   solicitudesData: SolicitudTrabajador[]; // All workers with their exams
+  status: 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA';
 }
 
 export interface User extends FirebaseUser {

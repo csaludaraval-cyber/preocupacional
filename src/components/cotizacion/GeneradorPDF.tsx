@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -73,7 +72,7 @@ export const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrab
 export class GeneradorPDF {
   static async generar(quote: Cotizacion, includeAnnexes = true): Promise<Blob> {
     
-    // Crear un contenedor temporal que no será visible en el DOM principal
+    // 1. Crear un contenedor temporal que no será visible en el DOM principal
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
@@ -98,53 +97,59 @@ export class GeneradorPDF {
         </React.Fragment>
     );
 
-    // Renderizar los componentes en el contenedor temporal
-    await new Promise<void>(resolve => root.render(contentToRender, () => resolve()));
-    
-    const pdf = new jsPDF({
-      orientation: 'p',
-      unit: 'pt',
-      format: 'letter',
-    });
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    
+    let pdf: jsPDF | undefined;
+
     try {
-      const mainElement = container.querySelector<HTMLElement>('#printable-quote-temp');
-      if (!mainElement) throw new Error("Elemento principal de la cotización no encontrado para generar PDF");
+        // 2. Renderizar los componentes en el contenedor temporal
+        await new Promise<void>(resolve => root.render(contentToRender, () => resolve()));
+        
+        // 3. Inicializar jsPDF
+        pdf = new jsPDF({
+          orientation: 'p',
+          unit: 'pt',
+          format: 'letter',
+        });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        
+        // 4. Generación del Canvas para la Cotización Principal
+        const mainElement = container.querySelector<HTMLElement>('#printable-quote-temp');
+        if (!mainElement) throw new Error("Elemento principal de la cotización no encontrado para generar PDF");
 
-      const mainCanvas = await html2canvas(mainElement, { scale: 2, useCORS: true });
-      const mainImgData = mainCanvas.toDataURL('image/png');
-      const mainRatio = mainCanvas.height / mainCanvas.width;
-      let mainImgHeight = pdfWidth * mainRatio;
-      
-      pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
-      
-      if(includeAnnexes) {
-          const annexElements = container.querySelectorAll<HTMLElement>('.order-page-container');
-          for (let i = 0; i < annexElements.length; i++) {
-            const annexElement = annexElements[i];
-            
-            const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true });
-            const annexImgData = annexCanvas.toDataURL('image/png');
-            const annexRatio = annexCanvas.height / annexCanvas.width;
-            const annexImgHeight = pdfWidth * annexRatio;
+        const mainCanvas = await html2canvas(mainElement, { scale: 2, useCORS: true });
+        const mainImgData = mainCanvas.toDataURL('image/png');
+        const mainRatio = mainCanvas.height / mainCanvas.width;
+        let mainImgHeight = pdfWidth * mainRatio;
+        
+        pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
+        
+        // 5. Generación del Canvas para los Anexos (Órdenes de Examen)
+        if(includeAnnexes) {
+            const annexElements = container.querySelectorAll<HTMLElement>('.order-page-container');
+            for (let i = 0; i < annexElements.length; i++) {
+              const annexElement = annexElements[i];
+              
+              const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true });
+              const annexImgData = annexCanvas.toDataURL('image/png');
+              const annexRatio = annexCanvas.height / annexCanvas.width;
+              const annexImgHeight = pdfWidth * annexRatio;
 
-            pdf.addPage();
-            pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
-          }
-      }
+              pdf.addPage();
+              pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
+            }
+        }
+        
+        // 6. Retornar el Blob del PDF
+        return pdf.output('blob');
+
     } catch (error: any) {
-      console.error("Error durante la generación de canvas/PDF:", error);
-      // Re-lanzar el error para que pueda ser atrapado por la función que llama
-      throw new Error(`Fallo en la generación del PDF: ${error.message}`);
+        console.error("Error crítico durante la generación de PDF:", error);
+        // Re-lanzar el error para que sea capturado en AdminCotizaciones.tsx
+        throw new Error(`Fallo en la generación del PDF: ${error.message || 'Error desconocido'}`);
     } finally {
-        // Limpiar el contenedor temporal
+        // 7. Limpiar el contenedor temporal (CRUCIAL)
+        // Se ejecuta siempre, asegurando que no quede código React montado en el DOM
         root.unmount();
         document.body.removeChild(container);
     }
-    
-    return pdf.output('blob');
   }
 }
-
-    
