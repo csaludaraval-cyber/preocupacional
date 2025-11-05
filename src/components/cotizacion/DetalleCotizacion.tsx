@@ -56,13 +56,12 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
                 <p className="mt-1 text-sm">Fecha: {quote.fecha}</p>
             </div>
                 <Image
-                src="/logo.png"
+                src="/logo2.png"
                 alt="Araval Logo"
                 width={150}
                 height={40}
                 priority
                 unoptimized
-                style={{ filter: 'brightness(0) invert(1)' }}
             />
         </header>
 
