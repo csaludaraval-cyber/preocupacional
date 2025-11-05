@@ -53,13 +53,15 @@ export function AdminSolicitudes() {
     if (!searchTerm) return sorted;
 
     const lowercasedFilter = searchTerm.toLowerCase();
-    return sorted.filter(req =>
-      req.empresa.razonSocial.toLowerCase().includes(lowercasedFilter) ||
-      (req.solicitante && req.solicitante.nombre.toLowerCase().includes(lowercasedFilter)) ||
-      (req.solicitante && req.solicitante.mail.toLowerCase().includes(lowercasedFilter)) ||
-      req.solicitudes.some(s => s.trabajador.nombre.toLowerCase().includes(lowercasedFilter)) ||
-      req.id.toLowerCase().includes(lowercasedFilter)
-    );
+    return sorted.filter(req => {
+        const empresaMatch = req.empresa?.razonSocial?.toLowerCase().includes(lowercasedFilter);
+        const solicitanteNombreMatch = req.solicitante?.nombre?.toLowerCase().includes(lowercasedFilter);
+        const solicitanteMailMatch = req.solicitante?.mail?.toLowerCase().includes(lowercasedFilter);
+        const trabajadorMatch = req.solicitudes?.some(s => s.trabajador?.nombre?.toLowerCase().includes(lowercasedFilter));
+        const idMatch = req.id?.toLowerCase().includes(lowercasedFilter);
+
+        return empresaMatch || solicitanteNombreMatch || solicitanteMailMatch || trabajadorMatch || idMatch;
+    });
   }, [solicitudes, searchTerm]);
 
   const handleDelete = async () => {
@@ -175,9 +177,9 @@ export function AdminSolicitudes() {
                                   <Badge variant="secondary">{req.id.slice(-6)}</Badge>
                               </TableCell>
                               <TableCell className='font-bold'>{formatDate(req.fechaCreacion)}</TableCell>
-                              <TableCell className="font-medium font-bold">{req.empresa.razonSocial}</TableCell>
+                              <TableCell className="font-medium font-bold">{req.empresa?.razonSocial || 'N/A'}</TableCell>
                               <TableCell className='text-sm'>
-                                {req.solicitante ? (
+                                {req.solicitante?.nombre ? (
                                   <div className='flex flex-col'>
                                     <span className='font-medium'>{req.solicitante.nombre}</span>
                                     <span className='text-muted-foreground'>{req.solicitante.mail}</span>
@@ -186,7 +188,7 @@ export function AdminSolicitudes() {
                                   <span className='text-muted-foreground italic'>N/A</span>
                                 )}
                               </TableCell>
-                              <TableCell className="text-muted-foreground font-bold">{req.solicitudes.length}</TableCell>
+                              <TableCell className="text-muted-foreground font-bold">{req.solicitudes?.length || 0}</TableCell>
                               <TableCell><Badge variant={req.estado === 'pendiente' ? 'default' : 'secondary'}>{req.estado}</Badge></TableCell>
                               <TableCell className="text-center space-x-2">
                                   <Tooltip>
@@ -233,12 +235,12 @@ export function AdminSolicitudes() {
                                   </Tooltip>
                               </TableCell>
                           </TableRow>
-                          {req.solicitudes.map((solicitud, index) => {
+                          {req.solicitudes?.map((solicitud, index) => {
                             const examCount = solicitud.examenes ? solicitud.examenes.length : 0;
                             return (
                               <TableRow key={`${req.id}-${index}`} className="hover:bg-accent/50 text-sm bg-gray-50/50">
                                 <TableCell colSpan={7} className='pl-12 text-muted-foreground'>
-                                  - <span className='font-medium text-foreground'>{solicitud.trabajador.nombre}</span> ({examCount} exámenes)
+                                  - <span className='font-medium text-foreground'>{solicitud.trabajador?.nombre || 'Trabajador sin nombre'}</span> ({examCount} exámenes)
                                 </TableCell>
                               </TableRow>
                             )

@@ -72,12 +72,14 @@ export function AdminCotizaciones() {
       // Search term filtering
       if (searchTerm) {
           const lowercasedFilter = searchTerm.toLowerCase();
-          const matchesSearch = 
-            quote.empresaData.razonSocial.toLowerCase().includes(lowercasedFilter) ||
-            (quote.solicitanteData && quote.solicitanteData.nombre.toLowerCase().includes(lowercasedFilter)) ||
-            (quote.solicitanteData && quote.solicitanteData.mail.toLowerCase().includes(lowercasedFilter)) ||
-            quote.id.toLowerCase().includes(lowercasedFilter);
-          if (!matchesSearch) return false;
+          const empresaMatch = quote.empresaData?.razonSocial?.toLowerCase().includes(lowercasedFilter);
+          const solicitanteNombreMatch = quote.solicitanteData?.nombre?.toLowerCase().includes(lowercasedFilter);
+          const solicitanteMailMatch = quote.solicitanteData?.mail?.toLowerCase().includes(lowercasedFilter);
+          const idMatch = quote.id?.toLowerCase().includes(lowercasedFilter);
+          
+          if (! (empresaMatch || solicitanteNombreMatch || solicitanteMailMatch || idMatch)) {
+            return false;
+          }
       }
 
       return true;
@@ -265,7 +267,7 @@ export function AdminCotizaciones() {
                                 <Badge variant="secondary">{quote.id.slice(-6)}</Badge>
                             </TableCell>
                             <TableCell>{formatDate(quote.fechaCreacion)}</TableCell>
-                            <TableCell className="font-medium">{quote.empresaData.razonSocial}</TableCell>
+                            <TableCell className="font-medium">{quote.empresaData?.razonSocial || 'N/A'}</TableCell>
                             <TableCell className="text-muted-foreground">{quote.solicitanteData?.mail || 'N/A'}</TableCell>
                             <TableCell className="text-right font-semibold">{formatCurrency(quote.total)}</TableCell>
                             <TableCell className="text-center">
@@ -287,18 +289,18 @@ export function AdminCotizaciones() {
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)}>
+                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!displayQuote.empresa?.email}>
                                                         <Send className="h-4 w-4" />
                                                     </Button>
                                                 </AlertDialogTrigger>
                                             </TooltipTrigger>
-                                            <TooltipContent><p>Enviar por Email</p></TooltipContent>
+                                            <TooltipContent><p>{displayQuote.empresa?.email ? 'Enviar por Email' : 'Email de empresa no disponible'}</p></TooltipContent>
                                         </Tooltip>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>Confirmar Envío</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    ¿Confirma el envío de la cotización N° <span className="font-bold">{displayQuote.id?.slice(-6)}</span> al correo <span className="font-bold">{displayQuote.empresa.email}</span>?
+                                                    ¿Confirma el envío de la cotización N° <span className="font-bold">{displayQuote.id?.slice(-6)}</span> al correo <span className="font-bold">{displayQuote.empresa?.email}</span>?
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
