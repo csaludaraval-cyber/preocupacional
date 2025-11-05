@@ -3,20 +3,13 @@
  * @fileOverview Flow de Genkit para el envío de cotizaciones por correo electrónico.
  *
  * - enviarCotizacion - La función exportada que el frontend llamará.
- * - EnviarCotizacionInput - El tipo de entrada para la función.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import * as nodemailer from 'nodemailer';
+import { EnviarCotizacionInputSchema, type EnviarCotizacionInput } from '@/lib/types';
 
-// Esquema de entrada para el flow
-export const EnviarCotizacionInputSchema = z.object({
-  clienteEmail: z.string().email().describe('Correo electrónico del cliente destinatario.'),
-  cotizacionId: z.string().describe('ID de la cotización para el asunto y nombre del archivo.'),
-  pdfBase64: z.string().describe('Contenido del archivo PDF codificado en Base64.'),
-});
-export type EnviarCotizacionInput = z.infer<typeof EnviarCotizacionInputSchema>;
 
 // El flow de Genkit (no se exporta directamente)
 const enviarCotizacionFlow = ai.defineFlow(
@@ -81,12 +74,13 @@ const enviarCotizacionFlow = ai.defineFlow(
       };
     } catch (error: any) {
       console.error('Error detallado de Nodemailer:', error);
+      // Re-lanzar el error para que Genkit/Next.js lo propaguen al cliente
       throw new Error(`Error al contactar el servidor de correo: ${error.message}`);
     }
   }
 );
 
-// Función contenedora asíncrona que SÍ se exporta
+// ÚNICA EXPORTACIÓN: Función contenedora asíncrona
 export async function enviarCotizacion(input: EnviarCotizacionInput): Promise<{ status: string; message: string; }> {
     return await enviarCotizacionFlow(input);
 }

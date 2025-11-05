@@ -2,6 +2,7 @@
 
 import { type User as FirebaseUser } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
+import { z } from 'zod';
 
 export type Examen = {
   id: string;
@@ -80,3 +81,11 @@ export type SolicitudPublica = {
   fechaCreacion: Timestamp;
   estado: 'pendiente' | 'procesada';
 };
+
+// Input schema for the email sending flow
+export const EnviarCotizacionInputSchema = z.object({
+  clienteEmail: z.string().email().describe('Correo electrónico del cliente destinatario.'),
+  cotizacionId: z.string().describe('ID de la cotización para el asunto y nombre del archivo.'),
+  pdfBase64: z.string().describe('Contenido del archivo PDF codificado en Base64.'),
+});
+export type EnviarCotizacionInput = z.infer<typeof EnviarCotizacionInputSchema>;
