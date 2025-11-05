@@ -74,8 +74,8 @@ export function AdminCotizaciones() {
           const lowercasedFilter = searchTerm.toLowerCase();
           const matchesSearch = 
             quote.empresaData.razonSocial.toLowerCase().includes(lowercasedFilter) ||
-            quote.solicitanteData.nombre.toLowerCase().includes(lowercasedFilter) ||
-            quote.solicitanteData.mail.toLowerCase().includes(lowercasedFilter) ||
+            (quote.solicitanteData && quote.solicitanteData.nombre.toLowerCase().includes(lowercasedFilter)) ||
+            (quote.solicitanteData && quote.solicitanteData.mail.toLowerCase().includes(lowercasedFilter)) ||
             quote.id.toLowerCase().includes(lowercasedFilter);
           if (!matchesSearch) return false;
       }
@@ -266,7 +266,7 @@ export function AdminCotizaciones() {
                             </TableCell>
                             <TableCell>{formatDate(quote.fechaCreacion)}</TableCell>
                             <TableCell className="font-medium">{quote.empresaData.razonSocial}</TableCell>
-                            <TableCell className="text-muted-foreground">{quote.solicitanteData.mail}</TableCell>
+                            <TableCell className="text-muted-foreground">{quote.solicitanteData?.mail || 'N/A'}</TableCell>
                             <TableCell className="text-right font-semibold">{formatCurrency(quote.total)}</TableCell>
                             <TableCell className="text-center">
                                 <div className='flex items-center justify-center gap-1'>
@@ -356,5 +356,3 @@ export function AdminCotizaciones() {
     </Card>
   );
 }
-
-    

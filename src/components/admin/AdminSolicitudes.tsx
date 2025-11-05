@@ -55,8 +55,8 @@ export function AdminSolicitudes() {
     const lowercasedFilter = searchTerm.toLowerCase();
     return sorted.filter(req =>
       req.empresa.razonSocial.toLowerCase().includes(lowercasedFilter) ||
-      req.solicitante.nombre.toLowerCase().includes(lowercasedFilter) ||
-      req.solicitante.mail.toLowerCase().includes(lowercasedFilter) ||
+      (req.solicitante && req.solicitante.nombre.toLowerCase().includes(lowercasedFilter)) ||
+      (req.solicitante && req.solicitante.mail.toLowerCase().includes(lowercasedFilter)) ||
       req.solicitudes.some(s => s.trabajador.nombre.toLowerCase().includes(lowercasedFilter)) ||
       req.id.toLowerCase().includes(lowercasedFilter)
     );
@@ -177,10 +177,14 @@ export function AdminSolicitudes() {
                               <TableCell className='font-bold'>{formatDate(req.fechaCreacion)}</TableCell>
                               <TableCell className="font-medium font-bold">{req.empresa.razonSocial}</TableCell>
                               <TableCell className='text-sm'>
-                                <div className='flex flex-col'>
-                                  <span className='font-medium'>{req.solicitante.nombre}</span>
-                                  <span className='text-muted-foreground'>{req.solicitante.mail}</span>
-                                </div>
+                                {req.solicitante ? (
+                                  <div className='flex flex-col'>
+                                    <span className='font-medium'>{req.solicitante.nombre}</span>
+                                    <span className='text-muted-foreground'>{req.solicitante.mail}</span>
+                                  </div>
+                                ) : (
+                                  <span className='text-muted-foreground italic'>N/A</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-muted-foreground font-bold">{req.solicitudes.length}</TableCell>
                               <TableCell><Badge variant={req.estado === 'pendiente' ? 'default' : 'secondary'}>{req.estado}</Badge></TableCell>
