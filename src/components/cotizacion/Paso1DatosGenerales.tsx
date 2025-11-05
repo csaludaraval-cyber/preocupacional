@@ -148,10 +148,12 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
             </div>
              <div className="space-y-2">
                 <Label htmlFor="fecha-nacimiento">Fecha de Nacimiento</Label>
-                <DatePicker 
-                    value={trabajador.fechaNacimiento ? new Date(trabajador.fechaNacimiento) : undefined}
-                    onSelect={(date) => setTrabajador({...trabajador, fechaNacimiento: date ? date.toISOString().split('T')[0] : ''})}
-                    placeholder="Seleccione una fecha"
+                <Input 
+                    id="fecha-nacimiento"
+                    type="text"
+                    placeholder="DD/MM/AAAA"
+                    value={trabajador.fechaNacimiento}
+                    onChange={(e) => setTrabajador({...trabajador, fechaNacimiento: e.target.value})}
                 />
             </div>
             <div className="space-y-2">
