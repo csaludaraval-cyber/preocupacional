@@ -3,15 +3,12 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { Download, Loader2, Send } from 'lucide-react';
 import type { Cotizacion, Empresa, SolicitudTrabajador, Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
-import { GeneradorPDF, OrdenDeExamen } from './GeneradorPDF';
+import { GeneradorPDF } from './GeneradorPDF';
 import { DetalleCotizacion } from './DetalleCotizacion';
 
 export function VistaCotizacion() {
@@ -83,14 +80,14 @@ export function VistaCotizacion() {
             
             // 2. Llamar al flow de Genkit
             await enviarCotizacion({
-                clienteEmail: quote.empresa.email,
+                clienteEmail: quote.solicitante.mail, // CORREGIDO: Usar email del solicitante
                 cotizacionId: quote.id?.slice(-6) || 'S/N',
                 pdfBase64: pdfBase64,
             });
 
             toast({
                 title: "Correo Enviado",
-                description: "El correo con la cotizacion formal se ha enviado con exito al cliente."
+                description: `El correo con la cotización se ha enviado a ${quote.solicitante.mail}.`
             });
         };
         
@@ -125,7 +122,7 @@ export function VistaCotizacion() {
   return (
     <>
       <div id="button-container" className="flex justify-end gap-2 mb-4 print:hidden">
-        <Button onClick={handleSendEmail} disabled={sendingEmail || loadingPdf}>
+        <Button onClick={handleSendEmail} disabled={sendingEmail || loadingPdf || !quote.solicitante?.mail}>
           {sendingEmail ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</>
           ) : (
@@ -163,5 +160,3 @@ export function VistaCotizacion() {
     </>
   );
 }
-
-    

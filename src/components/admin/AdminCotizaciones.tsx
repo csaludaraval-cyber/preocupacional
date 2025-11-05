@@ -83,7 +83,7 @@ export function AdminCotizaciones() {
       }
 
       return true;
-    });
+    }).sort((a, b) => b.fechaCreacion.toMillis() - a.fechaCreacion.toMillis());
   }, [cotizaciones, searchTerm, startDate, endDate]);
 
   const handleDelete = async () => {
@@ -123,14 +123,14 @@ export function AdminCotizaciones() {
               const pdfBase64 = base64data.split(',')[1];
               
               await enviarCotizacion({
-                  clienteEmail: quoteToSend.empresa.email,
+                  clienteEmail: quoteToSend.solicitante.mail, // CORREGIDO: Usar email del solicitante
                   cotizacionId: quoteToSend.id?.slice(-6) || 'S/N',
                   pdfBase64: pdfBase64,
               });
 
               toast({
                 title: "Correo Enviado",
-                description: "El correo con la cotizacion formal se ha enviado con exito al cliente."
+                description: `La cotización se ha enviado a ${quoteToSend.solicitante.mail}.`
               });
               setQuoteToSend(null);
           };
@@ -289,18 +289,18 @@ export function AdminCotizaciones() {
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!displayQuote.empresa?.email}>
+                                                    <Button variant="ghost" size="icon" onClick={() => setQuoteToSend(displayQuote)} disabled={!displayQuote.solicitante?.mail}>
                                                         <Send className="h-4 w-4" />
                                                     </Button>
                                                 </AlertDialogTrigger>
                                             </TooltipTrigger>
-                                            <TooltipContent><p>{displayQuote.empresa?.email ? 'Enviar por Email' : 'Email de empresa no disponible'}</p></TooltipContent>
+                                            <TooltipContent><p>{displayQuote.solicitante?.mail ? 'Enviar por Email' : 'Email de solicitante no disponible'}</p></TooltipContent>
                                         </Tooltip>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>Confirmar Envío</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    ¿Confirma el envío de la cotización N° <span className="font-bold">{displayQuote.id?.slice(-6)}</span> al correo <span className="font-bold">{displayQuote.empresa?.email}</span>?
+                                                    ¿Confirma el envío de la cotización N° <span className="font-bold">{displayQuote.id?.slice(-6)}</span> al correo <span className="font-bold">{displayQuote.solicitante?.mail}</span>?
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
