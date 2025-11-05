@@ -55,6 +55,8 @@ export function AdminSolicitudes() {
     const lowercasedFilter = searchTerm.toLowerCase();
     return sorted.filter(req =>
       req.empresa.razonSocial.toLowerCase().includes(lowercasedFilter) ||
+      req.solicitante.nombre.toLowerCase().includes(lowercasedFilter) ||
+      req.solicitante.mail.toLowerCase().includes(lowercasedFilter) ||
       req.solicitudes.some(s => s.trabajador.nombre.toLowerCase().includes(lowercasedFilter)) ||
       req.id.toLowerCase().includes(lowercasedFilter)
     );
@@ -89,12 +91,10 @@ export function AdminSolicitudes() {
   const prepareQuoteForProcessing = (request: WithId<SolicitudPublica>): string => {
     if (!request.solicitudes || request.solicitudes.length === 0) return '';
   
-    // Use the first worker as the main applicant for the quote form
-    const mainApplicant = request.solicitudes[0].trabajador;
-  
+    // Pass the whole structure to the quote creation page
     const quoteData = {
       empresa: request.empresa,
-      solicitante: mainApplicant,
+      solicitante: request.solicitante, // Pass the main contact
       solicitudes: request.solicitudes, // Pass the detailed structure
     };
     return encodeURIComponent(JSON.stringify(quoteData));
@@ -159,6 +159,7 @@ export function AdminSolicitudes() {
                         <TableHead>N° Solicitud</TableHead>
                         <TableHead>Fecha</TableHead>
                         <TableHead>Empresa</TableHead>
+                        <TableHead>Solicitante</TableHead>
                         <TableHead>Trabajadores</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead className="text-center">Acciones</TableHead>
@@ -175,6 +176,12 @@ export function AdminSolicitudes() {
                               </TableCell>
                               <TableCell className='font-bold'>{formatDate(req.fechaCreacion)}</TableCell>
                               <TableCell className="font-medium font-bold">{req.empresa.razonSocial}</TableCell>
+                              <TableCell className='text-sm'>
+                                <div className='flex flex-col'>
+                                  <span className='font-medium'>{req.solicitante.nombre}</span>
+                                  <span className='text-muted-foreground'>{req.solicitante.mail}</span>
+                                </div>
+                              </TableCell>
                               <TableCell className="text-muted-foreground font-bold">{req.solicitudes.length}</TableCell>
                               <TableCell><Badge variant={req.estado === 'pendiente' ? 'default' : 'secondary'}>{req.estado}</Badge></TableCell>
                               <TableCell className="text-center space-x-2">
@@ -226,7 +233,7 @@ export function AdminSolicitudes() {
                             const examCount = solicitud.examenes ? solicitud.examenes.length : 0;
                             return (
                               <TableRow key={`${req.id}-${index}`} className="hover:bg-accent/50 text-sm bg-gray-50/50">
-                                <TableCell colSpan={6} className='pl-12 text-muted-foreground'>
+                                <TableCell colSpan={7} className='pl-12 text-muted-foreground'>
                                   - <span className='font-medium text-foreground'>{solicitud.trabajador.nombre}</span> ({examCount} exámenes)
                                 </TableCell>
                               </TableRow>
@@ -236,7 +243,7 @@ export function AdminSolicitudes() {
                       )
                     }) : (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                            <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                                 No se encontraron solicitudes.
                             </TableCell>
                         </TableRow>

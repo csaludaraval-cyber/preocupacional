@@ -1,3 +1,4 @@
+
 import { type User as FirebaseUser } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 
@@ -67,6 +68,7 @@ export interface User extends FirebaseUser {
 export type SolicitudPublica = {
   id: string;
   empresa: Empresa;
+  solicitante: Trabajador; // Added to store contact person's data
   solicitudes: {
     trabajador: Trabajador,
     examenes: Examen[]

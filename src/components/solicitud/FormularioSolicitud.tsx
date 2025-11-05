@@ -19,11 +19,13 @@ import Paso2SeleccionExamenes from '@/components/cotizacion/Paso2SeleccionExamen
 
 const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
 const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
+const initialSolicitante: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
 
 
 export function FormularioSolicitud() {
   const [step, setStep] = useState(1);
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
+  const [solicitante, setSolicitante] = useState<Trabajador>(initialSolicitante);
   
   const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([
     { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }
@@ -91,6 +93,13 @@ export function FormularioSolicitud() {
         setStep(1);
         return;
      }
+     
+     if (!solicitante.nombre || !solicitante.mail) {
+        toast({ title: "Datos incompletos", description: "El nombre y el email del solicitante son obligatorios.", variant: "destructive"});
+        setIsSubmitting(false);
+        setStep(1);
+        return;
+     }
 
      if (solicitudes.some(s => !s.trabajador.nombre || !s.trabajador.rut)) {
         toast({ title: "Datos incompletos", description: "El nombre y RUT de cada trabajador son obligatorios.", variant: "destructive"});
@@ -108,6 +117,7 @@ export function FormularioSolicitud() {
 
     const submissionData = {
       empresa: empresa,
+      solicitante: solicitante,
       solicitudes: solicitudes.map(s => ({
         trabajador: s.trabajador,
         examenes: s.examenes.map(({ id, nombre, categoria, subcategoria, valor }) => ({ id, nombre, categoria, subcategoria, valor }))
@@ -136,7 +146,7 @@ export function FormularioSolicitud() {
     {
       id: 1,
       name: "Datos Empresa y Trabajador",
-      component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} trabajador={currentSolicitud.trabajador} setTrabajador={updateCurrentTrabajador} />,
+      component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={updateCurrentTrabajador} />,
     },
     {
       id: 2,
