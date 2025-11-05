@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Download, Loader2, Send } from 'lucide-react';
-import type { Cotizacion, Empresa, SolicitudTrabajador, Examen } from '@/lib/types';
+import type { Cotizacion } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
@@ -160,3 +160,5 @@ export function VistaCotizacion() {
     </>
   );
 }
+
+    
