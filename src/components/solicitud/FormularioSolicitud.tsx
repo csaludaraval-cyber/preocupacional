@@ -119,6 +119,7 @@ export function FormularioSolicitud() {
       empresa: empresa,
       solicitante: solicitante,
       solicitudes: solicitudes.map(s => ({
+        id: s.id || crypto.randomUUID(),
         trabajador: s.trabajador,
         examenes: s.examenes.map(({ id, nombre, categoria, subcategoria, valor }) => ({ id, nombre, categoria, subcategoria, valor }))
       })),

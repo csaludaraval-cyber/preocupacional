@@ -105,7 +105,7 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
         </CardContent>
       </Card>
 
-      {solicitante && setSolicitante && (
+      {setSolicitante && solicitante && (
         <Card>
           <CardHeader className="flex flex-row items-center gap-4">
             <Contact className="h-6 w-6 text-primary" />
