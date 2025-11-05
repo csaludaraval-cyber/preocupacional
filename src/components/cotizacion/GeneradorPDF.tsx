@@ -5,7 +5,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import Image from 'next/image';
 import type { Cotizacion, Empresa, SolicitudTrabajador } from '@/lib/types';
 import { DetalleCotizacion } from './DetalleCotizacion';
 
@@ -16,14 +15,9 @@ export const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrab
                  <div className="bg-[#3b82f6] text-white py-2 px-4 rounded-md">
                     <h2 className="font-semibold text-base tracking-wide">Orden de Examen Ocupacionales</h2>
                 </div>
-                 <Image
-                    src="/logo.png"
-                    alt="Araval Logo"
-                    width={150}
-                    height={40}
-                    priority
-                    unoptimized
-                />
+                 <div className="text-2xl font-bold font-headline text-primary">
+                    Araval
+                 </div>
             </header>
 
             <main className="space-y-8">

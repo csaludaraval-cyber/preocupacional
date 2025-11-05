@@ -2,7 +2,6 @@
 "use client";
 
 import React from 'react';
-import Image from 'next/image';
 import { Building, User, Users } from 'lucide-react';
 import type { Cotizacion, Examen } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -55,14 +54,9 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
                 <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
                 <p className="mt-1 text-sm">Fecha: {quote.fecha}</p>
             </div>
-                <Image
-                src="/logo2.png"
-                alt="Araval Logo"
-                width={150}
-                height={40}
-                priority
-                unoptimized
-            />
+            <div className="text-2xl font-bold font-headline">
+                Araval
+            </div>
         </header>
 
         <main className="py-8">
