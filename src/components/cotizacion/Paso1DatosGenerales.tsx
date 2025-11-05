@@ -11,14 +11,15 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { DatePicker } from '../ui/date-picker';
 
 interface Props {
   empresa: Empresa;
   setEmpresa: Dispatch<SetStateAction<Empresa>>;
   trabajador: Trabajador;
   setTrabajador: Dispatch<SetStateAction<Trabajador>>;
-  solicitante?: Trabajador;
-  setSolicitante?: Dispatch<SetStateAction<Trabajador>>;
+  solicitante?: Omit<Trabajador, 'fechaNacimiento' | 'fechaAtencion'> & { mail: string, centroDeCostos: string };
+  setSolicitante?: Dispatch<SetStateAction<Omit<Trabajador, 'fechaNacimiento' | 'fechaAtencion'> & { mail: string, centroDeCostos: string }>>;
 }
 
 export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, setTrabajador, solicitante, setSolicitante }: Props) {
@@ -38,7 +39,7 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
         setEmpresa(data);
         // If there's a contact email and the setSolicitante function is available, pre-fill.
         if(data.email && setSolicitante && solicitante && !solicitante.mail) {
-          setSolicitante(prev => ({...(prev || {} as Trabajador), mail: data.email}));
+          setSolicitante(prev => ({...prev, mail: data.email}));
         }
         toast({
           title: 'Empresa Encontrada',
@@ -145,9 +146,21 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
               <Label htmlFor="cargo">Cargo</Label>
               <Input id="cargo" value={trabajador.cargo} onChange={e => setTrabajador({...trabajador, cargo: e.target.value})} />
             </div>
+             <div className="space-y-2">
+                <Label htmlFor="fecha-nacimiento">Fecha de Nacimiento</Label>
+                <DatePicker 
+                    value={trabajador.fechaNacimiento ? new Date(trabajador.fechaNacimiento) : undefined}
+                    onSelect={(date) => setTrabajador({...trabajador, fechaNacimiento: date ? date.toISOString().split('T')[0] : ''})}
+                    placeholder="Seleccione una fecha"
+                />
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="centro-costos">Centro de Costos</Label>
-              <Input id="centro-costos" value={trabajador.centroDeCostos} onChange={e => setTrabajador({...trabajador, centroDeCostos: e.target.value})} />
+                <Label htmlFor="fecha-atencion">Fecha de Atención</Label>
+                <DatePicker 
+                    value={trabajador.fechaAtencion ? new Date(trabajador.fechaAtencion) : undefined}
+                    onSelect={(date) => setTrabajador({...trabajador, fechaAtencion: date ? date.toISOString().split('T')[0] : ''})}
+                    placeholder="Seleccione una fecha"
+                />
             </div>
           </div>
         </CardContent>

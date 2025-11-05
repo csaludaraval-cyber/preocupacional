@@ -21,14 +21,15 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
-const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
-const initialSolicitante: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
+const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' };
+const initialSolicitante = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
+
 
 export function CrearCotizacion() {
   const [step, setStep] = useState(1);
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
   // State for the main contact person (applicant)
-  const [solicitante, setSolicitante] = useState<Trabajador>(initialSolicitante);
+  const [solicitante, setSolicitante] = useState(initialSolicitante);
   // State for the list of workers and their exams
   const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([
     { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }
@@ -53,7 +54,11 @@ export function CrearCotizacion() {
         setSolicitante(parsedData.solicitante || initialSolicitante);
         
         if (parsedData.solicitudes && parsedData.solicitudes.length > 0) {
-            setSolicitudes(parsedData.solicitudes.map((s: any) => ({...s, id: s.id || crypto.randomUUID() })));
+            setSolicitudes(parsedData.solicitudes.map((s: any) => ({
+              ...s, 
+              id: s.id || crypto.randomUUID(),
+              trabajador: { ...initialTrabajador, ...s.trabajador } // Ensure new fields exist
+            })));
             setCurrentSolicitudIndex(0);
         }
         

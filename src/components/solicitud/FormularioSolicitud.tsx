@@ -18,14 +18,14 @@ import Paso2SeleccionExamenes from '@/components/cotizacion/Paso2SeleccionExamen
 
 
 const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
-const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
-const initialSolicitante: Trabajador = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
+const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' };
+const initialSolicitante = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
 
 
 export function FormularioSolicitud() {
   const [step, setStep] = useState(1);
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
-  const [solicitante, setSolicitante] = useState<Trabajador>(initialSolicitante);
+  const [solicitante, setSolicitante] = useState(initialSolicitante);
   
   const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([
     { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }

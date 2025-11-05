@@ -30,8 +30,8 @@ export type Trabajador = {
   nombre: string;
   rut: string;
   cargo: string;
-  centroDeCostos: string;
-  mail: string;
+  fechaNacimiento: string;
+  fechaAtencion: string;
 };
 
 export type SolicitudTrabajador = {
@@ -44,7 +44,7 @@ export type SolicitudTrabajador = {
 export type Cotizacion = {
   id: string;
   empresa: Empresa;
-  solicitante: Trabajador; // This is the main contact for the quote
+  solicitante: Omit<Trabajador, 'fechaNacimiento' | 'fechaAtencion'> & { mail: string; centroDeCostos: string; }; // Solicitante has different fields
   solicitudes: SolicitudTrabajador[]; // Contains each worker with their specific exams
   total: number;
   fecha: string;
@@ -60,7 +60,7 @@ export type CotizacionFirestore = {
   fechaCreacion: Timestamp;
   total: number;
   empresaData: Empresa;
-  solicitanteData: Trabajador; // Main contact
+  solicitanteData: Omit<Trabajador, 'fechaNacimiento' | 'fechaAtencion'> & { mail: string; centroDeCostos: string; }; // Main contact
   solicitudesData: SolicitudTrabajador[]; // All workers with their exams
   status: 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA';
 }
@@ -73,7 +73,7 @@ export interface User extends FirebaseUser {
 export type SolicitudPublica = {
   id: string;
   empresa: Empresa;
-  solicitante: Trabajador; // Added to store contact person's data
+  solicitante: Omit<Trabajador, 'fechaNacimiento' | 'fechaAtencion'> & { mail: string; centroDeCostos: string; }; // Added to store contact person's data
   solicitudes: {
     trabajador: Trabajador,
     examenes: Examen[]
