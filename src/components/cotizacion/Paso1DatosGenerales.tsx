@@ -1,7 +1,7 @@
 
 "use client";
 
-import { type Dispatch, type SetStateAction, useState, useCallback, ChangeEvent } from 'react';
+import { type Dispatch, type SetStateAction, useState, useCallback, ChangeEvent, useMemo } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { Building, User, Loader2, Contact } from 'lucide-react';
 
