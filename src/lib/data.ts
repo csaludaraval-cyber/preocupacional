@@ -18,8 +18,6 @@ export async function getExams(): Promise<Examen[]> {
   const snapshot = await getDocs(examsCollection);
 
   if (snapshot.empty) {
-    // El catálogo de prueba ha sido eliminado.
-    // Esta sección está lista para recibir el nuevo catálogo real.
     const catalogoExamenes: Omit<Examen, 'id' | 'subcategoria'>[] = [];
     
     const subcategories: Record<string, string> = {};
