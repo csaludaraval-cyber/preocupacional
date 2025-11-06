@@ -1,3 +1,4 @@
+
 "use client";
 
 import { List, Trash2, Sparkles } from 'lucide-react';
@@ -36,8 +37,8 @@ export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, 
       <CardContent className="min-h-[150px]">
         {selectedExams.length > 0 ? (
           <ul className="space-y-2 text-sm">
-            {selectedExams.map(exam => (
-              <li key={exam.id} className="flex justify-between items-center">
+            {selectedExams.map((exam, index) => (
+              <li key={`${exam.id}-${index}`} className="flex justify-between items-center">
                 <span className="text-muted-foreground truncate pr-2">{exam.nombre}</span>
                 <span className="font-medium text-foreground whitespace-nowrap">{formatCurrency(exam.valor)}</span>
               </li>
