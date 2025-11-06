@@ -12,7 +12,6 @@ import type { Empresa } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useFormState } from 'react-dom';
 import { Loader2 } from 'lucide-react';
 
 interface ClienteFormProps {
@@ -113,7 +112,7 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
                 <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
              <FormField control={form.control} name="comuna" render={({ field }) => (
-                <FormItem><FormLabel>Comuna</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormfItem>
+                <FormItem><FormLabel>Comuna</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
              <FormField control={form.control} name="region" render={({ field }) => (
                 <FormItem><FormLabel>Región</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
