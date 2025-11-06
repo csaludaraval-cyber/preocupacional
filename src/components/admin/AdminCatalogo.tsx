@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, Save, Tag, Search, XCircle, Trash2, ShieldAlert, Upload } from 'lucide-react';
+import { Loader2, Shield, Save, Tag, Search, XCircle, Trash2, ShieldAlert } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,16 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Label } from '../ui/label';
-import { CargaMasivaCatalogo } from './CargaMasivaCatalogo';
 
 const DELETE_CATALOG_PIN = '2828';
 
@@ -58,8 +49,7 @@ export function AdminCatalogo() {
   const [pinValue, setPinValue] = useState('');
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isDeletingCatalog, setIsDeletingCatalog] = useState(false);
-  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
-
+  
 
   useEffect(() => {
     if (exams) {
@@ -71,11 +61,6 @@ export function AdminCatalogo() {
     }
   }, [exams]);
   
-  const onUploadSuccess = () => {
-    setIsBulkUploadOpen(false);
-    setRefetchTrigger(prev => prev + 1); // Trigger refetch
-  }
-
   const handlePriceChange = (id: string, value: string) => {
     const newPrice = parseInt(value, 10);
     if (!isNaN(newPrice)) {
@@ -212,23 +197,6 @@ export function AdminCatalogo() {
                 </CardDescription>
             </div>
             <div className="flex gap-2 flex-shrink-0">
-                <Dialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen}>
-                    <DialogTrigger asChild>
-                        <Button variant="outline">
-                            <Upload className="mr-2 h-4 w-4" /> Carga Masiva
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl">
-                        <DialogHeader>
-                        <DialogTitle>Carga Masiva de Catálogo</DialogTitle>
-                        <DialogDescription>
-                           Guarde su hoja de cálculo como archivo CSV y súbalo aquí para actualizar el catálogo.
-                        </DialogDescription>
-                        </DialogHeader>
-                        <CargaMasivaCatalogo onUploadSuccess={onUploadSuccess} />
-                    </DialogContent>
-                </Dialog>
-
                  <Button variant="destructive" onClick={() => setShowPinDialog(true)}>
                     <Trash2 className="mr-2 h-4 w-4" /> Eliminar Catálogo
                 </Button>
