@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from '../ui/label';
 
-const DELETE_CATALOG_PIN = 'ARAVAL24';
+const DELETE_CATALOG_PIN = '2828';
 
 
 export function AdminCatalogo() {
