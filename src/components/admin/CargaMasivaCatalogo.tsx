@@ -1,69 +1,83 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef, ChangeEvent } from 'react';
 import Papa from 'papaparse';
 import { collection, writeBatch } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Lightbulb, Loader2 } from 'lucide-react';
+import { Lightbulb, Loader2, FileUp, CheckCircle, XCircle } from 'lucide-react';
 import type { Examen } from '@/lib/types';
-
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
 interface CargaMasivaCatalogoProps {
     onUploadSuccess: () => void;
 }
 
 export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProps) {
-    const [pastedData, setPastedData] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    const [fileName, setFileName] = useState<string | null>(null);
+    const [fileStatus, setFileStatus] = useState<'pending' | 'success' | 'error'>('pending');
     const { toast } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleUpload = async () => {
+    const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setFileName(file.name);
         setIsUploading(true);
+        setFileStatus('pending');
 
-        // Usar PapaParse para convertir los datos pegados (reconoce tabulaciones)
-        const result = Papa.parse<string[]>(pastedData.trim(), {
+        Papa.parse(file, {
+            complete: (result) => {
+                processData(result.data as string[][]);
+            },
+            error: (error) => {
+                console.error("Error con PapaParse:", error);
+                toast({
+                    variant: "destructive",
+                    title: "Error al leer archivo",
+                    description: `No se pudo procesar el archivo CSV. ${error.message}`
+                });
+                setIsUploading(false);
+                setFileStatus('error');
+            },
             skipEmptyLines: true,
         });
+    };
 
-        if (result.errors.length > 0) {
-            toast({
-                variant: 'destructive',
-                title: 'Error de Formato',
-                description: `Error en la fila ${result.errors[0].row}: ${result.errors[0].message}`,
-            });
-            setIsUploading(false);
-            return;
-        }
-
+    const processData = async (data: string[][]) => {
         const examsToUpload: Omit<Examen, 'id'>[] = [];
 
-        for (const row of result.data) {
-            // Validar que cada fila tenga 6 columnas
-            if (row.length !== 6) {
+        for (const row of data) {
+            if (row.length !== 5) {
                 toast({
                     variant: 'destructive',
                     title: 'Error de Datos',
-                    description: `Una fila no tiene las 6 columnas esperadas. Fila: ${row.join(', ')}`,
+                    description: `Una fila no tiene las 5 columnas esperadas. Fila: ${row.join(', ')}`,
                 });
                 setIsUploading(false);
+                setFileStatus('error');
                 return;
             }
 
-            const [codigo, nombre, categoria, subcategoria, unidad, valorStr] = row;
-            const valor = parseFloat(valorStr.replace(/[^0-9,-]+/g,"").replace(",", "."));
+            const [codigo, examen, categoriaSubcategoria, unidad, valorStr] = row;
+            const [categoria, subcategoria] = categoriaSubcategoria.split('/').map(s => s.trim());
 
+            const valor = parseFloat(valorStr.replace(/[^0-9,-]+/g, "").replace(",", "."));
+            
             if (isNaN(valor)) {
                  toast({
                     variant: 'destructive',
                     title: 'Error de Valor',
-                    description: `El valor "${valorStr}" no es un número válido. Fila: ${row.join(', ')}`,
+                    description: `El valor "${valorStr}" no es un número válido en la fila: ${row.join(', ')}`,
                 });
                 setIsUploading(false);
+                setFileStatus('error');
                 return;
             }
             
@@ -71,25 +85,39 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
                 toast({
                     variant: 'destructive',
                     title: 'Error de Unidad',
-                    description: `La unidad "${unidad}" no es válida (debe ser CLP o UF). Fila: ${row.join(', ')}`,
+                    description: `La unidad "${unidad}" no es válida (debe ser CLP o UF) en la fila: ${row.join(', ')}`,
                 });
                 setIsUploading(false);
+                setFileStatus('error');
+                return;
+            }
+            
+             if(!categoria || !subcategoria) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Error de Categoría',
+                    description: `El formato de 'Categoría/Subcategoría' debe ser 'Principal / Secundaria'. Fila: ${row.join(', ')}`,
+                });
+                setIsUploading(false);
+                setFileStatus('error');
                 return;
             }
 
+
             examsToUpload.push({
-                codigo,
-                nombre,
-                categoria,
-                subcategoria,
+                codigo: codigo,
+                nombre: examen,
+                categoria: categoria,
+                subcategoria: subcategoria,
                 unidad,
                 valor,
             });
         }
         
         if (examsToUpload.length === 0) {
-            toast({ title: 'No hay datos', description: 'El área de texto está vacía o no contiene datos válidos.'});
+            toast({ title: 'No hay datos', description: 'El archivo está vacío o no contiene datos válidos.'});
             setIsUploading(false);
+            setFileStatus('error');
             return;
         }
 
@@ -97,33 +125,30 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
             const batch = writeBatch(firestore);
             const examsCollection = collection(firestore, 'examenes');
             
-            // Opcional: Eliminar catálogo antiguo antes de cargar el nuevo
-            // const oldDocs = await getDocs(examsCollection);
-            // oldDocs.forEach(doc => batch.delete(doc.ref));
-            
-            // Añadir nuevos exámenes
             examsToUpload.forEach(exam => {
-                const newDocRef = collection(firestore, 'examenes').doc();
+                const newDocRef = doc(examsCollection); // Firestore autogenera el ID
                 batch.set(newDocRef, exam);
             });
 
             await batch.commit();
             toast({
-                title: '¡Éxito!',
-                description: `${examsToUpload.length} exámenes han sido cargados al catálogo.`,
+                title: '¡Carga Exitosa!',
+                description: `${examsToUpload.length} exámenes han sido cargados/actualizados.`,
             });
-            onUploadSuccess(); // Callback para cerrar el modal y refrescar
+            setFileStatus('success');
+            onUploadSuccess();
         } catch (error: any) {
             console.error(error);
+            setFileStatus('error');
             toast({
                 variant: 'destructive',
-                title: 'Error de Carga',
-                description: error.message || 'No se pudieron subir los exámenes a la base de datos.',
+                title: 'Error de Carga en Base de Datos',
+                description: error.message || 'No se pudieron guardar los exámenes.',
             });
         } finally {
             setIsUploading(false);
         }
-    };
+    }
 
 
     return (
@@ -133,29 +158,42 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
                 <AlertTitle>Instrucciones</AlertTitle>
                 <AlertDescription>
                     <ol className="list-decimal list-inside space-y-1 text-sm">
-                        <li>Prepare sus datos en una hoja de cálculo (Excel, Sheets) con las columnas en este orden exacto:
+                        <li>
+                            Prepare sus datos en una hoja de cálculo (Excel, Sheets) con las columnas en este orden:
                             <br />
-                            <code className="font-bold">CODIGO, EXAMEN, CATEGORIA, SUBCATEGORIA, UNIDAD, VALOR</code>
+                            <code className="font-bold">CODIGO, EXAMEN, CATEGORIA/SUBCATEGORIA, UNIDAD, VALOR</code>
                         </li>
-                        <li>Seleccione y copie las filas de datos (sin los encabezados).</li>
-                        <li>Pegue los datos copiados en el área de texto de abajo.</li>
-                        <li>Haga clic en "Procesar y Cargar Catálogo".</li>
+                         <li>Asegúrese de que la tercera columna contenga la categoría y subcategoría separadas por una barra inclinada (ej: <code className="font-mono">Médicos y Clínicos / Ruido</code>).</li>
+                        <li>Guarde el archivo en formato <span className="font-bold">CSV (delimitado por comas)</span>.</li>
+                        <li>Haga clic en "Seleccionar archivo" y elija el archivo CSV que acaba de guardar. La carga comenzará automáticamente.</li>
                     </ol>
                 </AlertDescription>
             </Alert>
-            <Textarea
-                placeholder="Pegue aquí los datos de su hoja de cálculo..."
-                rows={15}
-                value={pastedData}
-                onChange={(e) => setPastedData(e.target.value)}
-                disabled={isUploading}
-            />
-            <Button onClick={handleUpload} disabled={isUploading || !pastedData} className="w-full">
-                {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {isUploading ? 'Cargando...' : 'Procesar y Cargar Catálogo'}
-            </Button>
+            
+            <div>
+                 <Input 
+                    id="file-upload"
+                    type="file" 
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept=".csv"
+                    disabled={isUploading}
+                />
+                <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className='w-full'>
+                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                    {isUploading ? "Procesando..." : "Seleccionar archivo CSV"}
+                </Button>
+            </div>
+
+            {fileName && (
+                <div className="p-3 rounded-md border flex items-center justify-between text-sm">
+                    <p className='text-muted-foreground truncate'>{fileName}</p>
+                    {isUploading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                    {fileStatus === 'success' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                    {fileStatus === 'error' && <XCircle className="h-4 w-4 text-destructive" />}
+                </div>
+            )}
         </div>
     );
 }
-
-    

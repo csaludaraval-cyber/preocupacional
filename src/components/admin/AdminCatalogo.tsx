@@ -222,7 +222,7 @@ export function AdminCatalogo() {
                         <DialogHeader>
                         <DialogTitle>Carga Masiva de Catálogo</DialogTitle>
                         <DialogDescription>
-                            Copie y pegue los datos desde su hoja de cálculo (Excel, Google Sheets) aquí.
+                           Guarde su hoja de cálculo como archivo CSV y súbalo aquí para actualizar el catálogo.
                         </DialogDescription>
                         </DialogHeader>
                         <CargaMasivaCatalogo onUploadSuccess={onUploadSuccess} />
@@ -359,5 +359,3 @@ export function AdminCatalogo() {
     </Card>
   );
 }
-
-    
