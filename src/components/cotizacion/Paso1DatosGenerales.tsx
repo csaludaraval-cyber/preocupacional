@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DatePicker } from '../ui/date-picker';
 import { formatRut, cleanRut } from '@/lib/utils';
+import { add, formatISO, parseISO } from 'date-fns';
 
 interface Props {
   empresa: Empresa;
@@ -70,6 +71,25 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
     }
   }, [empresa.rut, setEmpresa, setSolicitante, solicitante, toast]);
   
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+        // Al seleccionar, formatear a YYYY-MM-DD sin considerar la zona horaria local.
+        // date-fns formatISO hace esto por defecto con la opción 'date'.
+        const dateString = formatISO(date, { representation: 'date' });
+        setTrabajador({ ...trabajador, fechaAtencion: dateString });
+    } else {
+        setTrabajador({ ...trabajador, fechaAtencion: '' });
+    }
+  };
+
+  const selectedDate = useMemo(() => {
+    if (!trabajador.fechaAtencion) return undefined;
+    // Al parsear, parseISO trata la cadena 'YYYY-MM-DD' como fecha local a medianoche.
+    // Esto evita el salto de día por la conversión de zona horaria que ocurre con new Date('YYYY-MM-DD').
+    return parseISO(trabajador.fechaAtencion);
+  }, [trabajador.fechaAtencion]);
+
+
   return (
     <div className="space-y-6">
       <Card>
@@ -176,8 +196,8 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
             <div className="space-y-2">
                 <Label htmlFor="fecha-atencion">Fecha de Atención</Label>
                 <DatePicker 
-                    value={trabajador.fechaAtencion ? new Date(trabajador.fechaAtencion) : undefined}
-                    onSelect={(date) => setTrabajador({...trabajador, fechaAtencion: date ? date.toISOString().split('T')[0] : ''})}
+                    value={selectedDate}
+                    onSelect={handleDateSelect}
                     placeholder="Seleccione una fecha"
                 />
             </div>
