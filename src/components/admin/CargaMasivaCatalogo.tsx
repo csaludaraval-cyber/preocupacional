@@ -19,7 +19,7 @@ interface CargaMasivaCatalogoProps {
 type CsvRow = {
     CODIGO: string;
     EXAMEN: string;
-    'CATEGORIA/SUBCATEGORIA': string;
+    ['CATEGORIA/SUBCATEGORIA']: string;
     UNIDAD: 'CLP' | 'UF';
     VALOR: string;
 }
@@ -41,6 +41,7 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
 
         Papa.parse<CsvRow>(file, {
             header: true,
+            skipEmptyLines: true,
             complete: (result) => {
                 processData(result.data);
             },
@@ -54,7 +55,6 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
                 setIsUploading(false);
                 setFileStatus('error');
             },
-            skipEmptyLines: true,
         });
     };
 
@@ -62,25 +62,33 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
         const examsToUpload: Omit<Examen, 'id'>[] = [];
 
         for (const row of data) {
-            const codigo = row.CODIGO;
-            const examen = row.EXAMEN;
-            const categoriaSubcategoria = row['CATEGORIA/SUBCATEGORIA'];
-            const unidad = row.UNIDAD;
-            const valorStr = row.VALOR;
+            const codigo = row.CODIGO?.trim();
+            const examen = row.EXAMEN?.trim();
+            const categoriaSubcategoria = row['CATEGORIA/SUBCATEGORIA']?.trim();
+            const unidad = row.UNIDAD?.trim() as 'CLP' | 'UF';
+            const valorStr = row.VALOR?.trim();
 
-             if (!codigo || !examen || !categoriaSubcategoria || !unidad || !valorStr) {
-                // This will skip rows that might be completely empty or malformed at the end of the file
-                continue;
+            if (!codigo || !examen || !categoriaSubcategoria || !unidad || !valorStr) {
+                 if (Object.values(row).every(v => !v || v.trim() === '')) continue;
+                 
+                toast({
+                    variant: 'destructive',
+                    title: 'Error de Fila',
+                    description: `Una fila tiene datos incompletos. Código: ${codigo || 'vacío'}`,
+                });
+                setIsUploading(false);
+                setFileStatus('error');
+                return;
             }
 
             const [categoria, subcategoria] = categoriaSubcategoria.split('/').map(s => s.trim());
-            const valor = parseFloat(valorStr.replace(/[^0-9,-]+/g, "").replace(",", "."));
+            const valor = parseFloat(valorStr.replace(/[$.]/g, '').replace(',', '.'));
             
             if (isNaN(valor)) {
                  toast({
                     variant: 'destructive',
                     title: 'Error de Valor',
-                    description: `El valor "${valorStr}" no es un número válido en la fila para el examen: ${examen}`,
+                    description: `El valor "${valorStr}" para el examen "${examen}" no es un número válido.`,
                 });
                 setIsUploading(false);
                 setFileStatus('error');
@@ -91,14 +99,14 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
                 toast({
                     variant: 'destructive',
                     title: 'Error de Unidad',
-                    description: `La unidad "${unidad}" no es válida (debe ser CLP o UF) en la fila para el examen: ${examen}`,
+                    description: `La unidad "${unidad}" para el examen "${examen}" no es válida (debe ser CLP o UF).`,
                 });
                 setIsUploading(false);
                 setFileStatus('error');
                 return;
             }
             
-             if(!categoria || !subcategoria) {
+             if(!categoria) {
                 toast({
                     variant: 'destructive',
                     title: 'Error de Categoría',
@@ -114,7 +122,7 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
                 codigo: codigo,
                 nombre: examen,
                 categoria: categoria,
-                subcategoria: subcategoria,
+                subcategoria: subcategoria || 'General',
                 unidad,
                 valor,
             });
@@ -165,7 +173,7 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
                 <AlertDescription>
                     <ol className="list-decimal list-inside space-y-1 text-sm">
                         <li>
-                            Prepare sus datos en una hoja de cálculo (Excel, Sheets) con los encabezados de columna exactamente en este orden:
+                            Prepare sus datos en una hoja de cálculo (Excel, Sheets) con los encabezados de columna exactamente así:
                             <br />
                             <code className="font-bold">CODIGO,EXAMEN,CATEGORIA/SUBCATEGORIA,UNIDAD,VALOR</code>
                         </li>
@@ -203,3 +211,6 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
         </div>
     );
 }
+
+
+    

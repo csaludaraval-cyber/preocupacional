@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, doc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, getDocs, addDoc } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
@@ -13,10 +13,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, Save, Tag, Search, XCircle, Trash2, ShieldAlert } from 'lucide-react';
+import { Loader2, Shield, Save, Tag, Search, XCircle, Trash2, ShieldAlert, PlusCircle, Pencil } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +35,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from '../ui/label';
+import ExamenForm from './ExamenForm';
+
 
 const DELETE_CATALOG_PIN = '2828';
 
@@ -38,10 +47,9 @@ export function AdminCatalogo() {
   
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const memoizedQueryWithRefetch = useMemoFirebase(() => collection(firestore, 'examenes'), [refetchTrigger]);
-  const { data: exams, isLoading, error } = useCollection<Examen>(memoizedQueryWithRefetch);
+  const { data: exams, isLoading, error, refetch: refetchExams } = useCollection<Examen>(memoizedQueryWithRefetch);
 
 
-  const [prices, setPrices] = useState<Record<string, number>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -49,44 +57,15 @@ export function AdminCatalogo() {
   const [pinValue, setPinValue] = useState('');
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isDeletingCatalog, setIsDeletingCatalog] = useState(false);
-  
 
-  useEffect(() => {
-    if (exams) {
-      const initialPrices = exams.reduce((acc, exam) => {
-        acc[exam.id] = exam.valor;
-        return acc;
-      }, {} as Record<string, number>);
-      setPrices(initialPrices);
-    }
-  }, [exams]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingExam, setEditingExam] = useState<Examen | null>(null);
   
-  const handlePriceChange = (id: string, value: string) => {
-    const newPrice = parseInt(value, 10);
-    if (!isNaN(newPrice)) {
-      setPrices(prev => ({ ...prev, [id]: newPrice }));
-    }
-  };
-
-  const handleSavePrice = async (id: string) => {
-    setSaving(id);
-    try {
-      const examRef = doc(firestore, 'examenes', id);
-      await updateDoc(examRef, { valor: prices[id] });
-      toast({
-        title: 'Precio Actualizado',
-        description: 'El precio del examen ha sido guardado con éxito.',
-      });
-    } catch (e) {
-      toast({
-        variant: "destructive",
-        title: "Error al guardar",
-        description: "No se pudo actualizar el precio.",
-      });
-    } finally {
-      setSaving(null);
-    }
-  };
+  const handleSuccess = () => {
+    setIsFormOpen(false);
+    setEditingExam(null);
+    refetchExams(); // This function should be provided by your useCollection hook
+  }
   
     const handlePinSubmit = () => {
         if (pinValue === DELETE_CATALOG_PIN) {
@@ -121,7 +100,7 @@ export function AdminCatalogo() {
                 title: 'Catálogo Eliminado',
                 description: 'Todos los exámenes han sido eliminados del sistema.',
             });
-            setRefetchTrigger(prev => prev + 1);
+            refetchExams();
 
         } catch (err: any) {
             toast({
@@ -151,9 +130,6 @@ export function AdminCatalogo() {
     );
   }, [exams, searchTerm]);
   
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
-  };
 
   if (isLoading || authLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -193,10 +169,13 @@ export function AdminCatalogo() {
                     Catálogo de Exámenes
                 </CardTitle>
                 <CardDescription>
-                  Administre los precios de los exámenes y baterías disponibles en el sistema.
+                  Administre los exámenes y baterías disponibles en el sistema.
                 </CardDescription>
             </div>
-            <div className="flex gap-2 flex-shrink-0">
+             <div className="flex gap-2 flex-shrink-0">
+                 <Button onClick={() => { setEditingExam(null); setIsFormOpen(true); }}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir Examen
+                 </Button>
                  <Button variant="destructive" onClick={() => setShowPinDialog(true)}>
                     <Trash2 className="mr-2 h-4 w-4" /> Eliminar Catálogo
                 </Button>
@@ -217,11 +196,12 @@ export function AdminCatalogo() {
           <Table>
             <TableHeader className="sticky top-0 bg-secondary">
               <TableRow>
-                <TableHead>Código</TableHead>
+                <TableHead className="w-[100px]">Código</TableHead>
                 <TableHead>Examen</TableHead>
                 <TableHead>Categoría / Subcategoría</TableHead>
                 <TableHead>Unidad</TableHead>
-                <TableHead className="w-[200px]">Valor</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="w-[100px] text-center">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -238,28 +218,22 @@ export function AdminCatalogo() {
                   <TableCell>
                     <Badge variant="secondary">{exam.unidad}</Badge>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={prices[exam.id] || 0}
-                        onChange={(e) => handlePriceChange(exam.id, e.target.value)}
-                        className="w-28"
-                      />
-                      <Button 
+                  <TableCell className="font-semibold text-right">
+                     {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(exam.valor)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button 
                         size="icon" 
-                        onClick={() => handleSavePrice(exam.id)} 
-                        disabled={saving === exam.id}
                         variant="ghost"
+                        onClick={() => { setEditingExam(exam); setIsFormOpen(true); }}
                       >
-                        {saving === exam.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                       <Pencil className="h-4 w-4" />
                       </Button>
-                    </div>
                   </TableCell>
                 </TableRow>
               )) : (
                  <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                         No se encontraron exámenes. El catálogo puede estar vacío o no hay coincidencias con la búsqueda.
                     </TableCell>
                 </TableRow>
@@ -268,6 +242,19 @@ export function AdminCatalogo() {
           </Table>
         </ScrollArea>
       </CardContent>
+
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+            <DialogHeader>
+                <DialogTitle>{editingExam ? 'Editar Examen' : 'Añadir Nuevo Examen'}</DialogTitle>
+            </DialogHeader>
+            <ExamenForm 
+                examen={editingExam} 
+                onSuccess={handleSuccess}
+            />
+        </DialogContent>
+      </Dialog>
+
 
        {/* PIN Dialog */}
       <AlertDialog open={showPinDialog} onOpenChange={setShowPinDialog}>
@@ -304,7 +291,7 @@ export function AdminCatalogo() {
       <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
           <AlertDialogContent>
               <AlertDialogHeader>
-                  <AlertDialogTitle>¿Está absolutamente seguro?</AlertDialogTitle>
+                  <AlertDialogTitle>¿Está absolutely seguro?</AlertDialogTitle>
                   <AlertDialogDescription>
                       Esta acción no se puede deshacer. Se eliminarán permanentemente 
                       <span className='font-bold'> TODOS</span> los exámenes del catálogo. Esta es su última oportunidad para cancelar.
@@ -327,3 +314,5 @@ export function AdminCatalogo() {
     </Card>
   );
 }
+
+    
