@@ -121,7 +121,7 @@ export function FormularioSolicitud() {
       solicitudes: solicitudes.map(s => ({
         id: s.id || crypto.randomUUID(),
         trabajador: s.trabajador,
-        examenes: s.examenes.map(({ id, nombre, categoria, subcategoria, valor }) => ({ id, nombre, categoria, subcategoria, valor }))
+        examenes: s.examenes.map(({ id, nombre, categoria, valor }) => ({ id, nombre, categoria, valor }))
       })),
       fechaCreacion: serverTimestamp(),
       estado: 'pendiente',
