@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import ClienteForm from './ClienteForm';
+import { formatRut } from '@/lib/utils';
 
 
 export function AdminClientes() {
@@ -159,7 +160,7 @@ export function AdminClientes() {
               {filteredClientes.length > 0 ? filteredClientes.map((cliente) => (
                 <TableRow key={cliente.rut}>
                   <TableCell className="font-medium">{cliente.razonSocial}</TableCell>
-                  <TableCell>{cliente.rut}</TableCell>
+                  <TableCell>{formatRut(cliente.rut)}</TableCell>
                   <TableCell>{cliente.email}</TableCell>
                   <TableCell>{cliente.ciudad}</TableCell>
                   <TableCell className="text-center">
