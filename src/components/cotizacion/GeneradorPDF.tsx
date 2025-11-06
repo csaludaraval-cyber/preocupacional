@@ -31,9 +31,9 @@ export const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrab
                         <h3 className="font-bold text-base mb-1">Trabajador</h3>
                         <p>{solicitud.trabajador.nombre}</p>
                         <p>RUT: {solicitud.trabajador.rut}</p>
-                        <p>Cargo: {solicitud.trabajador.cargo}</p>
-                        <p>F. Nacimiento: {solicitud.trabajador.fechaNacimiento}</p>
-                        <p>F. Atención: {solicitud.trabajador.fechaAtencion}</p>
+                        {solicitud.trabajador.cargo && <p>Cargo: {solicitud.trabajador.cargo}</p>}
+                        {solicitud.trabajador.fechaNacimiento && <p>F. Nacimiento: {solicitud.trabajador.fechaNacimiento}</p>}
+                        {solicitud.trabajador.fechaAtencion && <p>F. Atención: {solicitud.trabajador.fechaAtencion}</p>}
                     </div>
                 </section>
                 
@@ -130,7 +130,7 @@ export class GeneradorPDF {
         pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
         
         // 5. Generación del Canvas para los Anexos (Órdenes de Examen)
-        if(includeAnnexes) {
+        if(includeAnnexes && quote.solicitudes?.length > 0) {
             const annexElements = container.querySelectorAll<HTMLElement>('.order-page-container');
             for (let i = 0; i < annexElements.length; i++) {
               const annexElement = annexElements[i];

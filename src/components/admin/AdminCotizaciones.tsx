@@ -110,6 +110,7 @@ export default function AdminCotizaciones() {
         pdfBase64: pdfBase64,
       });
 
+      // IMPORTANT: Only update status on successful send
       if (quote.status !== 'ENVIADA') {
         await handleUpdateStatus(quote, 'ENVIADA');
       }
@@ -373,7 +374,11 @@ export default function AdminCotizaciones() {
               </div>
 
               <div className="flex-grow overflow-y-auto bg-gray-100 p-4 rounded-lg">
-                <OrdenDeExamen solicitud={quoteToSend.solicitudes[0]} empresa={quoteToSend.empresa} />
+                {quoteToSend.solicitudes && quoteToSend.solicitudes.length > 0 ? (
+                    <OrdenDeExamen solicitud={quoteToSend.solicitudes[0]} empresa={quoteToSend.empresa} />
+                ) : (
+                    <div className="text-center text-muted-foreground">No hay detalles de solicitud para mostrar.</div>
+                )}
               </div>
             </>
           )}
