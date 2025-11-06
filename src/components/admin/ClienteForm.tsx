@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Loader2 } from 'lucide-react';
+import { formatRut, cleanRut } from '@/lib/utils';
 
 interface ClienteFormProps {
   cliente: Empresa | null;
@@ -51,7 +52,10 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
 
   useEffect(() => {
     if (cliente) {
-      form.reset(cliente);
+      form.reset({
+        ...cliente,
+        rut: formatRut(cliente.rut) // Format on load
+      });
     } else {
       form.reset({
         rut: '',
@@ -68,8 +72,19 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
 
   const onSubmit = async (values: z.infer<typeof clienteSchema>) => {
     try {
-      const docRef = doc(firestore, 'empresas', values.rut);
-      await setDoc(docRef, values, { merge: true });
+      const cleanedRut = cleanRut(values.rut);
+      if (!cleanedRut) {
+          toast({ variant: 'destructive', title: 'RUT no válido' });
+          return;
+      }
+      
+      const docRef = doc(firestore, 'empresas', cleanedRut);
+      
+      // Save the non-formatted RUT in the document data as well
+      const dataToSave = { ...values, rut: cleanedRut };
+
+      await setDoc(docRef, dataToSave, { merge: true });
+
       toast({
         title: cliente ? 'Cliente Actualizado' : 'Cliente Creado',
         description: `Se guardaron los datos para "${values.razonSocial}".`,
@@ -92,9 +107,26 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
             <FormField control={form.control} name="razonSocial" render={({ field }) => (
                 <FormItem><FormLabel>Razón Social</FormLabel><FormControl><Input placeholder="Nombre de la empresa" {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
-             <FormField control={form.control} name="rut" render={({ field }) => (
-                <FormItem><FormLabel>RUT</FormLabel><FormControl><Input placeholder="76.123.456-7" {...field} disabled={!!cliente} /></FormControl><FormMessage /></FormItem>
-            )}/>
+             <FormField
+                control={form.control}
+                name="rut"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>RUT</FormLabel>
+                    <FormControl>
+                    <Input
+                        placeholder="12.345.678-9"
+                        {...field}
+                        onChange={(e) => {
+                            field.onChange(formatRut(e.target.value));
+                        }}
+                        disabled={!!cliente}
+                    />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
              <FormField control={form.control} name="giro" render={({ field }) => (

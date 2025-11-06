@@ -1,7 +1,7 @@
 
 "use client";
 
-import { type Dispatch, type SetStateAction, useState, useCallback } from 'react';
+import { type Dispatch, type SetStateAction, useState, useCallback, ChangeEvent } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { Building, User, Loader2, Contact } from 'lucide-react';
 
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DatePicker } from '../ui/date-picker';
+import { formatRut, cleanRut } from '@/lib/utils';
 
 interface Props {
   empresa: Empresa;
@@ -26,18 +27,29 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
   const [isSearching, setIsSearching] = useState(false);
   const { toast } = useToast();
 
+  const handleRutChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const formattedRut = formatRut(e.target.value);
+    setEmpresa({ ...empresa, rut: formattedRut });
+  };
+
+
   const handleRutBlur = useCallback(async () => {
     if (!empresa.rut) return;
 
+    const cleanedRut = cleanRut(empresa.rut);
+    if (!cleanedRut) return;
+
     setIsSearching(true);
     try {
-      const empresaRef = doc(firestore, 'empresas', empresa.rut);
+      const empresaRef = doc(firestore, 'empresas', cleanedRut);
       const docSnap = await getDoc(empresaRef);
 
       if (docSnap.exists()) {
         const data = docSnap.data() as Empresa;
-        setEmpresa(data);
-        // If there's a contact email and the setSolicitante function is available, pre-fill.
+        setEmpresa({
+          ...data,
+          rut: formatRut(data.rut), // Re-format for display
+        });
         if(data.email && setSolicitante && solicitante && !solicitante.mail) {
           setSolicitante(prev => ({...prev, mail: data.email}));
         }
@@ -73,7 +85,12 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
             </div>
             <div className="relative space-y-2">
               <Label htmlFor="rut-empresa">RUT</Label>
-              <Input id="rut-empresa" value={empresa.rut} onChange={e => setEmpresa({...empresa, rut: e.target.value})} onBlur={handleRutBlur} />
+              <Input 
+                id="rut-empresa" 
+                value={empresa.rut} 
+                onChange={handleRutChange} 
+                onBlur={handleRutBlur} 
+              />
               {isSearching && <Loader2 className="absolute right-3 top-9 h-5 w-5 animate-spin text-muted-foreground" />}
             </div>
             <div className="space-y-2">
