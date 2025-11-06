@@ -4,15 +4,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import type { Examen } from '@/lib/types';
 import { getExams } from '@/lib/data';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Badge } from '../ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Props {
   selectedExams: Examen[];
@@ -45,46 +42,37 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
     loadExams();
   }, [toast]);
 
-  const { examsByMainCategory, mainCategories } = useMemo(() => {
-    const categoriesMap: Record<string, Examen[]> = {};
+ const { examsByCategory, mainCategories } = useMemo(() => {
+    const categoriesMap: Record<string, Record<string, Examen[]>> = {};
+
     allExams.forEach(exam => {
-        // Asumimos que la categoría puede tener un formato "Principal / Secundaria"
         const mainCategory = exam.categoria.split('/')[0].trim();
+        const fullCategory = exam.categoria;
+
         if (!categoriesMap[mainCategory]) {
-            categoriesMap[mainCategory] = [];
+            categoriesMap[mainCategory] = {};
         }
-        categoriesMap[mainCategory].push(exam);
+        if (!categoriesMap[mainCategory][fullCategory]) {
+            categoriesMap[mainCategory][fullCategory] = [];
+        }
+        categoriesMap[mainCategory][fullCategory].push(exam);
     });
-
-    // Ordenar las categorías principales alfabéticamente
+    
     const sortedMainCategories = Object.keys(categoriesMap).sort((a, b) => a.localeCompare(b));
-
-    // Dentro de cada categoría principal, agrupar por categoría completa
-    const finalGrouped: Record<string, Record<string, Examen[]>> = {};
-    sortedMainCategories.forEach(mainCat => {
-        finalGrouped[mainCat] = {};
-        const examsInMainCat = categoriesMap[mainCat];
-        
-        examsInMainCat.forEach(exam => {
-            if (!finalGrouped[mainCat][exam.categoria]) {
-                finalGrouped[mainCat][exam.categoria] = [];
-            }
-            finalGrouped[mainCat][exam.categoria].push(exam);
-        });
-
-        // Ordenar las subcategorías (categorías completas) alfabéticamente
-        const orderedSubCategories: Record<string, Examen[]> = {};
-         Object.keys(finalGrouped[mainCat]).sort().forEach(subCat => {
-            orderedSubCategories[subCat] = finalGrouped[mainCat][subCat];
-        });
-        finalGrouped[mainCat] = orderedSubCategories;
-    });
-
-
-    return { examsByMainCategory: finalGrouped, mainCategories: sortedMainCategories };
+    
+    return { examsByCategory: categoriesMap, mainCategories: sortedMainCategories };
   }, [allExams]);
   
   const selectedExamIds = new Set(selectedExams.map(e => e.id));
+
+  const handleCategoryToggle = (categoryExams: Examen[], checked: boolean) => {
+    categoryExams.forEach(exam => {
+        // To prevent duplicate handling if an exam is already in the desired state
+        if (checked !== selectedExamIds.has(exam.id)) {
+            onExamToggle(exam, checked);
+        }
+    });
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
@@ -93,7 +81,7 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-1/4 mb-4" />
         <Card>
           <CardContent className="p-6 space-y-4">
             {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
@@ -104,60 +92,46 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
   }
 
   return (
-    <Tabs defaultValue={mainCategories[0]} className="w-full">
-      <ScrollArea className="w-full whitespace-nowrap rounded-md">
-        <TabsList className="inline-flex h-auto">
-          {mainCategories.map(category => (
-            <TabsTrigger key={category} value={category} className="text-xs sm:text-sm">{category}</TabsTrigger>
-          ))}
-        </TabsList>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
-      
-      {mainCategories.map(category => (
-        <TabsContent key={category} value={category}>
-          <Card>
-            <CardContent className="p-0">
-               <Accordion type="multiple" className="w-full">
-                {Object.entries(examsByMainCategory[category] || {}).map(([subCategory, exams]) => (
-                  <AccordionItem value={subCategory} key={subCategory}>
-                    <AccordionTrigger className="px-4 hover:no-underline">
-                        <div className='flex items-center gap-2'>
-                           <Badge variant="secondary">{subCategory}</Badge>
-                           <span className='text-sm text-muted-foreground'>({exams.length} exámenes)</span>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-2 p-4 border-t">
-                        {exams.map(exam => (
-                          <div key={exam.id} className="flex items-start space-x-3 rounded-md p-2 transition-colors hover:bg-accent/50">
-                            <Checkbox
-                              id={exam.id}
-                              checked={selectedExamIds.has(exam.id)}
-                              onCheckedChange={(checked) => onExamToggle(exam, !!checked)}
-                              className="mt-1"
-                            />
-                            <Label htmlFor={exam.id} className="flex-grow font-normal cursor-pointer">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <p className="font-medium text-foreground leading-tight">{exam.nombre} <span className="font-mono text-xs text-muted-foreground">({exam.codigo})</span></p>
-                                </div>
-                                {showPrice && (
-                                  <p className="font-semibold text-primary whitespace-nowrap ml-4">{formatCurrency(exam.valor)}</p>
-                                )}
-                              </div>
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+    <div className="w-full">
+        <ScrollArea className="h-[60vh] pr-4">
+            <div className="space-y-6">
+                {mainCategories.map(mainCategory => (
+                    <div key={mainCategory}>
+                        <h3 className="text-lg font-semibold text-foreground mb-3">{mainCategory}</h3>
+                        <Card>
+                            <CardContent className="p-2 space-y-1">
+                                {Object.entries(examsByCategory[mainCategory]).map(([fullCategory, categoryExams]) => {
+                                    const totalCategoryValue = categoryExams.reduce((acc, exam) => acc + exam.valor, 0);
+                                    const isCategorySelected = categoryExams.every(exam => selectedExamIds.has(exam.id));
+                                    
+                                    return (
+                                        <div key={fullCategory} className="flex items-start space-x-3 rounded-md p-3 transition-colors hover:bg-accent/50">
+                                            <Checkbox
+                                                id={fullCategory}
+                                                checked={isCategorySelected}
+                                                onCheckedChange={(checked) => handleCategoryToggle(categoryExams, !!checked)}
+                                                className="mt-1"
+                                            />
+                                            <Label htmlFor={fullCategory} className="flex-grow font-normal cursor-pointer">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="font-medium text-foreground leading-tight">{fullCategory}</p>
+                                                        <p className="text-xs text-muted-foreground">{categoryExams.length} examen(es) incluido(s)</p>
+                                                    </div>
+                                                    {showPrice && (
+                                                        <p className="font-semibold text-primary whitespace-nowrap ml-4">{formatCurrency(totalCategoryValue)}</p>
+                                                    )}
+                                                </div>
+                                            </Label>
+                                        </div>
+                                    )
+                                })}
+                            </CardContent>
+                        </Card>
+                    </div>
                 ))}
-              </Accordion>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      ))}
-    </Tabs>
+            </div>
+        </ScrollArea>
+    </div>
   );
 }
