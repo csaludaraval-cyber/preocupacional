@@ -25,7 +25,14 @@ const examenSchema = z.object({
   nombre: z.string().min(3, 'El nombre es obligatorio.'),
   categoria: z.string().min(1, 'La categoría es obligatoria.'),
   valor: z.preprocess(
-    (a) => parseFloat(z.string().parse(a)),
+    (val) => {
+        if (typeof val === 'string') {
+            // Eliminar puntos de miles y cualquier otro caracter no numérico
+            const cleanedVal = val.replace(/\D/g, '');
+            return parseInt(cleanedVal, 10) || 0;
+        }
+        return val;
+    },
     z.number().positive('El valor debe ser un número positivo.')
   ),
 });
@@ -149,7 +156,15 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
                 <FormItem>
                 <FormLabel>Valor (CLP)</FormLabel>
                 <FormControl>
-                    <Input type="number" placeholder="0" {...field} />
+                    <Input 
+                        type="text" 
+                        placeholder="0"
+                        value={field.value === 0 ? '' : new Intl.NumberFormat('es-CL').format(field.value)}
+                        onChange={(e) => {
+                            const numericValue = e.target.value.replace(/\D/g, '');
+                            field.onChange(parseInt(numericValue, 10) || 0);
+                        }}
+                    />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
