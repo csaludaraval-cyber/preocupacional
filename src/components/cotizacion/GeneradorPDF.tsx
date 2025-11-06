@@ -31,6 +31,9 @@ export const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrab
                         <h3 className="font-bold text-base mb-1">Trabajador</h3>
                         <p>{solicitud.trabajador.nombre}</p>
                         <p>RUT: {solicitud.trabajador.rut}</p>
+                        <p>Cargo: {solicitud.trabajador.cargo}</p>
+                        <p>F. Nacimiento: {solicitud.trabajador.fechaNacimiento}</p>
+                        <p>F. Atención: {solicitud.trabajador.fechaAtencion}</p>
                     </div>
                 </section>
                 
@@ -56,7 +59,7 @@ export const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrab
                     <div className='text-gray-700 space-y-0.5 mt-1'>
                         <p>Juan Martinez 235, Taltal Chile</p>
                         <p>+56 9 7541 1515</p>
-                        <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 20:00</p>
+                        <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 17:00</p>
                     </div>
                     <hr className="my-3 border-gray-400"/>
                 </section>
