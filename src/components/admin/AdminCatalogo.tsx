@@ -125,7 +125,6 @@ export function AdminCatalogo() {
     return sortedExams.filter(exam => 
       exam.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exam.categoria.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (exam.subcategoria && exam.subcategoria.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (exam.codigo && exam.codigo.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [exams, searchTerm]);
@@ -199,7 +198,6 @@ export function AdminCatalogo() {
                 <TableHead className="w-[100px]">Código</TableHead>
                 <TableHead>Examen</TableHead>
                 <TableHead>Categoría / Subcategoría</TableHead>
-                <TableHead>Unidad</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="w-[100px] text-center">Acciones</TableHead>
               </TableRow>
@@ -212,11 +210,7 @@ export function AdminCatalogo() {
                    <TableCell>
                       <div className="flex flex-col">
                         <span className='font-medium'>{exam.categoria}</span>
-                        {exam.subcategoria && <Badge variant="outline" className="mt-1 w-fit">{exam.subcategoria}</Badge>}
                       </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{exam.unidad}</Badge>
                   </TableCell>
                   <TableCell className="font-semibold text-right">
                      {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(exam.valor)}
@@ -314,5 +308,3 @@ export function AdminCatalogo() {
     </Card>
   );
 }
-
-    

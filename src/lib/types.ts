@@ -9,9 +9,7 @@ export type Examen = {
   codigo: string;
   nombre: string;
   categoria: string;
-  subcategoria: string;
   valor: number;
-  unidad: 'CLP' | 'UF';
 };
 
 export type Empresa = {

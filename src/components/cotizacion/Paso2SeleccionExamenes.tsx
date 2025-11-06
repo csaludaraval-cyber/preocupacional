@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import type { Examen } from '@/lib/types';
-import { getExams, examCategories } from '@/lib/data';
+import { getExams } from '@/lib/data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -45,19 +45,43 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
     loadExams();
   }, [toast]);
 
-  const examsByMainCategory = useMemo(() => {
-    return allExams.reduce((acc, exam) => {
-      const mainCategory = exam.categoria;
-      if (!acc[mainCategory]) {
-        acc[mainCategory] = {};
-      }
-      const subCategory = exam.subcategoria;
-      if(!acc[mainCategory][subCategory]) {
-        acc[mainCategory][subCategory] = [];
-      }
-      acc[mainCategory][subCategory].push(exam);
-      return acc;
-    }, {} as Record<string, Record<string, Examen[]>>);
+  const { examsByMainCategory, mainCategories } = useMemo(() => {
+    const categoriesMap: Record<string, Examen[]> = {};
+    allExams.forEach(exam => {
+        // Asumimos que la categoría puede tener un formato "Principal / Secundaria"
+        const mainCategory = exam.categoria.split('/')[0].trim();
+        if (!categoriesMap[mainCategory]) {
+            categoriesMap[mainCategory] = [];
+        }
+        categoriesMap[mainCategory].push(exam);
+    });
+
+    // Ordenar las categorías principales alfabéticamente
+    const sortedMainCategories = Object.keys(categoriesMap).sort((a, b) => a.localeCompare(b));
+
+    // Dentro de cada categoría principal, agrupar por categoría completa
+    const finalGrouped: Record<string, Record<string, Examen[]>> = {};
+    sortedMainCategories.forEach(mainCat => {
+        finalGrouped[mainCat] = {};
+        const examsInMainCat = categoriesMap[mainCat];
+        
+        examsInMainCat.forEach(exam => {
+            if (!finalGrouped[mainCat][exam.categoria]) {
+                finalGrouped[mainCat][exam.categoria] = [];
+            }
+            finalGrouped[mainCat][exam.categoria].push(exam);
+        });
+
+        // Ordenar las subcategorías (categorías completas) alfabéticamente
+        const orderedSubCategories: Record<string, Examen[]> = {};
+         Object.keys(finalGrouped[mainCat]).sort().forEach(subCat => {
+            orderedSubCategories[subCat] = finalGrouped[mainCat][subCat];
+        });
+        finalGrouped[mainCat] = orderedSubCategories;
+    });
+
+
+    return { examsByMainCategory: finalGrouped, mainCategories: sortedMainCategories };
   }, [allExams]);
   
   const selectedExamIds = new Set(selectedExams.map(e => e.id));
@@ -80,17 +104,17 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
   }
 
   return (
-    <Tabs defaultValue={examCategories[0]} className="w-full">
+    <Tabs defaultValue={mainCategories[0]} className="w-full">
       <ScrollArea className="w-full whitespace-nowrap rounded-md">
         <TabsList className="inline-flex h-auto">
-          {examCategories.map(category => (
+          {mainCategories.map(category => (
             <TabsTrigger key={category} value={category} className="text-xs sm:text-sm">{category}</TabsTrigger>
           ))}
         </TabsList>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
       
-      {examCategories.map(category => (
+      {mainCategories.map(category => (
         <TabsContent key={category} value={category}>
           <Card>
             <CardContent className="p-0">
@@ -119,7 +143,7 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
                                   <p className="font-medium text-foreground leading-tight">{exam.nombre} <span className="font-mono text-xs text-muted-foreground">({exam.codigo})</span></p>
                                 </div>
                                 {showPrice && (
-                                  <p className="font-semibold text-primary whitespace-nowrap ml-4">{exam.unidad} {formatCurrency(exam.valor)}</p>
+                                  <p className="font-semibold text-primary whitespace-nowrap ml-4">{formatCurrency(exam.valor)}</p>
                                 )}
                               </div>
                             </Label>

@@ -8,19 +8,11 @@ import * as z from 'zod';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { examCategories } from '@/lib/data';
 import type { Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 
 interface ExamenFormProps {
@@ -32,10 +24,6 @@ const examenSchema = z.object({
   codigo: z.string().min(1, 'El código es obligatorio.'),
   nombre: z.string().min(3, 'El nombre es obligatorio.'),
   categoria: z.string().min(1, 'La categoría es obligatoria.'),
-  subcategoria: z.string().min(1, 'La subcategoría es obligatoria.'),
-  unidad: z.enum(['CLP', 'UF'], {
-    errorMap: () => ({ message: 'Debe seleccionar CLP o UF.' }),
-  }),
   valor: z.preprocess(
     (a) => parseFloat(z.string().parse(a)),
     z.number().positive('El valor debe ser un número positivo.')
@@ -53,8 +41,6 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
       codigo: '',
       nombre: '',
       categoria: '',
-      subcategoria: '',
-      unidad: 'CLP',
       valor: 0,
     },
   });
@@ -65,8 +51,6 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
         codigo: examen.codigo,
         nombre: examen.nombre,
         categoria: examen.categoria,
-        subcategoria: examen.subcategoria,
-        unidad: examen.unidad,
         valor: examen.valor,
       });
     } else {
@@ -74,8 +58,6 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
         codigo: '',
         nombre: '',
         categoria: '',
-        subcategoria: '',
-        unidad: 'CLP',
         valor: 0,
       });
     }
@@ -150,66 +132,22 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
             name="categoria"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Categoría Principal</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Seleccione una categoría principal" />
-                    </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                    {examCategories.map(cat => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
-                <FormMessage />
-                </FormItem>
-            )}
-        />
-
-        <FormField
-            control={form.control}
-            name="subcategoria"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Subcategoría</FormLabel>
+                <FormLabel>Categoría / Subcategoría</FormLabel>
                 <FormControl>
-                    <Input placeholder="Ej: Bateria Básica" {...field} />
+                    <Input placeholder="Ej: Batería Básica Preocupacional" {...field} />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
             )}
         />
         
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField
-            control={form.control}
-            name="unidad"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Unidad</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Seleccione unidad" />
-                    </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        <SelectItem value="CLP">CLP</SelectItem>
-                        <SelectItem value="UF">UF</SelectItem>
-                    </SelectContent>
-                </Select>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
+        <div className="grid grid-cols-1 gap-4">
             <FormField
             control={form.control}
             name="valor"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Valor</FormLabel>
+                <FormLabel>Valor (CLP)</FormLabel>
                 <FormControl>
                     <Input type="number" placeholder="0" {...field} />
                 </FormControl>
@@ -229,5 +167,3 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
     </Form>
   );
 }
-
-    

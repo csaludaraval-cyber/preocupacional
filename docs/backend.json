@@ -117,20 +117,11 @@
         },
         "categoria": {
           "type": "string",
-          "description": "Categoría del examen."
-        },
-        "subcategoria": {
-          "type": "string",
-          "description": "Subcategoría del examen."
+          "description": "Campo de texto libre para la categoría/subcategoría del examen."
         },
         "valor": {
           "type": "number",
-          "description": "Valor del examen."
-        },
-        "unidad": {
-          "type": "string",
-          "description": "Unidad monetaria del valor del examen (e.g., CLP, UF).",
-          "enum": ["CLP", "UF"]
+          "description": "Valor del examen en CLP."
         }
       },
       "required": [
@@ -138,9 +129,7 @@
         "codigo",
         "nombre",
         "categoria",
-        "subcategoria",
-        "valor",
-        "unidad"
+        "valor"
       ]
     },
     "Cotizacion": {
