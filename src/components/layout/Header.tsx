@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { FileText, Shield, History, Inbox, LogOut, Activity } from 'lucide-react';
+import { FileText, Shield, History, Inbox, LogOut, Activity, Users } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
@@ -49,6 +49,10 @@ export function Header() {
               <Link href="/admin" className={navLinkClasses('/admin')}>
                 <Shield className="h-4 w-4" />
                 Administrar Catálogo
+              </Link>
+               <Link href="/admin/clientes" className={navLinkClasses('/admin/clientes')}>
+                <Users className="h-4 w-4" />
+                Gestionar Clientes
               </Link>
                <Link href="/admin/status" className={navLinkClasses('/admin/status')}>
                 <Activity className="h-4 w-4" />
