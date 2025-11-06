@@ -40,7 +40,7 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
         setFileStatus('pending');
 
         Papa.parse<CsvRow>(file, {
-            header: true, // ¡ESTA ES LA CORRECCIÓN CLAVE!
+            header: true,
             complete: (result) => {
                 processData(result.data);
             },
@@ -69,14 +69,8 @@ export function CargaMasivaCatalogo({ onUploadSuccess }: CargaMasivaCatalogoProp
             const valorStr = row.VALOR;
 
              if (!codigo || !examen || !categoriaSubcategoria || !unidad || !valorStr) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Error de Datos',
-                    description: `Una fila tiene columnas faltantes. Verifique el archivo.`,
-                });
-                setIsUploading(false);
-                setFileStatus('error');
-                return;
+                // This will skip rows that might be completely empty or malformed at the end of the file
+                continue;
             }
 
             const [categoria, subcategoria] = categoriaSubcategoria.split('/').map(s => s.trim());
