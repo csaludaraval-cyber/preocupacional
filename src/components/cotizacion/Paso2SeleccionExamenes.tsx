@@ -116,11 +116,10 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
                             <Label htmlFor={exam.id} className="flex-grow font-normal cursor-pointer">
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <p className="font-medium text-foreground leading-tight">{exam.nombre}</p>
-                                  {exam.descripcion && <p className="text-xs text-muted-foreground mt-1">{exam.descripcion}</p>}
+                                  <p className="font-medium text-foreground leading-tight">{exam.nombre} <span className="font-mono text-xs text-muted-foreground">({exam.codigo})</span></p>
                                 </div>
                                 {showPrice && (
-                                  <p className="font-semibold text-primary whitespace-nowrap ml-4">{formatCurrency(exam.valor)}</p>
+                                  <p className="font-semibold text-primary whitespace-nowrap ml-4">{exam.unidad} {formatCurrency(exam.valor)}</p>
                                 )}
                               </div>
                             </Label>

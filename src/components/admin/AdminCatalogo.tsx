@@ -142,12 +142,17 @@ export function AdminCatalogo() {
 
   const filteredExams = useMemo(() => {
     if (!exams) return [];
-    if (!searchTerm) return exams;
     
-    return exams.filter(exam => 
+    // Sort by codigo before filtering
+    const sortedExams = [...exams].sort((a, b) => (a.codigo || '').localeCompare(b.codigo || ''));
+
+    if (!searchTerm) return sortedExams;
+    
+    return sortedExams.filter(exam => 
       exam.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exam.categoria.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (exam.subcategoria && exam.subcategoria.toLowerCase().includes(searchTerm.toLowerCase()))
+      (exam.subcategoria && exam.subcategoria.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (exam.codigo && exam.codigo.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [exams, searchTerm]);
   
@@ -203,7 +208,7 @@ export function AdminCatalogo() {
          <div className="relative pt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
-                placeholder="Buscar por nombre, categoría o subcategoría..."
+                placeholder="Buscar por código, nombre, categoría..."
                 className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -215,14 +220,17 @@ export function AdminCatalogo() {
           <Table>
             <TableHeader className="sticky top-0 bg-secondary">
               <TableRow>
+                <TableHead>Código</TableHead>
                 <TableHead>Examen</TableHead>
                 <TableHead>Categoría / Subcategoría</TableHead>
-                <TableHead className="w-[250px]">Valor</TableHead>
+                <TableHead>Unidad</TableHead>
+                <TableHead className="w-[200px]">Valor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredExams.length > 0 ? filteredExams.map((exam) => (
                 <TableRow key={exam.id}>
+                  <TableCell className="font-mono text-xs">{exam.codigo}</TableCell>
                   <TableCell className="font-medium">{exam.nombre}</TableCell>
                    <TableCell>
                       <div className="flex flex-col">
@@ -231,12 +239,15 @@ export function AdminCatalogo() {
                       </div>
                   </TableCell>
                   <TableCell>
+                    <Badge variant="secondary">{exam.unidad}</Badge>
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-2">
                       <Input
                         type="number"
                         value={prices[exam.id] || 0}
                         onChange={(e) => handlePriceChange(exam.id, e.target.value)}
-                        className="w-32"
+                        className="w-28"
                       />
                       <Button 
                         size="icon" 
@@ -251,8 +262,8 @@ export function AdminCatalogo() {
                 </TableRow>
               )) : (
                  <TableRow>
-                    <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
-                        No se encontraron exámenes. El catálogo puede estar vacío.
+                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                        No se encontraron exámenes. El catálogo puede estar vacío o no hay coincidencias con la búsqueda.
                     </TableCell>
                 </TableRow>
               )}

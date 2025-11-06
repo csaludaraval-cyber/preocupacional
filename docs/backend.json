@@ -107,6 +107,10 @@
           "type": "string",
           "description": "Identificador único del examen."
         },
+        "codigo": {
+          "type": "string",
+          "description": "Código único para el examen."
+        },
         "nombre": {
           "type": "string",
           "description": "Nombre del examen."
@@ -115,31 +119,28 @@
           "type": "string",
           "description": "Categoría del examen."
         },
+        "subcategoria": {
+          "type": "string",
+          "description": "Subcategoría del examen."
+        },
         "valor": {
           "type": "number",
           "description": "Valor del examen."
         },
         "unidad": {
           "type": "string",
-          "description": "Unidad monetaria del valor del examen (e.g., CLP)."
-        },
-        "descripcion": {
-          "type": "string",
-          "description": "Descripción del examen."
-        },
-        "esBateria": {
-          "type": "boolean",
-          "description": "Indica si es un examen individual o una batería."
+          "description": "Unidad monetaria del valor del examen (e.g., CLP, UF).",
+          "enum": ["CLP", "UF"]
         }
       },
       "required": [
         "id",
+        "codigo",
         "nombre",
         "categoria",
+        "subcategoria",
         "valor",
-        "unidad",
-        "descripcion",
-        "esBateria"
+        "unidad"
       ]
     },
     "Cotizacion": {

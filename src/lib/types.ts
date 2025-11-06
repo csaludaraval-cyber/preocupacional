@@ -6,13 +6,12 @@ import { z } from 'zod';
 
 export type Examen = {
   id: string;
+  codigo: string;
   nombre: string;
   categoria: string;
   subcategoria: string;
   valor: number;
-  unidad: 'CLP';
-  descripcion: string;
-  esBateria: boolean;
+  unidad: 'CLP' | 'UF';
 };
 
 export type Empresa = {

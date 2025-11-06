@@ -22,7 +22,7 @@ export async function getExams(): Promise<Examen[]> {
     
     const subcategories: Record<string, string> = {};
 
-    const examsToSeed = catalogoExamenes.map(e => ({...e, subcategoria: subcategories[e.nombre] || "General"}));
+    const examsToSeed = catalogoExamenes.map(e => ({...e, codigo: e.codigo || '', subcategoria: subcategories[e.nombre] || "General"}));
 
     if (examsToSeed.length > 0) {
       const batch = writeBatch(firestore);
