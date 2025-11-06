@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, Save, Tag, Search, XCircle, Trash2, ShieldAlert } from 'lucide-react';
+import { Loader2, Shield, Save, Tag, Search, XCircle, Trash2, ShieldAlert, Upload } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,9 +26,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Label } from '../ui/label';
+import { CargaMasivaCatalogo } from './CargaMasivaCatalogo';
 
 const DELETE_CATALOG_PIN = '2828';
 
@@ -37,8 +45,6 @@ export function AdminCatalogo() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   
-  const examenesQuery = useMemoFirebase(() => collection(firestore, 'examenes'), []);
-  // We need a way to refetch, so we'll use a state to trigger re-renders of the hook
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const memoizedQueryWithRefetch = useMemoFirebase(() => collection(firestore, 'examenes'), [refetchTrigger]);
   const { data: exams, isLoading, error } = useCollection<Examen>(memoizedQueryWithRefetch);
@@ -52,6 +58,7 @@ export function AdminCatalogo() {
   const [pinValue, setPinValue] = useState('');
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isDeletingCatalog, setIsDeletingCatalog] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
 
   useEffect(() => {
@@ -63,6 +70,11 @@ export function AdminCatalogo() {
       setPrices(initialPrices);
     }
   }, [exams]);
+  
+  const onUploadSuccess = () => {
+    setIsBulkUploadOpen(false);
+    setRefetchTrigger(prev => prev + 1); // Trigger refetch
+  }
 
   const handlePriceChange = (id: string, value: string) => {
     const newPrice = parseInt(value, 10);
@@ -124,7 +136,6 @@ export function AdminCatalogo() {
                 title: 'Catálogo Eliminado',
                 description: 'Todos los exámenes han sido eliminados del sistema.',
             });
-            // Trigger a refetch of the exams list
             setRefetchTrigger(prev => prev + 1);
 
         } catch (err: any) {
@@ -143,7 +154,6 @@ export function AdminCatalogo() {
   const filteredExams = useMemo(() => {
     if (!exams) return [];
     
-    // Sort by codigo before filtering
     const sortedExams = [...exams].sort((a, b) => (a.codigo || '').localeCompare(b.codigo || ''));
 
     if (!searchTerm) return sortedExams;
@@ -191,7 +201,7 @@ export function AdminCatalogo() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start gap-4">
             <div>
                 <CardTitle className="font-headline text-3xl flex items-center gap-3">
                     <Tag className="h-8 w-8 text-primary"/>
@@ -201,9 +211,28 @@ export function AdminCatalogo() {
                   Administre los precios de los exámenes y baterías disponibles en el sistema.
                 </CardDescription>
             </div>
-             <Button variant="destructive" onClick={() => setShowPinDialog(true)}>
-                <Trash2 className="mr-2 h-4 w-4" /> Eliminar Catálogo Completo
-            </Button>
+            <div className="flex gap-2 flex-shrink-0">
+                <Dialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline">
+                            <Upload className="mr-2 h-4 w-4" /> Carga Masiva
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl">
+                        <DialogHeader>
+                        <DialogTitle>Carga Masiva de Catálogo</DialogTitle>
+                        <DialogDescription>
+                            Copie y pegue los datos desde su hoja de cálculo (Excel, Google Sheets) aquí.
+                        </DialogDescription>
+                        </DialogHeader>
+                        <CargaMasivaCatalogo onUploadSuccess={onUploadSuccess} />
+                    </DialogContent>
+                </Dialog>
+
+                 <Button variant="destructive" onClick={() => setShowPinDialog(true)}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar Catálogo
+                </Button>
+            </div>
         </div>
          <div className="relative pt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -330,3 +359,5 @@ export function AdminCatalogo() {
     </Card>
   );
 }
+
+    
