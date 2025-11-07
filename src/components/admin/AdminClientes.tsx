@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import ClienteForm from './ClienteForm';
-import { formatRut } from '@/lib/utils';
+import { formatRut, cleanRut } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 
 
@@ -86,7 +86,7 @@ export function AdminClientes() {
     
     return sortedClientes.filter(cliente => 
       cliente.razonSocial.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.rut.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cleanRut(cliente.rut).toLowerCase().includes(cleanRut(searchTerm.toLowerCase())) ||
       (cliente.email && cliente.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [clientes, searchTerm]);
@@ -161,7 +161,7 @@ export function AdminClientes() {
             </TableHeader>
             <TableBody>
               {filteredClientes.length > 0 ? filteredClientes.map((cliente) => (
-                <TableRow key={cliente.rut}>
+                <TableRow key={cleanRut(cliente.rut)}>
                   <TableCell className="font-medium">{cliente.razonSocial}</TableCell>
                   <TableCell>{formatRut(cliente.rut)}</TableCell>
                   <TableCell>
