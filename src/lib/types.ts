@@ -42,9 +42,9 @@ export type SolicitudTrabajador = {
 // This is a combination of Firestore data and derived data for UI
 export type Cotizacion = {
   id: string;
-  empresa: Empresa; // Kept for simplicity, but derived from empresaData
-  solicitante: Solicitante; // Kept for simplicity, derived from solicitanteData
-  solicitudes: SolicitudTrabajador[]; // Kept for simplicity, derived from solicitudesData
+  empresa: Empresa; 
+  solicitante: Solicitante; 
+  solicitudes: SolicitudTrabajador[]; 
   total: number;
   fecha: string; // Formatted date for display
   fechaCreacion: Timestamp; 

@@ -41,6 +41,7 @@ interface CreateInvoicePayload {
 
 /**
  * Server Action para crear una factura en SimpleFactura y actualizar Firestore.
+ * Funciona tanto para facturación consolidada (múltiples órdenes) como inmediata (una sola orden).
  * @param empresa La información de la empresa cliente.
  * @param quotes Las cotizaciones (órdenes) a facturar.
  * @param totalAmount El monto total a facturar.
@@ -58,6 +59,12 @@ export async function createSimpleFacturaInvoice(
         throw new Error('El RUT del emisor no está configurado en las variables de entorno.');
     }
 
+    const isImmediateBilling = quotes.length === 1;
+    const detailDescription = isImmediateBilling 
+        ? `Servicios de exámenes preocupacionales (Cotización N° ${quotes[0].id.slice(-6)})`
+        : `Servicios de exámenes preocupacionales consolidados (${quotes.length} órdenes)`;
+
+
     // --- PASO 1: Crear el Payload para la API de SimpleFactura ---
     const payload: CreateInvoicePayload = {
         invoice: {
@@ -71,7 +78,7 @@ export async function createSimpleFacturaInvoice(
             Sucursal: nombreSucursal,
             Detalles: [
                 {
-                    NmbItem: `Servicios de exámenes preocupacionales consolidados (${quotes.length} órdenes)`,
+                    NmbItem: detailDescription,
                     QtyItem: 1,
                     PrcItem: totalAmount,
                 },

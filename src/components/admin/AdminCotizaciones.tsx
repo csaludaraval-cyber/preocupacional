@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2 } from 'lucide-react';
+import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FileCheck2 } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -43,14 +43,15 @@ import { GeneradorPDF, OrdenDeExamen } from '@/components/cotizacion/GeneradorPD
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { updateQuoteStatus, deleteQuote } from '@/lib/firestore';
-import type { Cotizacion } from '@/lib/types';
-
+import type { Cotizacion, CotizacionFirestore, WithId } from '@/lib/types';
+import { createSimpleFacturaInvoice } from '@/server/simplefactura';
 
 const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'secondary' | 'success'> = {
   PENDIENTE: 'secondary',
   ENVIADA: 'default',
   ACEPTADA: 'success',
   RECHAZADA: 'destructive',
+  facturado_simplefactura: 'default',
 };
 
 const blobToBase64 = (blob: Blob): Promise<string> => {
@@ -70,6 +71,23 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     });
 };
 
+const downloadPdfFromBase64 = (base64: string, folio: number, quoteId: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `FACTURA_EXENTA_${folio}_COT_${quoteId.slice(-6)}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
 
 export default function AdminCotizaciones() {
   const { quotes, isLoading, error, refetchQuotes } = useCotizaciones();
@@ -80,6 +98,7 @@ export default function AdminCotizaciones() {
   const [isSending, setIsSending] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [facturingQuoteId, setFacturingQuoteId] = useState<string | null>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -177,6 +196,49 @@ export default function AdminCotizaciones() {
     }
   };
 
+  const handleImmediateInvoice = async (quote: Cotizacion) => {
+    setFacturingQuoteId(quote.id);
+    try {
+        // The server action expects the full CotizacionFirestore object.
+        // We can reconstruct it from the Cotizacion object.
+        const quoteToBill: WithId<CotizacionFirestore> = {
+            id: quote.id,
+            empresaId: quote.empresa.rut, // Assuming clean RUT is needed, server can handle it
+            solicitanteId: quote.solicitante.rut, // Placeholder, may need user ID
+            fechaCreacion: quote.fechaCreacion,
+            total: quote.total,
+            empresaData: quote.empresaData,
+            solicitanteData: quote.solicitanteData,
+            solicitudesData: quote.solicitudesData,
+            status: 'ACEPTADA',
+        }
+        
+        const { pdfBase64, folio } = await createSimpleFacturaInvoice(
+            quote.empresaData,
+            [quoteToBill],
+            quote.total
+        );
+
+        toast({
+            title: '¡Factura Inmediata Emitida!',
+            description: `Se generó el DTE Folio N° ${folio}.`,
+        });
+
+        // Offer download
+        downloadPdfFromBase64(pdfBase64, folio, quote.id);
+
+        refetchQuotes();
+    } catch(err: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error al Facturar',
+            description: err.message,
+        });
+    } finally {
+        setFacturingQuoteId(null);
+    }
+  }
+
 
   const handleOpenDownloadPage = (quote: any) => {
     const dataString = encodeURIComponent(JSON.stringify(quote));
@@ -238,11 +300,15 @@ export default function AdminCotizaciones() {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="text-center w-[250px]">Acciones</TableHead>
+                  <TableHead className="text-center w-[300px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedQuotes.map((quote) => (
+                {sortedQuotes.map((quote) => {
+                  const isNormalAccepted = quote.status === 'ACEPTADA' && quote.empresaData.modalidadFacturacion === 'normal';
+                  const isFacturing = facturingQuoteId === quote.id;
+
+                  return (
                   <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
                     <TableCell className="font-medium flex items-center space-x-2">
                       <span>{quote.id.slice(-6)}</span>
@@ -279,16 +345,23 @@ export default function AdminCotizaciones() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center space-x-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                           <Button variant="default" size="sm" onClick={() => setQuoteToSend(quote)}>
-                            Gestionar
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Ver detalles y gestionar envío/estado</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      {isNormalAccepted ? (
+                        <Button variant="destructive" size="sm" onClick={() => handleImmediateInvoice(quote)} disabled={isFacturing}>
+                          {isFacturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
+                          {isFacturing ? 'Facturando...' : 'Facturar Ahora (DTE)'}
+                        </Button>
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="default" size="sm" onClick={() => setQuoteToSend(quote)}>
+                              Gestionar
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Ver detalles y gestionar envío/estado</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -316,7 +389,7 @@ export default function AdminCotizaciones() {
                       </Tooltip>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
             </Table>
           </div>
