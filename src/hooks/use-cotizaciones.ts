@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { collection, getDocs, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
@@ -18,11 +18,11 @@ interface UseCotizacionesResult {
 }
 
 export function useCotizaciones(): UseCotizacionesResult {
+  // Simplificamos la consulta para evitar errores de índice compuesto en Firestore.
+  // El filtrado y ordenamiento complejo se hará en el lado del cliente.
   const cotizacionesQuery = useMemoFirebase(() => 
     query(
       collection(firestore, 'cotizaciones'), 
-      where('status', '!=', 'facturado_consolidado'),
-      orderBy('status'),
       orderBy('fechaCreacion', 'desc')
     ),
     []
@@ -30,10 +30,15 @@ export function useCotizaciones(): UseCotizacionesResult {
 
   const { data: rawQuotes, isLoading, error: firestoreError, refetch: refetchQuotes } = useCollection<CotizacionFirestore>(cotizacionesQuery);
   
-  const processQuotes = (data: WithId<CotizacionFirestore>[] | null): Cotizacion[] => {
-    if (!data) return [];
-    
-    return data.map(q => {
+  // Usamos useMemo para procesar los datos solo cuando cambian.
+  const quotes = useMemo(() => {
+    if (!rawQuotes) return [];
+
+    // 1. Filtrar las cotizaciones que no queremos mostrar.
+    const filtered = rawQuotes.filter(q => q.status !== 'facturado_consolidado');
+
+    // 2. Mapear al formato que necesita el frontend.
+    const processed = filtered.map(q => {
         const fecha = q.fechaCreacion instanceof Timestamp 
             ? q.fechaCreacion.toDate().toLocaleDateString('es-CL')
             : new Date().toLocaleDateString('es-CL');
@@ -45,14 +50,19 @@ export function useCotizaciones(): UseCotizacionesResult {
             solicitudes: q.solicitudesData,
             total: q.total,
             fecha,
-            // Manteniendo los campos originales de firestore por si son necesarios
             fechaCreacion: q.fechaCreacion,
             status: q.status || 'PENDIENTE',
         } as Cotizacion;
     });
-  };
 
-  const quotes = processQuotes(rawQuotes);
+    // 3. Ordenar por status (opcional, pero mantiene el comportamiento anterior)
+    return processed.sort((a, b) => {
+        if (a.status < b.status) return -1;
+        if (a.status > b.status) return 1;
+        return 0;
+    });
+  }, [rawQuotes]);
+
 
   return { quotes, isLoading, error: firestoreError, refetchQuotes };
 }
