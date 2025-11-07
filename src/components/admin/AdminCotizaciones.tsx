@@ -161,20 +161,21 @@ export default function AdminCotizaciones() {
   };
 
   const handleUpdateStatus = async (quoteId: string, newStatus: StatusCotizacion) => {
+    if (!quoteId) return;
     setIsUpdatingStatus(true);
     try {
-        const quoteRef = doc(firestore, 'cotizaciones', quoteId);
-        await updateDoc(quoteRef, { status: newStatus });
-        toast({
-            title: 'Estado Actualizado',
-            description: `La cotización ${quoteId.slice(-6)} ahora está en estado: ${newStatus}`,
-        });
-        refetchQuotes();
+      const quoteRef = doc(firestore, 'cotizaciones', quoteId);
+      await updateDoc(quoteRef, { status: newStatus });
+      toast({
+        title: 'Estado Actualizado',
+        description: `La cotización ahora está en estado: ${newStatus}`,
+      });
+      refetchQuotes();
     } catch (error: any) {
       console.error('Error al actualizar estado:', error);
       toast({
-        title: 'Error de Actualización',
-        description: 'No se pudo guardar el nuevo estado. ' + (error.message || ''),
+        title: 'Error al actualizar estado',
+        description: `Fallo al actualizar el estado: ${error.code || error.message}`,
         variant: 'destructive',
       });
     } finally {
@@ -218,12 +219,16 @@ export default function AdminCotizaciones() {
             id: quote.id,
             empresaId: quote.empresaData.rut, 
             solicitanteId: quote.solicitanteData.rut,
-            fechaCreacion: quote.fechaCreacion,
+            // @ts-ignore - Convert Timestamp to a plain object for Server Action
+            fechaCreacion: {
+                seconds: quote.fechaCreacion.seconds,
+                nanoseconds: quote.fechaCreacion.nanoseconds,
+            },
             total: quote.total,
             empresaData: quote.empresaData,
             solicitanteData: quote.solicitanteData,
             solicitudesData: quote.solicitudesData,
-            status: 'cotizacion_aceptada', // Explicitly use a compatible status
+            status: 'cotizacion_aceptada', 
         }
         
         const { pdfBase64, folio } = await createSimpleFacturaInvoice(
