@@ -2,12 +2,9 @@
 'use server';
 
 import { doc, updateDoc, getFirestore } from 'firebase/firestore';
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import type { StatusCotizacion } from '@/lib/types';
-
-// This is a global variable that is injected by the hosting environment.
-// It contains the Firebase configuration for the project.
-declare const __firebase_config: any;
+import { firebaseConfig } from '@/firebase/config'; // Importar la configuración explícita
 
 /**
  * Server Action para actualizar el estado de una cotización.
@@ -25,8 +22,8 @@ export async function updateCotizacionStatus(
   }
 
   try {
-    // Inicialización segura de Firebase en el entorno del servidor
-    const app = getApps().length ? getApp() : initializeApp(__firebase_config);
+    // Inicialización segura de Firebase en el entorno del servidor usando la configuración importada
+    const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
     const collectionPath = 'cotizaciones';
