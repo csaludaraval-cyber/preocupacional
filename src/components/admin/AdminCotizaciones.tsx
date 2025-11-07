@@ -39,7 +39,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { GeneradorPDF, OrdenDeExamen } from '@/components/cotizacion/GeneradorPDF';
+import { GeneradorPDF } from '@/components/cotizacion/GeneradorPDF';
+import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { updateQuoteStatus, deleteQuote } from '@/lib/firestore';
@@ -469,8 +470,8 @@ export default function AdminCotizaciones() {
               </div>
 
               <div className="flex-grow overflow-y-auto bg-gray-100 p-4 rounded-lg">
-                {quoteToSend.solicitudesData && quoteToSend.solicitudesData.length > 0 ? (
-                    <OrdenDeExamen solicitud={quoteToSend.solicitudesData[0]} empresa={quoteToSend.empresaData} />
+                {quoteToSend ? (
+                    <DetalleCotizacion quote={quoteToSend} />
                 ) : (
                     <div className="text-center text-muted-foreground">No hay detalles de solicitud para mostrar.</div>
                 )}
@@ -504,3 +505,5 @@ export default function AdminCotizaciones() {
     </TooltipProvider>
   );
 }
+
+    
