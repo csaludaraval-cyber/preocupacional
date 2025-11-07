@@ -377,10 +377,12 @@ export default function AdminCotizaciones() {
                                           {isFacturing ? 'Facturando...' : 'Facturar Ahora (DTE)'}
                                       </DropdownMenuItem>
                                   )}
-                                  <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
-                                      <Send className="mr-2 h-4 w-4" />
-                                      Gestionar y Enviar
-                                  </DropdownMenuItem>
+                                  {!isNormalAccepted && (
+                                      <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
+                                          <Send className="mr-2 h-4 w-4" />
+                                          Gestionar y Enviar
+                                      </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem onClick={() => handleOpenDownloadPage(quote)}>
                                       <Download className="mr-2 h-4 w-4" />
                                       Ver / Descargar PDF
