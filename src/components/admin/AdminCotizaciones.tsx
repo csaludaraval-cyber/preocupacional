@@ -369,7 +369,13 @@ export default function AdminCotizaciones() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  {isNormalAccepted ? (
+                                  {!isNormalAccepted && (
+                                     <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
+                                          <Send className="mr-2 h-4 w-4" />
+                                          Gestionar y Enviar
+                                      </DropdownMenuItem>
+                                  )}
+                                  {isNormalAccepted && (
                                       <DropdownMenuItem
                                           onClick={() => handleImmediateInvoice(quote)}
                                           disabled={isFacturing}
@@ -377,11 +383,6 @@ export default function AdminCotizaciones() {
                                       >
                                           {isFacturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
                                           {isFacturing ? 'Facturando...' : 'Facturar Ahora (DTE)'}
-                                      </DropdownMenuItem>
-                                  ) : (
-                                      <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
-                                          <Send className="mr-2 h-4 w-4" />
-                                          Gestionar y Enviar
                                       </DropdownMenuItem>
                                   )}
                                   <DropdownMenuItem onClick={() => handleOpenDownloadPage(quote)}>
