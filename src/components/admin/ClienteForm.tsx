@@ -77,19 +77,19 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
 
   const onSubmit = async (values: z.infer<typeof clienteSchema>) => {
     try {
-      // Clean the RUT to use it as the document ID
-      const cleanedRut = cleanRut(values.rut);
-      if (!cleanedRut) {
+      // Use the existing clean RUT for updates, or clean the new one for creations.
+      const idToUse = cliente ? cleanRut(cliente.rut) : cleanRut(values.rut);
+      if (!idToUse) {
           toast({ variant: 'destructive', title: 'RUT no válido' });
           return;
       }
       
-      const docRef = doc(firestore, 'empresas', cleanedRut);
+      const docRef = doc(firestore, 'empresas', idToUse);
       
-      // Save all form values, but ensure the 'rut' field in the document is also the cleaned one.
-      const dataToSave: Empresa = {
+      // Prepare data, ensuring the stored RUT is always the clean version.
+      const dataToSave: Omit<Empresa, 'rut'> & { rut: string } = {
         ...values,
-        rut: cleanedRut,
+        rut: idToUse,
       };
 
       await setDoc(docRef, dataToSave, { merge: true });
