@@ -1,37 +1,13 @@
 
 'use server';
 
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { doc, updateDoc } from 'firebase/firestore';
+import { firestore } from '@/lib/firebase'; // Usar la instancia del cliente configurada
 import type { StatusCotizacion } from '@/lib/types';
-
-// --- INICIALIZACIÓN DE FIREBASE ADMIN (SOLO PARA SERVIDOR) ---
-let serviceAccount;
-try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    }
-} catch (e) {
-    console.error("Error al parsear FIREBASE_SERVICE_ACCOUNT:", e);
-}
-
-if (!getApps().length) {
-    if (serviceAccount) {
-         initializeApp({
-            credential: cert(serviceAccount)
-        });
-    } else {
-        initializeApp();
-        console.warn("ADVERTENCIA: No se encontró la variable de entorno FIREBASE_SERVICE_ACCOUNT. Usando credenciales de entorno por defecto.");
-    }
-}
-
-const db = getFirestore();
 
 /**
  * Server Action para actualizar el estado de una cotización.
- * Utilizado por el administrador para forzar el estado de 'ACEPTADA'
- * y probar la facturación inmediata (DTE 34).
+ * Utiliza el SDK del cliente de Firebase, que es compatible con Server Actions.
  * @param cotizacionId - El ID del documento de la cotización.
  * @param nuevoEstado - El nuevo estado a asignar.
  */
@@ -44,9 +20,10 @@ export async function updateCotizacionStatus(
   }
 
   try {
-    const cotizacionRef = db.collection('cotizaciones').doc(cotizacionId);
+    // Usar la instancia de firestore del cliente importada
+    const cotizacionRef = doc(firestore, 'cotizaciones', cotizacionId);
 
-    await cotizacionRef.update({
+    await updateDoc(cotizacionRef, {
       status: nuevoEstado,
     });
 
