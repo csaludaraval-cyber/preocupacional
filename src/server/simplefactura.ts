@@ -115,7 +115,7 @@ export async function createSimpleFacturaInvoice(
                 TipoDTE: 34,
                 Folio: folio,
                 RutReceptor: empresa.rut,
-                Formato: 'rollo', // Usar el formato de ticket térmico
+                Formato: 'rollo',
             },
         }),
     });

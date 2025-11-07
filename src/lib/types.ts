@@ -77,7 +77,6 @@ export type StatusCotizacion =
   | 'ACEPTADA' 
   | 'RECHAZADA' 
   | 'orden_examen_enviada' 
-  | 'facturado_consolidado'
   | 'facturado_simplefactura';
 
 export interface User extends FirebaseUser {
@@ -109,3 +108,4 @@ export const EnviarCotizacionInputSchema = z.object({
   pdfBase64: z.string().describe('Contenido del archivo PDF codificado en Base64.'),
 });
 export type EnviarCotizacionInput = z.infer<typeof EnviarCotizacionInputSchema>;
+

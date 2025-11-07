@@ -16,6 +16,7 @@ import { Loader2, Shield, XCircle, FileClock, DollarSign, FileCheck2, Download }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from '@/components/ui/badge';
 import { createSimpleFacturaInvoice } from '@/server/simplefactura';
+import { cleanRut } from '@/lib/utils';
 
 interface GroupedQuotes {
   empresa: Empresa;
@@ -71,7 +72,7 @@ export function AdminFacturacionConsolidada() {
     const groups: Record<string, GroupedQuotes> = {};
 
     quotesToBill.forEach(quote => {
-      const empresaId = quote.empresaData.rut; // Use RUT as the unique key
+      const empresaId = cleanRut(quote.empresaData.rut); // Use clean RUT as the unique key
       if (!groups[empresaId]) {
         groups[empresaId] = {
           empresa: quote.empresaData,
@@ -89,7 +90,8 @@ export function AdminFacturacionConsolidada() {
   }, [quotesToBill]);
 
   const handleGenerateInvoice = async (group: GroupedQuotes) => {
-    setProcessingCompanyId(group.empresa.rut);
+    const cleanRutEmpresa = cleanRut(group.empresa.rut);
+    setProcessingCompanyId(cleanRutEmpresa);
     try {
         const { pdfBase64, folio } = await createSimpleFacturaInvoice(group.empresa, group.quotes, group.totalAmount);
         
@@ -99,7 +101,7 @@ export function AdminFacturacionConsolidada() {
         });
 
         // Guardar el resultado para mostrar el botón de descarga
-        setGeneratedInvoices(prev => [...prev, { empresaId: group.empresa.rut, pdfBase64, folio }]);
+        setGeneratedInvoices(prev => [...prev, { empresaId: cleanRutEmpresa, pdfBase64, folio }]);
         
         // Refrescar la lista de pendientes
         refetch();
@@ -171,11 +173,12 @@ export function AdminFacturacionConsolidada() {
             </TableHeader>
             <TableBody>
               {groupedData.length > 0 ? groupedData.map((group) => {
-                const invoiceResult = generatedInvoices.find(inv => inv.empresaId === group.empresa.rut);
-                const isProcessing = processingCompanyId === group.empresa.rut;
+                const cleanRutEmpresa = cleanRut(group.empresa.rut);
+                const invoiceResult = generatedInvoices.find(inv => inv.empresaId === cleanRutEmpresa);
+                const isProcessing = processingCompanyId === cleanRutEmpresa;
 
                 return (
-                    <TableRow key={group.empresa.rut} className="font-medium">
+                    <TableRow key={cleanRutEmpresa} className="font-medium">
                     <TableCell>
                         <p className='font-semibold text-foreground'>{group.empresa.razonSocial}</p>
                         <p className='text-sm text-muted-foreground'>RUT: {group.empresa.rut}</p>
