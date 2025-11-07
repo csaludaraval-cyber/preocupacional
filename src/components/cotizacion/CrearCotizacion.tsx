@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Sparkles, PlusCircle, Trash2, Users, Building, ShieldCheck } from 'lucide-react';
-import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, type Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import type { Empresa, Examen, Trabajador, Cotizacion, SolicitudTrabajador, Solicitante } from '@/lib/types';
@@ -390,5 +390,3 @@ export function CrearCotizacion() {
     </div>
   );
 }
-
-    
