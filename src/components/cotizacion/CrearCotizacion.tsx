@@ -20,6 +20,7 @@ import Paso2SeleccionExamenes from './Paso2SeleccionExamenes';
 import ResumenCotizacion from './ResumenCotizacion';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { cleanRut } from '@/lib/utils';
 
 const BATERIA_HEFAISTOS_MOCK: Examen = {
   id: 'MOCK-001',
@@ -56,8 +57,15 @@ export function CrearCotizacion() {
   useEffect(() => {
     if (empresa.rut) {
         const checkFrecuente = async () => {
-            const docRef = doc(firestore, 'empresas', empresa.rut);
+            const cleanedRut = cleanRut(empresa.rut);
+            if (!cleanedRut) {
+              setIsClienteFrecuente(false);
+              return;
+            };
+
+            const docRef = doc(firestore, 'empresas', cleanedRut);
             const docSnap = await getDoc(docRef);
+
             if (docSnap.exists() && docSnap.data().modalidadFacturacion === 'frecuente') {
                 setIsClienteFrecuente(true);
                 // Pre-seleccionar Batería Hefaistos para todos los trabajadores
@@ -122,6 +130,14 @@ export function CrearCotizacion() {
   };
   
   const handleExamToggle = (exam: Examen, checked: boolean) => {
+    if (isClienteFrecuente && exam.id === BATERIA_HEFAISTOS_MOCK.id && !checked) {
+        toast({
+            title: 'Acción no permitida',
+            description: 'La batería de exámenes base no se puede deseleccionar para clientes frecuentes.',
+            variant: 'destructive',
+        });
+        return;
+    }
     const newSolicitudes = [...solicitudes];
     const currentExams = newSolicitudes[currentSolicitudIndex].examenes;
     newSolicitudes[currentSolicitudIndex].examenes = checked
@@ -162,9 +178,12 @@ export function CrearCotizacion() {
 
   const saveEmpresaData = async () => {
     if (!empresa.rut) return;
+    const cleanedRut = cleanRut(empresa.rut);
+    if (!cleanedRut) return;
+
     try {
-      const empresaRef = doc(firestore, 'empresas', empresa.rut);
-      await setDoc(empresaRef, empresa, { merge: true });
+      const empresaRef = doc(firestore, 'empresas', cleanedRut);
+      await setDoc(empresaRef, { ...empresa, rut: cleanedRut }, { merge: true });
     } catch (error) {
       console.error("Error saving company data:", error);
       toast({
@@ -201,11 +220,11 @@ export function CrearCotizacion() {
     const total = allExams.reduce((acc, exam) => acc + exam.valor, 0);
 
     const newQuoteFirestore = {
-      empresaId: empresa.rut,
+      empresaId: cleanRut(empresa.rut),
       solicitanteId: user.uid,
       fechaCreacion: serverTimestamp(),
       total: total,
-      empresaData: { ...empresa, modalidadFacturacion: isClienteFrecuente ? 'frecuente' : 'normal' },
+      empresaData: { ...empresa, rut: cleanRut(empresa.rut), modalidadFacturacion: isClienteFrecuente ? 'frecuente' : 'normal' },
       solicitanteData: solicitante,
       solicitudesData: solicitudes,
       status: isClienteFrecuente ? 'orden_examen_enviada' : 'PENDIENTE',
@@ -233,7 +252,7 @@ export function CrearCotizacion() {
                 solicitudes: solicitudes,
                 total,
                 fecha: new Date().toLocaleDateString('es-CL'),
-                fechaCreacion: newQuoteFirestore.fechaCreacion,
+                fechaCreacion: newQuoteFirestore.fechaCreacion as Timestamp,
                 status: newQuoteFirestore.status
             };
             const query = encodeURIComponent(JSON.stringify(quoteForDisplay));

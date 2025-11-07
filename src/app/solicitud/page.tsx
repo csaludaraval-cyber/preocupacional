@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Send, PlusCircle, Trash2, Users, FileText, Loader2, ShieldCheck, Building } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
-import type { Empresa, Examen, Trabajador, SolicitudTrabajador, Solicitante, StatusCotizacion } from '@/types/models';
+import type { Empresa, Examen, SolicitudTrabajador, Solicitante } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,8 +27,12 @@ const BATERIA_HEFAISTOS_MOCK: Examen = {
 };
 
 const initialEmpresa: Empresa = { rut: '', razonSocial: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
-const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' };
 const initialSolicitante: Solicitante = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
+const initialSolicitud: SolicitudTrabajador = { 
+    id: crypto.randomUUID(), 
+    trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' },
+    examenes: [] 
+};
 
 
 export default function SolicitudPage() {
@@ -36,9 +40,7 @@ export default function SolicitudPage() {
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
   const [solicitante, setSolicitante] = useState<Solicitante>(initialSolicitante);
   
-  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([
-    { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }
-  ]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([initialSolicitud]);
   const [currentSolicitudIndex, setCurrentSolicitudIndex] = useState(0);
 
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -95,9 +97,9 @@ export default function SolicitudPage() {
   const nextStep = () => setStep(prev => Math.min(prev + 1, totalSteps));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
-  const updateCurrentTrabajador = (trabajador: Trabajador) => {
+  const updateCurrentSolicitud = (newSolicitud: Partial<SolicitudTrabajador>) => {
     const newSolicitudes = [...solicitudes];
-    newSolicitudes[currentSolicitudIndex].trabajador = trabajador;
+    newSolicitudes[currentSolicitudIndex] = { ...newSolicitudes[currentSolicitudIndex], ...newSolicitud };
     setSolicitudes(newSolicitudes);
   };
   
@@ -106,19 +108,22 @@ export default function SolicitudPage() {
         toast({ title: "Acción no permitida", description: "Los exámenes para clientes frecuentes son fijos."});
         return;
     }
-    const newSolicitudes = [...solicitudes];
-    const currentExams = newSolicitudes[currentSolicitudIndex].examenes;
-    newSolicitudes[currentSolicitudIndex].examenes = checked
+    const currentExams = currentSolicitud.examenes;
+    const newExams = checked
       ? [...currentExams, exam]
       : currentExams.filter(e => e.id !== exam.id);
-    setSolicitudes(newSolicitudes);
+    updateCurrentSolicitud({ examenes: newExams });
   };
 
   const addTrabajador = () => {
     setStep(1); 
     const newId = crypto.randomUUID();
     const newExams = isClienteFrecuente ? [BATERIA_HEFAISTOS_MOCK] : [];
-    const newSolicitud: SolicitudTrabajador = { id: newId, trabajador: initialTrabajador, examenes: newExams };
+    const newSolicitud: SolicitudTrabajador = { 
+        id: newId, 
+        trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' }, 
+        examenes: newExams 
+    };
     setSolicitudes(prev => [...prev, newSolicitud]);
     setCurrentSolicitudIndex(solicitudes.length);
   };
@@ -171,7 +176,7 @@ export default function SolicitudPage() {
      }
 
     const submissionData = {
-      empresa: empresa,
+      empresa: { ...empresa, rut: cleanRut(empresa.rut) },
       solicitante: solicitante,
       solicitudes: solicitudes,
       fechaCreacion: serverTimestamp(),
@@ -198,7 +203,13 @@ export default function SolicitudPage() {
     {
       id: 1,
       name: "Datos Empresa y Trabajador",
-      component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={updateCurrentTrabajador} />,
+      component: <Paso1DatosGenerales 
+        empresa={empresa} 
+        setEmpresa={setEmpresa} 
+        solicitante={solicitante} 
+        setSolicitante={setSolicitante} 
+        trabajador={currentSolicitud.trabajador} 
+        setTrabajador={(trabajador) => updateCurrentSolicitud({ trabajador })} />,
     },
     {
       id: 2,
