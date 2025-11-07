@@ -45,8 +45,7 @@ import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { createSimpleFacturaInvoice } from '@/server/simplefactura';
-import { updateCotizacionStatus } from '@/server/cotizaciones';
-import { deleteDoc, doc } from 'firebase/firestore';
+import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
 import { cleanRut } from '@/lib/utils';
@@ -164,25 +163,18 @@ export default function AdminCotizaciones() {
   const handleUpdateStatus = async (quoteId: string, newStatus: StatusCotizacion) => {
     setIsUpdatingStatus(true);
     try {
-        const result = await updateCotizacionStatus(quoteId, newStatus);
-        if (result.success) {
-            toast({
-                title: 'Estado Actualizado',
-                description: `La cotización ${quoteId.slice(-6)} ahora está en estado: ${newStatus}`,
-            });
-            refetchQuotes();
-        } else {
-             toast({
-                variant: 'destructive',
-                title: 'Error al Actualizar Estado',
-                description: result.message || 'No se pudo guardar el nuevo estado. Intente de nuevo.',
-            });
-        }
+        const quoteRef = doc(firestore, 'cotizaciones', quoteId);
+        await updateDoc(quoteRef, { status: newStatus });
+        toast({
+            title: 'Estado Actualizado',
+            description: `La cotización ${quoteId.slice(-6)} ahora está en estado: ${newStatus}`,
+        });
+        refetchQuotes();
     } catch (error: any) {
       console.error('Error al actualizar estado:', error);
       toast({
-        title: 'Error de Conexión',
-        description: 'Fallo al comunicarse con el servidor para actualizar el estado.',
+        title: 'Error de Actualización',
+        description: 'No se pudo guardar el nuevo estado. ' + (error.message || ''),
         variant: 'destructive',
       });
     } finally {
