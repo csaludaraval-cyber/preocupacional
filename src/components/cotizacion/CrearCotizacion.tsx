@@ -389,12 +389,6 @@ export function CrearCotizacion() {
                 Siguiente <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
-             {step === totalSteps && (
-              <Button onClick={handleGenerateQuote} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <Sparkles className="mr-2 h-4 w-4" /> 
-                {isFrecuente ? 'Guardar Orden Acumulable' : 'Generar Cotización Formal'}
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>

@@ -129,7 +129,8 @@ export default function AdminCotizaciones() {
 
     setIsSending(true);
     try {
-      const pdfBlob = await GeneradorPDF.generar(quote);
+      // Corrected: Always generate PDF with annexes for email
+      const pdfBlob = await GeneradorPDF.generar(quote, true);
       const pdfBase64 = await blobToBase64(pdfBlob);
 
       await enviarCotizacion({
@@ -449,7 +450,7 @@ export default function AdminCotizaciones() {
                       {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
                       Marcar como RECHAZADA
                     </Button>
-                    {quoteToManage.status === 'ENVIADA' && (
+                    {(quoteToManage.status === 'ENVIADA' || quoteToManage.status === 'PENDIENTE') && (
                       <Button
                           variant="secondary"
                           onClick={() => handleUpdateStatus(quoteToManage.id, 'cotizacion_aceptada')}
@@ -491,5 +492,3 @@ export default function AdminCotizaciones() {
       </>
   );
 }
-
-    
