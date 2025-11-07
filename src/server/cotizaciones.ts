@@ -20,11 +20,8 @@ export async function updateCotizacionStatus(
   }
 
   try {
+    // RUTA CORREGIDA: Apunta a la colección raíz 'cotizaciones'
     const cotizacionRef = doc(db, 'cotizaciones', cotizacionId);
-    
-    // El SDK de Admin tiene permisos para verificar la existencia, pero para simplificar,
-    // confiamos en que el error de la operación nos dirá si no existe.
-    // La verificación explícita se puede añadir si es necesario con getDoc.
     
     await updateDoc(cotizacionRef, {
       status: nuevoEstado,
