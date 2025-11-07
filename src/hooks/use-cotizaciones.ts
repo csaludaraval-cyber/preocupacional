@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { collection, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import type { CotizacionFirestore, Cotizacion } from '@/lib/types';
@@ -19,11 +19,16 @@ interface UseCotizacionesResult {
 
 export function useCotizaciones(): UseCotizacionesResult {
   const cotizacionesQuery = useMemoFirebase(() => 
-    query(collection(firestore, 'cotizaciones'), orderBy('fechaCreacion', 'desc')),
+    query(
+      collection(firestore, 'cotizaciones'), 
+      where('status', '!=', 'facturado_consolidado'),
+      orderBy('status'),
+      orderBy('fechaCreacion', 'desc')
+    ),
     []
   );
 
-  const { data: rawQuotes, isLoading, error: firestoreError } = useCollection<CotizacionFirestore>(cotizacionesQuery);
+  const { data: rawQuotes, isLoading, error: firestoreError, refetch: refetchQuotes } = useCollection<CotizacionFirestore>(cotizacionesQuery);
   
   const processQuotes = (data: WithId<CotizacionFirestore>[] | null): Cotizacion[] => {
     if (!data) return [];
@@ -48,13 +53,6 @@ export function useCotizaciones(): UseCotizacionesResult {
   };
 
   const quotes = processQuotes(rawQuotes);
-
-  const refetchQuotes = useCallback(() => {
-    // La re-validación se maneja automáticamente por el hook useCollection,
-    // pero si fuera necesario forzar, se necesitaría un state para cambiar la query.
-    // Por ahora, esta función es un placeholder.
-    console.log("Refetching quotes...");
-  }, []);
 
   return { quotes, isLoading, error: firestoreError, refetchQuotes };
 }
