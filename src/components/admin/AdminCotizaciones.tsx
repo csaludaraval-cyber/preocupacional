@@ -110,7 +110,7 @@ export default function AdminCotizaciones() {
   const [facturingQuoteId, setFacturingQuoteId] = useState<string | null>(null);
 
   const { toast } = useToast();
-  router: any;
+  const router = useRouter();
 
 
   const handleSendEmail = async (quote: Cotizacion | null) => {
