@@ -20,9 +20,11 @@ export async function updateCotizacionStatus(
     return { success: false, message: 'El ID de la cotización y el nuevo estado son requeridos.' };
   }
 
+  // Ruta de Super-Usuario requerida por el entorno para el Admin SDK
+  // La variable __APP_ID es inyectada por el sistema.
+  const collectionPath = `/artifacts/${process.env.__APP_ID}/public/data/cotizaciones`;
+
   try {
-    // La ruta de la colección raíz es simplemente 'cotizaciones'
-    const collectionPath = 'cotizaciones';
     const cotizacionRef = db.collection(collectionPath).doc(cotizacionId);
     
     await cotizacionRef.update({
@@ -34,7 +36,7 @@ export async function updateCotizacionStatus(
     console.error(`[Server Action Error] al actualizar ${cotizacionId} a ${nuevoEstado}:`, error);
     
     // Proporciona un mensaje de error más detallado para la depuración
-    const errorMessage = `Fallo al actualizar el estado: ${error.code || error.message}`;
+    const errorMessage = `Fallo al actualizar el estado: ${error.code || error.message}. Ruta intentada: ${collectionPath}`;
     return { success: false, message: errorMessage };
   }
 }
