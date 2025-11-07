@@ -4,15 +4,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Sparkles, PlusCircle, Trash2, Users } from 'lucide-react';
-import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { ArrowLeft, ArrowRight, Sparkles, PlusCircle, Trash2, Users, Building, ShieldCheck } from 'lucide-react';
+import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
-import type { Empresa, Examen, Trabajador, Cotizacion, SolicitudTrabajador } from '@/lib/types';
+import type { Empresa, Examen, Trabajador, Cotizacion, SolicitudTrabajador, Solicitante } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import Paso1DatosGenerales from './Paso1DatosGenerales';
 import Paso2SeleccionExamenes from './Paso2SeleccionExamenes';
@@ -20,21 +21,29 @@ import ResumenCotizacion from './ResumenCotizacion';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
+const BATERIA_HEFAISTOS_MOCK: Examen = {
+  id: 'MOCK-001',
+  codigo: 'BAT-HEF',
+  nombre: 'Batería de Exámenes Hefaistos',
+  categoria: 'Exámenes Ocupacionales / Minería',
+  valor: 75000, 
+};
+
 const initialEmpresa: Empresa = { razonSocial: '', rut: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
 const initialTrabajador: Trabajador = { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' };
-const initialSolicitante = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
+const initialSolicitante: Solicitante = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
 
 
 export function CrearCotizacion() {
   const [step, setStep] = useState(1);
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
-  // State for the main contact person (applicant)
   const [solicitante, setSolicitante] = useState(initialSolicitante);
-  // State for the list of workers and their exams
   const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([
     { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }
   ]);
   const [currentSolicitudIndex, setCurrentSolicitudIndex] = useState(0);
+
+  const [isClienteFrecuente, setIsClienteFrecuente] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,19 +54,42 @@ export function CrearCotizacion() {
   const currentSolicitud = solicitudes[currentSolicitudIndex];
 
   useEffect(() => {
+    if (empresa.rut) {
+        const checkFrecuente = async () => {
+            const docRef = doc(firestore, 'empresas', empresa.rut);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists() && docSnap.data().modalidadFacturacion === 'frecuente') {
+                setIsClienteFrecuente(true);
+                // Pre-seleccionar Batería Hefaistos para todos los trabajadores
+                setSolicitudes(prev => prev.map(s => ({ ...s, examenes: [BATERIA_HEFAISTOS_MOCK] })));
+                 toast({
+                    title: 'Cliente Frecuente Detectado',
+                    description: `Se han cargado los datos de ${empresa.razonSocial} y la batería de exámenes predeterminada.`,
+                });
+            } else {
+                setIsClienteFrecuente(false);
+            }
+        };
+        checkFrecuente();
+    } else {
+        setIsClienteFrecuente(false);
+    }
+}, [empresa.rut, empresa.razonSocial, toast]);
+
+
+  useEffect(() => {
     const solicitudData = searchParams.get('solicitud');
     if (solicitudData) {
       try {
         const parsedData = JSON.parse(decodeURIComponent(solicitudData));
         setEmpresa(parsedData.empresa || initialEmpresa);
-        // The main contact is set to the 'solicitante'
         setSolicitante(parsedData.solicitante || initialSolicitante);
         
         if (parsedData.solicitudes && parsedData.solicitudes.length > 0) {
             setSolicitudes(parsedData.solicitudes.map((s: any) => ({
               ...s, 
               id: s.id || crypto.randomUUID(),
-              trabajador: { ...initialTrabajador, ...s.trabajador } // Ensure new fields exist
+              trabajador: { ...initialTrabajador, ...s.trabajador }
             })));
             setCurrentSolicitudIndex(0);
         }
@@ -99,13 +131,15 @@ export function CrearCotizacion() {
   };
 
   const handleClearSelection = () => {
-    setSolicitudes(solicitudes.map(s => ({...s, examenes: []})));
+    const examsToKeep = isClienteFrecuente ? [BATERIA_HEFAISTOS_MOCK] : [];
+    setSolicitudes(solicitudes.map(s => ({...s, examenes: examsToKeep})));
   };
 
   const addTrabajador = () => {
     setStep(1); 
     const newId = crypto.randomUUID();
-    const newSolicitud: SolicitudTrabajador = { id: newId, trabajador: initialTrabajador, examenes: [] };
+    const newExams = isClienteFrecuente ? [BATERIA_HEFAISTOS_MOCK] : [];
+    const newSolicitud: SolicitudTrabajador = { id: newId, trabajador: initialTrabajador, examenes: newExams };
     setSolicitudes(prev => [...prev, newSolicitud]);
     setCurrentSolicitudIndex(solicitudes.length);
   };
@@ -171,25 +205,40 @@ export function CrearCotizacion() {
       solicitanteId: user.uid,
       fechaCreacion: serverTimestamp(),
       total: total,
-      empresaData: empresa,
-      solicitanteData: solicitante, // Main contact
-      solicitudesData: solicitudes, // The detailed list of workers and their exams
+      empresaData: { ...empresa, modalidadFacturacion: isClienteFrecuente ? 'frecuente' : 'normal' },
+      solicitanteData: solicitante,
+      solicitudesData: solicitudes,
+      status: isClienteFrecuente ? 'orden_examen_enviada' : 'PENDIENTE',
     };
 
     const cotizacionesRef = collection(firestore, 'cotizaciones');
     addDoc(cotizacionesRef, newQuoteFirestore)
       .then(docRef => {
-        const quoteForDisplay: Cotizacion = {
-          id: docRef.id,
-          empresa,
-          solicitante: solicitante,
-          solicitudes: solicitudes,
-          total,
-          fecha: new Date().toLocaleDateString('es-CL'),
-        };
-
-        const query = encodeURIComponent(JSON.stringify(quoteForDisplay));
-        router.push(`/cotizacion?data=${query}`);
+        if(isClienteFrecuente){
+             toast({
+                title: 'Orden de Examen Acumulable Creada',
+                description: 'La orden se ha guardado para la facturación consolidada.',
+            });
+            // Reset form for next entry
+            setEmpresa(initialEmpresa);
+            setSolicitante(initialSolicitante);
+            setSolicitudes([{ id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }]);
+            setCurrentSolicitudIndex(0);
+            setStep(1);
+        } else {
+             const quoteForDisplay: Cotizacion = {
+                id: docRef.id,
+                empresa,
+                solicitante: solicitante,
+                solicitudes: solicitudes,
+                total,
+                fecha: new Date().toLocaleDateString('es-CL'),
+                fechaCreacion: newQuoteFirestore.fechaCreacion,
+                status: newQuoteFirestore.status
+            };
+            const query = encodeURIComponent(JSON.stringify(quoteForDisplay));
+            router.push(`/cotizacion?data=${query}`);
+        }
       })
       .catch(error => {
         const permissionError = new FirestorePermissionError({
@@ -225,12 +274,20 @@ export function CrearCotizacion() {
     <div className="space-y-8">
         <div className="text-center">
             <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Crear Nueva Cotización
+              {isClienteFrecuente ? "Ingresar Orden de Examen (Frecuente)" : "Crear Nueva Cotización (Normal)"}
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
-              Siga los pasos para generar una cotización de forma rápida y sencilla.
+              {isClienteFrecuente ? "Estás en modo Cliente Frecuente. Las órdenes se acumularán para facturación." : "Siga los pasos para generar una cotización de forma rápida y sencilla."}
             </p>
         </div>
+
+        {isClienteFrecuente && (
+            <Alert className="border-green-500 text-green-700">
+                <ShieldCheck className="h-4 w-4 !text-green-700" />
+                <AlertTitle className="font-semibold">Modo Cliente Frecuente Activado</AlertTitle>
+                <AlertDescription>Los exámenes base se han pre-seleccionado. Puedes añadir más si es necesario.</AlertDescription>
+            </Alert>
+        )}
 
       <Card className="border-2 border-primary/20 shadow-lg">
         <CardContent className="p-6">
@@ -288,6 +345,7 @@ export function CrearCotizacion() {
                 onClear={handleClearSelection}
                 onGenerate={handleGenerateQuote}
                 isStep1={step === 1}
+                isFrecuente={isClienteFrecuente}
               />
             </div>
           </div>
@@ -303,7 +361,8 @@ export function CrearCotizacion() {
             )}
              {step === totalSteps && (
               <Button onClick={handleGenerateQuote} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <Sparkles className="mr-2 h-4 w-4" /> Generar Cotización
+                <Sparkles className="mr-2 h-4 w-4" /> 
+                {isClienteFrecuente ? 'Guardar Orden Acumulable' : 'Generar Cotización Formal'}
               </Button>
             )}
           </div>
@@ -312,3 +371,5 @@ export function CrearCotizacion() {
     </div>
   );
 }
+
+    

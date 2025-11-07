@@ -12,9 +12,10 @@ interface Props {
   onClear: () => void;
   onGenerate: () => void;
   isStep1: boolean;
+  isFrecuente?: boolean;
 }
 
-export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, isStep1 }: Props) {
+export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, isStep1, isFrecuente = false }: Props) {
   const subtotal = selectedExams.reduce((acc, exam) => acc + exam.valor, 0);
 
   const formatCurrency = (value: number) => {
@@ -62,9 +63,11 @@ export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, 
           className="bg-accent text-accent-foreground hover:bg-accent/90 w-full"
         >
           <Sparkles className="mr-2 h-4 w-4" />
-          Generar Cotización
+           {isFrecuente ? 'Guardar Orden Acumulable' : 'Generar Cotización Formal'}
         </Button>
       </CardFooter>
     </Card>
   );
 }
+
+    
