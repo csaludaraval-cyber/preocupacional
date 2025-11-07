@@ -223,7 +223,7 @@ export default function AdminCotizaciones() {
             empresaData: quote.empresaData,
             solicitanteData: quote.solicitanteData,
             solicitudesData: quote.solicitudesData,
-            status: 'ACEPTADA',
+            status: 'cotizacion_aceptada', // Explicitly use a compatible status
         }
         
         const { pdfBase64, folio } = await createSimpleFacturaInvoice(

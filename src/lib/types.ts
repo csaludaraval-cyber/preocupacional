@@ -77,8 +77,9 @@ export type StatusCotizacion =
   | 'PENDIENTE' 
   | 'ENVIADA' 
   | 'ACEPTADA' 
-  | 'RECHAZADA' 
-  | 'orden_examen_enviada' 
+  | 'RECHAZADA'
+  | 'orden_examen_enviada'
+  | 'cotizacion_aceptada'
   | 'facturado_simplefactura';
 
 export interface User extends FirebaseUser {
