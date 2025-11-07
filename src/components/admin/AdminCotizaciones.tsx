@@ -15,13 +15,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FileCheck2, FlaskConical } from 'lucide-react';
+import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FileCheck2, FlaskConical, MoreVertical } from 'lucide-react';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -101,7 +102,7 @@ export default function AdminCotizaciones() {
   const { quotes, isLoading, error, refetchQuotes } = useCotizaciones();
   
   const [quoteToDelete, setQuoteToDelete] = useState<Cotizacion | null>(null);
-  const [quoteToSend, setQuoteToSend] = useState<Cotizacion | null>(null);
+  const [quoteToManage, setQuoteToManage] = useState<Cotizacion | null>(null);
   
   const [isSending, setIsSending] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -115,7 +116,7 @@ export default function AdminCotizaciones() {
   const handleSendEmail = async (quote: Cotizacion | null) => {
     if (!quote) return;
 
-    const recipientEmail = quote.solicitante?.mail;
+    const recipientEmail = quote.solicitanteData?.mail;
 
     if (!recipientEmail) {
       toast({
@@ -137,7 +138,6 @@ export default function AdminCotizaciones() {
         pdfBase64: pdfBase64,
       });
 
-      // IMPORTANT: Only update status on successful send
       if (quote.status !== 'ENVIADA') {
         await handleUpdateStatus(quote.id, 'ENVIADA');
       }
@@ -146,7 +146,7 @@ export default function AdminCotizaciones() {
         title: 'Correo Enviado',
         description: `La cotización se ha enviado a ${recipientEmail}.`,
       });
-      setQuoteToSend(null); // Close dialog on success
+      setQuoteToManage(null);
 
     } catch (error: any) {
       console.error('Error al enviar cotización:', error);
@@ -169,7 +169,7 @@ export default function AdminCotizaciones() {
                 title: 'Estado Actualizado',
                 description: `La cotización ${quoteId.slice(-6)} ahora está en estado: ${newStatus}`,
             });
-            refetchQuotes(); // Refrescar los datos para mostrar el cambio
+            refetchQuotes();
         } else {
              toast({
                 variant: 'destructive',
@@ -209,19 +209,22 @@ export default function AdminCotizaciones() {
       });
     } finally {
       setIsDeleting(false);
-      setQuoteToDelete(null); // Close confirmation dialog
+      setQuoteToDelete(null);
     }
   };
 
   const handleImmediateInvoice = async (quote: Cotizacion) => {
+    if (!quote.empresaData) {
+        toast({ variant: 'destructive', title: 'Datos Incompletos', description: 'Faltan los datos de la empresa en esta cotización.'});
+        return;
+    }
+
     setFacturingQuoteId(quote.id);
     try {
-        // The server action expects the full CotizacionFirestore object.
-        // We can reconstruct it from the Cotizacion object.
         const quoteToBill: WithId<CotizacionFirestore> = {
             id: quote.id,
-            empresaId: quote.empresa.rut, // Assuming clean RUT is needed, server can handle it
-            solicitanteId: quote.solicitante.rut, // Placeholder, may need user ID
+            empresaId: quote.empresaData.rut, 
+            solicitanteId: quote.solicitanteData.rut,
             fechaCreacion: quote.fechaCreacion,
             total: quote.total,
             empresaData: quote.empresaData,
@@ -241,7 +244,6 @@ export default function AdminCotizaciones() {
             description: `Se generó el DTE Folio N° ${folio}.`,
         });
 
-        // Offer download
         downloadPdfFromBase64(pdfBase64, folio, quote);
 
         refetchQuotes();
@@ -298,7 +300,6 @@ export default function AdminCotizaciones() {
   }
 
   return (
-    <TooltipProvider>
       <div className="container mx-auto p-4 sm:p-6 bg-white rounded-lg shadow-xl">
         <h1 className="text-3xl font-bold mb-6 text-gray-800">Administración de Cotizaciones</h1>
 
@@ -317,7 +318,7 @@ export default function AdminCotizaciones() {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="text-center w-[300px]">Acciones</TableHead>
+                  <TableHead className="text-center w-[150px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -331,23 +332,16 @@ export default function AdminCotizaciones() {
                   <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
                     <TableCell className="font-medium flex items-center space-x-2">
                       <span>{quote.id.slice(-6)}</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <ClipboardCopy
-                            className="h-4 w-4 cursor-pointer text-gray-400 hover:text-primary transition-colors"
-                            onClick={() => handleCopyQuoteId(quote.id)}
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Copiar ID completo</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <ClipboardCopy
+                        className="h-4 w-4 cursor-pointer text-gray-400 hover:text-primary transition-colors"
+                        onClick={() => handleCopyQuoteId(quote.id)}
+                      />
                     </TableCell>
                     <TableCell>
-                      <div className="font-semibold text-gray-700">{quote.empresa?.razonSocial || 'N/A'}</div>
-                      <div className="text-sm text-gray-500">{quote.solicitante?.nombre || 'N/A'}</div>
+                      <div className="font-semibold text-gray-700">{quote.empresaData?.razonSocial || 'N/A'}</div>
+                      <div className="text-sm text-gray-500">{quote.solicitanteData?.nombre || 'N/A'}</div>
                     </TableCell>
-                    <TableCell>{quote.solicitante?.mail || 'N/A'}</TableCell>
+                    <TableCell>{quote.solicitanteData?.mail || 'N/A'}</TableCell>
                     <TableCell>
                       {quote.fechaCreacion ? format(quote.fechaCreacion.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}
                     </TableCell>
@@ -359,53 +353,44 @@ export default function AdminCotizaciones() {
                       }).format(quote.total || 0)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={QuoteStatusMap[quote.status]}>
+                      <Badge variant={QuoteStatusMap[quote.status] || 'default'}>
                         {quote.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center space-x-1">
-                      {isNormalAccepted ? (
-                        <Button variant="destructive" size="sm" onClick={() => handleImmediateInvoice(quote)} disabled={isFacturing}>
-                          {isFacturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
-                          {isFacturing ? 'Facturando...' : 'Facturar Ahora (DTE)'}
-                        </Button>
-                      ) : (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="default" size="sm" onClick={() => setQuoteToSend(quote)}>
-                              Gestionar
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Ver detalles y gestionar envío/estado</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="secondary"
-                            size="icon"
-                            onClick={() => handleOpenDownloadPage(quote)}
-                            className="h-9 w-9"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Ver en página de descarga/exportación</p>
-                        </TooltipContent>
-                      </Tooltip>
-                       <Tooltip>
-                        <TooltipTrigger asChild>
-                           <Button variant="ghost" size="icon" onClick={() => setQuoteToDelete(quote)} className="h-9 w-9">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Eliminar Cotización</p>
-                        </TooltipContent>
-                      </Tooltip>
+                    <TableCell className="text-center">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                    <MoreVertical className="h-4 w-4" />
+                                    <span className="sr-only">Acciones</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {isNormalAccepted && (
+                                    <DropdownMenuItem
+                                        onClick={() => handleImmediateInvoice(quote)}
+                                        disabled={isFacturing}
+                                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                    >
+                                        {isFacturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
+                                        {isFacturing ? 'Facturando...' : 'Facturar Ahora (DTE)'}
+                                    </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Gestionar y Enviar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenDownloadPage(quote)}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Ver / Descargar PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setQuoteToDelete(quote)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 )})}
@@ -415,16 +400,15 @@ export default function AdminCotizaciones() {
         )}
       </div>
 
-    {/* Send Email Dialog */}
-      <Dialog open={!!quoteToSend} onOpenChange={(open) => !open && setQuoteToSend(null)}>
+      <Dialog open={!!quoteToManage} onOpenChange={(open) => !open && setQuoteToManage(null)}>
         <DialogContent className="max-w-6xl w-[95%] h-[95%] flex flex-col p-6">
-          {quoteToSend && (
+          {quoteToManage && (
             <>
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">
-                  Gestión de Cotización ID: {quoteToSend?.id?.slice(-6)}
-                  <Badge variant={QuoteStatusMap[quoteToSend?.status || 'PENDIENTE']} className="ml-3 text-lg">
-                    {quoteToSend?.status}
+                  Gestión de Cotización ID: {quoteToManage?.id?.slice(-6)}
+                  <Badge variant={QuoteStatusMap[quoteToManage?.status || 'PENDIENTE']} className="ml-3 text-lg">
+                    {quoteToManage?.status}
                   </Badge>
                 </DialogTitle>
               </DialogHeader>
@@ -432,12 +416,12 @@ export default function AdminCotizaciones() {
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border mb-4 sticky top-0 z-10">
                 <div className="flex space-x-3">
                    <Button
-                      onClick={() => handleSendEmail(quoteToSend)}
+                      onClick={() => handleSendEmail(quoteToManage)}
                       disabled={isSending || isUpdatingStatus}
                       className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       {isSending ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando a {quoteToSend.solicitante.mail}...</>
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando a {quoteToManage.solicitanteData.mail}...</>
                       ) : (
                         <><Send className="mr-2 h-4 w-4" /> Confirmar Envío / Reenviar</>
                       )}
@@ -446,8 +430,8 @@ export default function AdminCotizaciones() {
                  <div className="flex space-x-3">
                   <Button
                     variant="outline"
-                    onClick={() => handleUpdateStatus(quoteToSend.id, 'ACEPTADA')}
-                    disabled={isUpdatingStatus || quoteToSend?.status === 'ACEPTADA' || quoteToSend?.status === 'RECHAZADA'}
+                    onClick={() => handleUpdateStatus(quoteToManage.id, 'ACEPTADA')}
+                    disabled={isUpdatingStatus || quoteToManage?.status === 'ACEPTADA' || quoteToManage?.status === 'RECHAZADA'}
                     className="text-green-600 border-green-600 hover:bg-green-50"
                   >
                     {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
@@ -455,17 +439,17 @@ export default function AdminCotizaciones() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleUpdateStatus(quoteToSend.id, 'RECHAZADA')}
-                    disabled={isUpdatingStatus || quoteToSend?.status === 'ACEPTADA' || quoteToSend?.status === 'RECHAZADA'}
+                    onClick={() => handleUpdateStatus(quoteToManage.id, 'RECHAZADA')}
+                    disabled={isUpdatingStatus || quoteToManage?.status === 'ACEPTADA' || quoteToManage?.status === 'RECHAZADA'}
                     className="text-red-600 border-red-600 hover:bg-red-50"
                   >
                     {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
                     Marcar como RECHAZADA
                   </Button>
-                  {quoteToSend.status === 'ENVIADA' && (
+                  {quoteToManage.status === 'ENVIADA' && (
                     <Button
                         variant="secondary"
-                        onClick={() => handleUpdateStatus(quoteToSend.id, 'cotizacion_aceptada')}
+                        onClick={() => handleUpdateStatus(quoteToManage.id, 'cotizacion_aceptada')}
                         disabled={isUpdatingStatus}
                     >
                         <FlaskConical className="mr-2 h-4 w-4" /> Forzar Aceptación (Prueba)
@@ -475,14 +459,13 @@ export default function AdminCotizaciones() {
               </div>
 
               <div className="flex-grow overflow-y-auto bg-gray-100 p-4 rounded-lg">
-                <DetalleCotizacion quote={quoteToSend} />
+                <DetalleCotizacion quote={quoteToManage} />
               </div>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!quoteToDelete} onOpenChange={(open) => !open && setQuoteToDelete(null)}>
           <AlertDialogContent>
               <AlertDialogHeader>
@@ -502,9 +485,6 @@ export default function AdminCotizaciones() {
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-
-    </TooltipProvider>
+</div>
   );
 }
-
-    

@@ -5,7 +5,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { collection, getDocs, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
-import type { CotizacionFirestore, Cotizacion } from '@/lib/types';
+import type { CotizacionFirestore, Cotizacion, Empresa, Solicitante, SolicitudTrabajador } from '@/lib/types';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 
@@ -18,8 +18,6 @@ interface UseCotizacionesResult {
 }
 
 export function useCotizaciones(): UseCotizacionesResult {
-  // Simplificamos la consulta para evitar errores de índice compuesto en Firestore.
-  // El filtrado y ordenamiento complejo se hará en el lado del cliente.
   const cotizacionesQuery = useMemoFirebase(() => 
     query(
       collection(firestore, 'cotizaciones'), 
@@ -30,37 +28,44 @@ export function useCotizaciones(): UseCotizacionesResult {
 
   const { data: rawQuotes, isLoading, error: firestoreError, refetch: refetchQuotes } = useCollection<CotizacionFirestore>(cotizacionesQuery);
   
-  // Usamos useMemo para procesar los datos solo cuando cambian.
   const quotes = useMemo(() => {
     if (!rawQuotes) return [];
 
-    // 1. Filtrar las cotizaciones que no queremos mostrar.
     const filtered = rawQuotes.filter(q => q.status !== 'facturado_consolidado');
 
-    // 2. Mapear al formato que necesita el frontend.
     const processed = filtered.map(q => {
         const fecha = q.fechaCreacion instanceof Timestamp 
             ? q.fechaCreacion.toDate().toLocaleDateString('es-CL')
             : new Date().toLocaleDateString('es-CL');
 
+        // Aseguramos que los datos denormalizados existan
+        const empresaData: Empresa = q.empresaData || { razonSocial: '', rut: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
+        const solicitanteData: Solicitante = q.solicitanteData || { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
+        const solicitudesData: SolicitudTrabajador[] = q.solicitudesData || [];
+        
+        // CORRECCIÓN: Asegurar que modalidadFacturacion esté presente en empresaData
+        if (q.empresaData && q.empresaData.modalidadFacturacion) {
+            empresaData.modalidadFacturacion = q.empresaData.modalidadFacturacion;
+        }
+
+
         return {
             id: q.id,
-            empresa: q.empresaData,
-            solicitante: q.solicitanteData,
-            solicitudes: q.solicitudesData,
+            empresa: empresaData, // Obsoleto pero se mantiene por retrocompatibilidad
+            solicitante: solicitanteData, // Obsoleto pero se mantiene
+            solicitudes: solicitudesData, // Obsoleto pero se mantiene
             total: q.total,
             fecha,
             fechaCreacion: q.fechaCreacion,
             status: q.status || 'PENDIENTE',
-            // Asegurarse de pasar todos los datos denormalizados
-            empresaData: q.empresaData,
-            solicitanteData: q.solicitanteData,
-            solicitudesData: q.solicitudesData,
+            // Datos denormalizados que realmente se usan
+            empresaData: empresaData,
+            solicitanteData: solicitanteData,
+            solicitudesData: solicitudesData,
             simpleFacturaInvoiceId: q.simpleFacturaInvoiceId,
         } as Cotizacion;
     });
 
-    // 3. Ordenar por status (opcional, pero mantiene el comportamiento anterior)
     return processed.sort((a, b) => {
         if (a.status < b.status) return -1;
         if (a.status > b.status) return 1;
