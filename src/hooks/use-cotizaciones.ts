@@ -43,11 +43,8 @@ export function useCotizaciones(): UseCotizacionesResult {
         const solicitanteData: Solicitante = q.solicitanteData || { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
         const solicitudesData: SolicitudTrabajador[] = q.solicitudesData || [];
         
-        // CORRECCIÓN: Asegurar que modalidadFacturacion esté presente en empresaData
-        if (q.empresaData && q.empresaData.modalidadFacturacion) {
-            empresaData.modalidadFacturacion = q.empresaData.modalidadFacturacion;
-        }
-
+        // CORRECCIÓN: Se elimina la lógica defectuosa y se asegura que modalidadFacturacion se pase directamente.
+        // Si q.empresaData existe, sus propiedades (incluida modalidadFacturacion) ya están en empresaData.
 
         return {
             id: q.id,
