@@ -110,7 +110,7 @@ export default function AdminCotizaciones() {
   const [facturingQuoteId, setFacturingQuoteId] = useState<string | null>(null);
 
   const { toast } = useToast();
-  const router = useRouter();
+  router: any;
 
 
   const handleSendEmail = async (quote: Cotizacion | null) => {
@@ -300,191 +300,192 @@ export default function AdminCotizaciones() {
   }
 
   return (
-      <div className="container mx-auto p-4 sm:p-6 bg-white rounded-lg shadow-xl">
-        <h1 className="text-3xl font-bold mb-6 text-gray-800">Administración de Cotizaciones</h1>
+      <>
+        <div className="container mx-auto p-4 sm:p-6 bg-white rounded-lg shadow-xl">
+          <h1 className="text-3xl font-bold mb-6 text-gray-800">Administración de Cotizaciones</h1>
 
-        {sortedQuotes.length === 0 ? (
-          <div className="text-center p-10 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
-            <p className="text-lg text-gray-500">No hay cotizaciones pendientes ni creadas.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-gray-50">
-                <TableRow>
-                  <TableHead className="w-[100px]">ID</TableHead>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>Email Solicitante</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Monto</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-center w-[150px]">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedQuotes.map((quote) => {
-                  const isNormalAccepted = 
-                    (quote.status === 'ACEPTADA' || quote.status === 'cotizacion_aceptada') && 
-                    quote.empresaData?.modalidadFacturacion === 'normal';
-                  const isFacturing = facturingQuoteId === quote.id;
-
-                  return (
-                  <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
-                    <TableCell className="font-medium flex items-center space-x-2">
-                      <span>{quote.id.slice(-6)}</span>
-                      <ClipboardCopy
-                        className="h-4 w-4 cursor-pointer text-gray-400 hover:text-primary transition-colors"
-                        onClick={() => handleCopyQuoteId(quote.id)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-semibold text-gray-700">{quote.empresaData?.razonSocial || 'N/A'}</div>
-                      <div className="text-sm text-gray-500">{quote.solicitanteData?.nombre || 'N/A'}</div>
-                    </TableCell>
-                    <TableCell>{quote.solicitanteData?.mail || 'N/A'}</TableCell>
-                    <TableCell>
-                      {quote.fechaCreacion ? format(quote.fechaCreacion.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}
-                    </TableCell>
-                    <TableCell className="font-bold text-lg text-primary">
-                      {new Intl.NumberFormat('es-CL', {
-                        style: 'currency',
-                        currency: 'CLP',
-                        minimumFractionDigits: 0,
-                      }).format(quote.total || 0)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={QuoteStatusMap[quote.status] || 'default'}>
-                        {quote.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                    <MoreVertical className="h-4 w-4" />
-                                    <span className="sr-only">Acciones</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {isNormalAccepted && (
-                                    <DropdownMenuItem
-                                        onClick={() => handleImmediateInvoice(quote)}
-                                        disabled={isFacturing}
-                                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                    >
-                                        {isFacturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
-                                        {isFacturing ? 'Facturando...' : 'Facturar Ahora (DTE)'}
-                                    </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Gestionar y Enviar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenDownloadPage(quote)}>
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Ver / Descargar PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => setQuoteToDelete(quote)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Eliminar
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </TableCell>
+          {sortedQuotes.length === 0 ? (
+            <div className="text-center p-10 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+              <p className="text-lg text-gray-500">No hay cotizaciones pendientes ni creadas.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-gray-50">
+                  <TableRow>
+                    <TableHead className="w-[100px]">ID</TableHead>
+                    <TableHead>Empresa</TableHead>
+                    <TableHead>Email Solicitante</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Monto</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-center w-[150px]">Acciones</TableHead>
                   </TableRow>
-                )})}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
+                </TableHeader>
+                <TableBody>
+                  {sortedQuotes.map((quote) => {
+                    const isNormalAccepted = 
+                      (quote.status === 'ACEPTADA' || quote.status === 'cotizacion_aceptada') && 
+                      quote.empresaData?.modalidadFacturacion === 'normal';
+                    const isFacturing = facturingQuoteId === quote.id;
 
-      <Dialog open={!!quoteToManage} onOpenChange={(open) => !open && setQuoteToManage(null)}>
-        <DialogContent className="max-w-6xl w-[95%] h-[95%] flex flex-col p-6">
-          {quoteToManage && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold">
-                  Gestión de Cotización ID: {quoteToManage?.id?.slice(-6)}
-                  <Badge variant={QuoteStatusMap[quoteToManage?.status || 'PENDIENTE']} className="ml-3 text-lg">
-                    {quoteToManage?.status}
-                  </Badge>
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border mb-4 sticky top-0 z-10">
-                <div className="flex space-x-3">
-                   <Button
-                      onClick={() => handleSendEmail(quoteToManage)}
-                      disabled={isSending || isUpdatingStatus}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {isSending ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando a {quoteToManage.solicitanteData.mail}...</>
-                      ) : (
-                        <><Send className="mr-2 h-4 w-4" /> Confirmar Envío / Reenviar</>
-                      )}
-                    </Button>
-                </div>
-                 <div className="flex space-x-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleUpdateStatus(quoteToManage.id, 'ACEPTADA')}
-                    disabled={isUpdatingStatus || quoteToManage?.status === 'ACEPTADA' || quoteToManage?.status === 'RECHAZADA'}
-                    className="text-green-600 border-green-600 hover:bg-green-50"
-                  >
-                    {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                    Marcar como ACEPTADA
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleUpdateStatus(quoteToManage.id, 'RECHAZADA')}
-                    disabled={isUpdatingStatus || quoteToManage?.status === 'ACEPTADA' || quoteToManage?.status === 'RECHAZADA'}
-                    className="text-red-600 border-red-600 hover:bg-red-50"
-                  >
-                    {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-                    Marcar como RECHAZADA
-                  </Button>
-                  {quoteToManage.status === 'ENVIADA' && (
-                    <Button
-                        variant="secondary"
-                        onClick={() => handleUpdateStatus(quoteToManage.id, 'cotizacion_aceptada')}
-                        disabled={isUpdatingStatus}
-                    >
-                        <FlaskConical className="mr-2 h-4 w-4" /> Forzar Aceptación (Prueba)
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex-grow overflow-y-auto bg-gray-100 p-4 rounded-lg">
-                <DetalleCotizacion quote={quoteToManage} />
-              </div>
-            </>
+                    return (
+                    <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
+                      <TableCell className="font-medium flex items-center space-x-2">
+                        <span>{quote.id.slice(-6)}</span>
+                        <ClipboardCopy
+                          className="h-4 w-4 cursor-pointer text-gray-400 hover:text-primary transition-colors"
+                          onClick={() => handleCopyQuoteId(quote.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-semibold text-gray-700">{quote.empresaData?.razonSocial || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">{quote.solicitanteData?.nombre || 'N/A'}</div>
+                      </TableCell>
+                      <TableCell>{quote.solicitanteData?.mail || 'N/A'}</TableCell>
+                      <TableCell>
+                        {quote.fechaCreacion ? format(quote.fechaCreacion.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}
+                      </TableCell>
+                      <TableCell className="font-bold text-lg text-primary">
+                        {new Intl.NumberFormat('es-CL', {
+                          style: 'currency',
+                          currency: 'CLP',
+                          minimumFractionDigits: 0,
+                        }).format(quote.total || 0)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={QuoteStatusMap[quote.status] || 'default'}>
+                          {quote.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                          <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                      <MoreVertical className="h-4 w-4" />
+                                      <span className="sr-only">Acciones</span>
+                                  </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                  {isNormalAccepted && (
+                                      <DropdownMenuItem
+                                          onClick={() => handleImmediateInvoice(quote)}
+                                          disabled={isFacturing}
+                                          className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                      >
+                                          {isFacturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
+                                          {isFacturing ? 'Facturando...' : 'Facturar Ahora (DTE)'}
+                                      </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
+                                      <Send className="mr-2 h-4 w-4" />
+                                      Gestionar y Enviar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenDownloadPage(quote)}>
+                                      <Download className="mr-2 h-4 w-4" />
+                                      Ver / Descargar PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setQuoteToDelete(quote)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Eliminar
+                                  </DropdownMenuItem>
+                              </DropdownMenuContent>
+                          </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )})}
+                </TableBody>
+              </Table>
+            </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </div>
 
-      <AlertDialog open={!!quoteToDelete} onOpenChange={(open) => !open && setQuoteToDelete(null)}>
-          <AlertDialogContent>
-              <AlertDialogHeader>
-                  <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                      Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
-                      <span className='font-bold'> N° {quoteToDelete?.id.slice(-6)} </span>
-                      de los servidores.
-                  </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => handleDelete(quoteToDelete)} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-                      {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                      Eliminar
-                  </AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
-      </AlertDialog>
-</div>
+        <Dialog open={!!quoteToManage} onOpenChange={(open) => !open && setQuoteToManage(null)}>
+          <DialogContent className="max-w-6xl w-[95%] h-[95%] flex flex-col p-6">
+            {quoteToManage && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold">
+                    Gestión de Cotización ID: {quoteToManage?.id?.slice(-6)}
+                    <Badge variant={QuoteStatusMap[quoteToManage?.status || 'PENDIENTE']} className="ml-3 text-lg">
+                      {quoteToManage?.status}
+                    </Badge>
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border mb-4 sticky top-0 z-10">
+                  <div className="flex space-x-3">
+                     <Button
+                        onClick={() => handleSendEmail(quoteToManage)}
+                        disabled={isSending || isUpdatingStatus}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        {isSending ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando a {quoteToManage.solicitanteData.mail}...</>
+                        ) : (
+                          <><Send className="mr-2 h-4 w-4" /> Confirmar Envío / Reenviar</>
+                        )}
+                      </Button>
+                  </div>
+                   <div className="flex space-x-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleUpdateStatus(quoteToManage.id, 'ACEPTADA')}
+                      disabled={isUpdatingStatus || quoteToManage?.status === 'ACEPTADA' || quoteToManage?.status === 'RECHAZADA'}
+                      className="text-green-600 border-green-600 hover:bg-green-50"
+                    >
+                      {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                      Marcar como ACEPTADA
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleUpdateStatus(quoteToManage.id, 'RECHAZADA')}
+                      disabled={isUpdatingStatus || quoteToManage?.status === 'ACEPTADA' || quoteToManage?.status === 'RECHAZADA'}
+                      className="text-red-600 border-red-600 hover:bg-red-50"
+                    >
+                      {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                      Marcar como RECHAZADA
+                    </Button>
+                    {quoteToManage.status === 'ENVIADA' && (
+                      <Button
+                          variant="secondary"
+                          onClick={() => handleUpdateStatus(quoteToManage.id, 'cotizacion_aceptada')}
+                          disabled={isUpdatingStatus}
+                      >
+                          <FlaskConical className="mr-2 h-4 w-4" /> Forzar Aceptación (Prueba)
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-grow overflow-y-auto bg-gray-100 p-4 rounded-lg">
+                  <DetalleCotizacion quote={quoteToManage} />
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={!!quoteToDelete} onOpenChange={(open) => !open && setQuoteToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Esta acción no se puede deshacer. Esto eliminará permanentemente la cotización
+                        <span className='font-bold'> N° {quoteToDelete?.id.slice(-6)} </span>
+                        de los servidores.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleDelete(quoteToDelete)} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                        {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                        Eliminar
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      </>
   );
 }
