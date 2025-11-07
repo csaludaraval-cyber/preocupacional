@@ -114,7 +114,7 @@ export async function createSimpleFacturaInvoice(
     };
 
     // --- PASO 2: Emitir el DTE en SimpleFactura ---
-    const emissionResponse = await fetch(`${SIMPLEFACTURA_API_BASE_URL}/issue.aspx`, {
+    const emissionResponse = await fetch(`https://api.simplefactura.cl/dte/emision`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
