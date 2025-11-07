@@ -2,12 +2,11 @@
 'use server';
 
 import { firestore } from '@/lib/firebase';
-import { CotizacionFirestore, Empresa } from '@/lib/types';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import type { CotizacionFirestore, Empresa } from '@/lib/types';
+import { doc, writeBatch } from 'firebase/firestore';
 import { 
     SIMPLEFACTURA_API_BASE_URL, 
-    RUT_EMISOR, 
-    DTE_TIPO 
+    DTE_TIPO
 } from '@/config/simplefactura';
 
 const API_KEY = process.env.SIMPLEFACTURA_API_KEY;
@@ -53,9 +52,6 @@ export async function createSimpleFacturaInvoice(
 ): Promise<{ pdfBase64: string; folio: number }> {
     if (!API_KEY) {
         throw new Error('La API Key de SimpleFactura no está configurada en las variables de entorno.');
-    }
-     if (!RUT_EMISOR) {
-        throw new Error('El RUT del emisor no está configurado en el archivo de configuración.');
     }
 
     const isImmediateBilling = quotes.length === 1;
