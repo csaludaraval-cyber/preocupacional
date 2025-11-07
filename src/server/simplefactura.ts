@@ -1,13 +1,46 @@
 
 'use server';
 
-import { firestore } from '@/lib/firebase';
+// Importar el SDK de Admin para el lado del servidor
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore, writeBatch } from 'firebase-admin/firestore';
 import type { CotizacionFirestore, Empresa } from '@/lib/types';
-import { doc, writeBatch } from 'firebase/firestore';
 import { 
     SIMPLEFACTURA_API_BASE_URL, 
     DTE_TIPO
 } from '@/config/simplefactura';
+
+// --- INICIALIZACIÓN DE FIREBASE ADMIN (SOLO PARA SERVIDOR) ---
+
+// Intentar usar variables de entorno para las credenciales de servicio
+let serviceAccount;
+try {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    }
+} catch (e) {
+    console.error("Error al parsear FIREBASE_SERVICE_ACCOUNT:", e);
+}
+
+// Inicializar la app de Firebase Admin si no existe
+if (!getApps().length) {
+    if (serviceAccount) {
+         initializeApp({
+            credential: cert(serviceAccount)
+        });
+    } else {
+        // Fallback para desarrollo local si la variable de entorno no está.
+        // En producción, la variable de entorno DEBE estar configurada.
+        initializeApp();
+        console.warn("ADVERTENCIA: No se encontró la variable de entorno FIREBASE_SERVICE_ACCOUNT. Usando credenciales de entorno por defecto.");
+    }
+}
+
+// Obtener la instancia de Firestore del lado del servidor
+const firestore = getFirestore();
+
+// --- FIN DE LA INICIALIZACIÓN ---
+
 
 const API_KEY = process.env.SIMPLEFACTURA_API_KEY;
 
@@ -132,9 +165,9 @@ export async function createSimpleFacturaInvoice(
     }
     
     // --- PASO 4: Actualizar las órdenes en Firestore ---
-    const batch = writeBatch(firestore);
+    const batch = firestore.batch();
     quotes.forEach(quote => {
-        const quoteRef = doc(firestore, 'cotizaciones', quote.id);
+        const quoteRef = firestore.collection('cotizaciones').doc(quote.id);
         batch.update(quoteRef, {
             status: 'facturado_simplefactura',
             simpleFacturaInvoiceId: folio.toString(),
