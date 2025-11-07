@@ -42,9 +42,9 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
         }, {} as Record<string, Examen[]>);
     }, [allExams]);
 
-    const neto = quote.total;
-    const iva = neto * 0.19;
-    const totalFinal = neto + iva;
+    const subtotal = quote.total;
+    const iva = 0; // Valor exento
+    const totalFinal = subtotal;
 
   return (
     <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none px-12 py-8">
@@ -100,7 +100,7 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
                 <TableHeader>
                 <TableRow className="bg-primary hover:bg-primary">
                     <TableHead className="w-[70%] font-semibold text-primary-foreground text-sm py-2 px-4">Examen</TableHead>
-                    <TableHead className="text-right font-semibold text-primary-foreground text-sm py-2 px-4">Valor Unitario</TableHead>
+                    <TableHead className="text-right font-semibold text-primary-foreground text-sm py-2 px-4">Valor Unitario (Exento)</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -135,8 +135,8 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
         <section className="mt-8 flex justify-end">
             <div className="w-full max-w-sm space-y-2 text-sm">
             <div className="flex justify-between">
-                <span className="text-gray-600">Neto</span>
-                <span className="font-semibold text-gray-800">{formatCurrency(neto)}</span>
+                <span className="text-gray-600">Subtotal</span>
+                <span className="font-semibold text-gray-800">{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between">
                 <span className="text-gray-600">IVA (19%)</span>
@@ -144,7 +144,7 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
             </div>
             <Separator className="my-2" />
             <div className="flex justify-between items-center text-lg font-bold bg-primary text-primary-foreground p-3 rounded-lg">
-                <span>TOTAL A PAGAR</span>
+                <span>TOTAL (Exento)</span>
                 <span>{formatCurrency(totalFinal)}</span>
             </div>
             </div>

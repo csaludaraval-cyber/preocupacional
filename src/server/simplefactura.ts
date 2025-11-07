@@ -21,7 +21,7 @@ interface SimpleFacturaResponse {
 
 interface CreateInvoicePayload {
     invoice: {
-        TipoDTE: number;
+        TipoDTE: number; // 34 para Factura Exenta
         RutReceptor: string;
         RznSocReceptor: string;
         GiroReceptor: string;
@@ -34,6 +34,7 @@ interface CreateInvoicePayload {
             QtyItem: number;
             PrcItem: number;
         }[];
+        MntExento: number; // Campo clave para DTE exento
     };
 }
 
@@ -60,7 +61,7 @@ export async function createSimpleFacturaInvoice(
     // --- PASO 1: Crear el Payload para la API de SimpleFactura ---
     const payload: CreateInvoicePayload = {
         invoice: {
-            TipoDTE: 33, // 33 = Factura Afecta
+            TipoDTE: 34, // 34 = Factura Exenta
             RutReceptor: empresa.rut,
             RznSocReceptor: empresa.razonSocial,
             GiroReceptor: empresa.giro,
@@ -75,6 +76,7 @@ export async function createSimpleFacturaInvoice(
                     PrcItem: totalAmount,
                 },
             ],
+            MntExento: totalAmount, // Especificar que el monto es exento
         },
     };
 
@@ -110,7 +112,7 @@ export async function createSimpleFacturaInvoice(
         },
         body: JSON.stringify({
             getpdf: {
-                TipoDTE: 33,
+                TipoDTE: 34,
                 Folio: folio,
                 RutReceptor: empresa.rut,
                 Formato: 'rollo', // Usar el formato de ticket térmico

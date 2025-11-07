@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, isStep1, isFrecuente = false }: Props) {
-  const subtotal = selectedExams.reduce((acc, exam) => acc + exam.valor, 0);
+  const total = selectedExams.reduce((acc, exam) => acc + exam.valor, 0);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
@@ -54,8 +54,8 @@ export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, 
       <Separator />
       <CardFooter className="flex-col items-stretch p-4">
         <div className="flex justify-between items-center text-lg font-bold mb-4">
-          <span className="text-foreground">Total</span>
-          <span className="text-primary">{formatCurrency(subtotal)}</span>
+          <span className="text-foreground">Total (Exento)</span>
+          <span className="text-primary">{formatCurrency(total)}</span>
         </div>
         <Button
           onClick={onGenerate}
@@ -69,5 +69,3 @@ export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, 
     </Card>
   );
 }
-
-    
