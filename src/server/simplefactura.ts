@@ -3,7 +3,7 @@
 
 // Importar el SDK de Admin para el lado del servidor
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, writeBatch } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 import type { CotizacionFirestore, Empresa } from '@/lib/types';
 import { 
     SIMPLEFACTURA_API_BASE_URL, 
@@ -32,7 +32,6 @@ if (!getApps().length) {
         // Fallback para desarrollo local si la variable de entorno no está.
         // En producción, la variable de entorno DEBE estar configurada.
         initializeApp();
-        console.warn("ADVERTENCIA: No se encontró la variable de entorno FIREBASE_SERVICE_ACCOUNT. Usando credenciales de entorno por defecto.");
     }
 }
 

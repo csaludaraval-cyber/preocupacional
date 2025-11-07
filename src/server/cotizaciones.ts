@@ -1,13 +1,36 @@
 
 'use server';
 
-import { doc, updateDoc } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase'; // Usar la instancia del cliente configurada
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import type { StatusCotizacion } from '@/lib/types';
 
+// --- INICIALIZACIÓN DE FIREBASE ADMIN (SOLO PARA SERVIDOR) ---
+let serviceAccount;
+try {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    }
+} catch (e) {
+    console.error("Error al parsear FIREBASE_SERVICE_ACCOUNT:", e);
+}
+
+if (!getApps().length) {
+    if (serviceAccount) {
+         initializeApp({
+            credential: cert(serviceAccount)
+        });
+    } else {
+        initializeApp();
+    }
+}
+
+const db = getFirestore();
+// --- FIN DE LA INICIALIZACIÓN ---
+
+
 /**
- * Server Action para actualizar el estado de una cotización.
- * Utiliza el SDK del cliente de Firebase, que es compatible con Server Actions.
+ * Server Action para actualizar el estado de una cotización usando el SDK de Admin.
  * @param cotizacionId - El ID del documento de la cotización.
  * @param nuevoEstado - El nuevo estado a asignar.
  */
@@ -20,18 +43,16 @@ export async function updateCotizacionStatus(
   }
 
   try {
-    // Usar la instancia de firestore del cliente importada
-    const cotizacionRef = doc(firestore, 'cotizaciones', cotizacionId);
+    const cotizacionRef = db.collection('cotizaciones').doc(cotizacionId);
 
-    await updateDoc(cotizacionRef, {
+    await cotizacionRef.update({
       status: nuevoEstado,
     });
 
     console.log(`Estado de cotización ${cotizacionId} actualizado a ${nuevoEstado}`);
     return { success: true, message: `Estado actualizado a ${nuevoEstado}` };
   } catch (error) {
-    console.error("Error al actualizar el estado de la cotización:", error);
-    // Devolver un error amigable
+    console.error("Error al actualizar el estado de la cotización (Admin SDK):", error);
     return { success: false, message: 'Fallo al actualizar el estado.' };
   }
 }
