@@ -66,16 +66,16 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read quotation data, but restricts creation, update, and deletion.
+     * @description Allows authenticated users to read/list quotations, but restricts writes.
      * @path /cotizaciones/{cotizacionId}
-     * @allow (get, list) if true;
+     * @allow (get, list) if isSignedIn();
      * @allow create: if isSignedIn() && (request.resource.data.solicitanteId == request.auth.uid);
      * @allow update: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
      * @allow delete: if isSignedIn() && (isExistingOwnerCotizacion(resource.data.solicitanteId) || isAdmin());
-     * @principle Allows public reads, but restricts writes to authorized users. Admins can delete any quotation.
+     * @principle Allows authenticated reads, but restricts writes to authorized users. Admins can delete any quotation.
      */
     match /cotizaciones/{cotizacionId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn() && (request.resource.data.solicitanteId == request.auth.uid);
       allow update: if isSignedIn() && isExistingOwnerCotizacion(resource.data.solicitanteId);
       allow delete: if isSignedIn() && (isExistingOwnerCotizacion(resource.data.solicitanteId) || isAdmin());
