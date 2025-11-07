@@ -144,7 +144,7 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
             </div>
             <Separator className="my-2" />
             <div className="flex justify-between items-center text-lg font-bold bg-primary text-primary-foreground p-3 rounded-lg">
-                <span>TOTAL (Exento)</span>
+                <span>TOTAL</span>
                 <span>{formatCurrency(totalFinal)}</span>
             </div>
             </div>

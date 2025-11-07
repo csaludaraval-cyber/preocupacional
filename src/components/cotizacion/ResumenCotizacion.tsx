@@ -54,7 +54,7 @@ export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, 
       <Separator />
       <CardFooter className="flex-col items-stretch p-4">
         <div className="flex justify-between items-center text-lg font-bold mb-4">
-          <span className="text-foreground">Total (Exento)</span>
+          <span className="text-foreground">Total</span>
           <span className="text-primary">{formatCurrency(total)}</span>
         </div>
         <Button
