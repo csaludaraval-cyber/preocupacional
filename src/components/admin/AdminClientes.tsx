@@ -6,7 +6,7 @@ import { collection, doc, deleteDoc } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
-import type { Empresa } from '@/lib/types';
+import type { Empresa, WithId } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -59,7 +59,9 @@ export function AdminClientes() {
     if (!clienteToDelete || !clienteToDelete.rut) return;
 
     try {
-        await deleteDoc(doc(firestore, 'empresas', clienteToDelete.rut));
+        // We use the clean rut as the document ID
+        const docId = cleanRut(clienteToDelete.rut);
+        await deleteDoc(doc(firestore, 'empresas', docId));
         toast({
             title: 'Cliente Eliminado',
             description: `El cliente ${clienteToDelete.razonSocial} ha sido eliminado.`,
@@ -79,8 +81,22 @@ export function AdminClientes() {
 
   const filteredClientes = useMemo(() => {
     if (!clientes) return [];
+
+    // Deduplicate clients based on clean RUT, keeping the one with the 'frecuente' status if duplicates exist
+    const uniqueClientes = new Map<string, WithId<Empresa>>();
+    clientes.forEach(cliente => {
+        const cleanedRut = cleanRut(cliente.rut);
+        const existing = uniqueClientes.get(cleanedRut);
+        
+        // Prioritize 'frecuente' or keep the current one if no existing or the existing is not 'frecuente'
+        if (!existing || cliente.modalidadFacturacion === 'frecuente') {
+            uniqueClientes.set(cleanedRut, cliente);
+        }
+    });
+
+    const deduplicated = Array.from(uniqueClientes.values());
     
-    const sortedClientes = [...clientes].sort((a, b) => (a.razonSocial || '').localeCompare(b.razonSocial || ''));
+    const sortedClientes = [...deduplicated].sort((a, b) => (a.razonSocial || '').localeCompare(b.razonSocial || ''));
 
     if (!searchTerm) return sortedClientes;
     
@@ -161,7 +177,7 @@ export function AdminClientes() {
             </TableHeader>
             <TableBody>
               {filteredClientes.length > 0 ? filteredClientes.map((cliente) => (
-                <TableRow key={cleanRut(cliente.rut)}>
+                <TableRow key={cliente.id}>
                   <TableCell className="font-medium">{cliente.razonSocial}</TableCell>
                   <TableCell>{formatRut(cliente.rut)}</TableCell>
                   <TableCell>

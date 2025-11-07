@@ -4,6 +4,8 @@ import { type User as FirebaseUser } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
 
+export type WithId<T> = T & { id: string };
+
 export type Examen = {
   id: string;
   codigo: string;
@@ -21,6 +23,7 @@ export type Empresa = {
   comuna: string;
   region: string;
   email: string;
+  modalidadFacturacion?: 'normal' | 'frecuente';
 };
 
 export type Trabajador = {
@@ -46,7 +49,7 @@ export type Cotizacion = {
   total: number;
   fecha: string;
   fechaCreacion: Timestamp; // To keep the original timestamp for sorting
-  status: 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA';
+  status: 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA' | 'orden_examen_enviada' | 'facturado_consolidado';
 };
 
 // This is the type that is stored in Firestore
@@ -59,7 +62,7 @@ export type CotizacionFirestore = {
   empresaData: Empresa;
   solicitanteData: Omit<Trabajador, 'fechaNacimiento' | 'fechaAtencion'> & { mail: string; centroDeCostos: string; }; // Main contact
   solicitudesData: SolicitudTrabajador[]; // All workers with their exams
-  status: 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA';
+  status: 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA' | 'orden_examen_enviada' | 'facturado_consolidado';
 }
 
 export interface User extends FirebaseUser {
@@ -76,7 +79,7 @@ export type SolicitudPublica = {
     examenes: Examen[]
   }[];
   fechaCreacion: Timestamp;
-  estado: 'pendiente' | 'procesada';
+  estado: 'pendiente' | 'procesada' | 'orden_examen_enviada';
 };
 
 // Input schema for the email sending flow
