@@ -91,11 +91,11 @@ export class GeneradorPDF {
             <div id="printable-quote-temp">
                 <DetalleCotizacion quote={quote} />
             </div>
-            {includeAnnexes && quote.solicitudes.map((solicitud, index) => (
+            {includeAnnexes && quote.solicitudesData && quote.solicitudesData.map((solicitud, index) => (
                 <OrdenDeExamen 
                     key={solicitud.id || index} 
                     solicitud={solicitud} 
-                    empresa={quote.empresa}
+                    empresa={quote.empresaData}
                 />
             ))}
         </React.Fragment>
@@ -130,7 +130,7 @@ export class GeneradorPDF {
         pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
         
         // 5. Generación del Canvas para los Anexos (Órdenes de Examen)
-        if(includeAnnexes && quote.solicitudes?.length > 0) {
+        if(includeAnnexes && quote.solicitudesData?.length > 0) {
             const annexElements = container.querySelectorAll<HTMLElement>('.order-page-container');
             for (let i = 0; i < annexElements.length; i++) {
               const annexElement = annexElements[i];

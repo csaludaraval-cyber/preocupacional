@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getFirestore } from 'firebase-admin/firestore';
@@ -38,10 +39,13 @@ export async function updateCotizacionStatus(
   cotizacionId: string,
   nuevoEstado: StatusCotizacion
 ): Promise<{ success: boolean; message: string }> {
+  if (!cotizacionId || !nuevoEstado) {
+    return { success: false, message: 'El ID de la cotización y el nuevo estado son requeridos.' };
+  }
+
   try {
     const cotizacionRef = db.collection('cotizaciones').doc(cotizacionId);
 
-    // Se actualiza solo el campo de estado
     await cotizacionRef.update({
       status: nuevoEstado,
     });

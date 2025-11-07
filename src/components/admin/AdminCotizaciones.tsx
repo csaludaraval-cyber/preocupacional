@@ -464,8 +464,8 @@ export default function AdminCotizaciones() {
               </div>
 
               <div className="flex-grow overflow-y-auto bg-gray-100 p-4 rounded-lg">
-                {quoteToSend.solicitudes && quoteToSend.solicitudes.length > 0 ? (
-                    <OrdenDeExamen solicitud={quoteToSend.solicitudes[0]} empresa={quoteToSend.empresa} />
+                {quoteToSend.solicitudesData && quoteToSend.solicitudesData.length > 0 ? (
+                    <OrdenDeExamen solicitud={quoteToSend.solicitudesData[0]} empresa={quoteToSend.empresaData} />
                 ) : (
                     <div className="text-center text-muted-foreground">No hay detalles de solicitud para mostrar.</div>
                 )}
