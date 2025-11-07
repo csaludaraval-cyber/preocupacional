@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FileCheck2 } from 'lucide-react';
+import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FileCheck2, FlaskConical } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -43,8 +43,9 @@ import { GeneradorPDF, OrdenDeExamen } from '@/components/cotizacion/GeneradorPD
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { updateQuoteStatus, deleteQuote } from '@/lib/firestore';
-import type { Cotizacion, CotizacionFirestore, WithId } from '@/lib/types';
+import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
 import { createSimpleFacturaInvoice } from '@/server/simplefactura';
+import { updateCotizacionStatus } from '@/server/cotizaciones';
 import { cleanRut } from '@/lib/utils';
 import { DTE_TIPO } from '@/config/simplefactura';
 
@@ -134,7 +135,7 @@ export default function AdminCotizaciones() {
 
       // IMPORTANT: Only update status on successful send
       if (quote.status !== 'ENVIADA') {
-        await handleUpdateStatus(quote, 'ENVIADA');
+        await handleUpdateStatus(quote.id, 'ENVIADA');
       }
 
       toast({
@@ -155,16 +156,19 @@ export default function AdminCotizaciones() {
     }
   };
 
-  const handleUpdateStatus = async (quote: Cotizacion, newStatus: string) => {
-    if (!quote) return;
+  const handleUpdateStatus = async (quoteId: string, newStatus: StatusCotizacion) => {
     setIsUpdatingStatus(true);
     try {
-      await updateQuoteStatus(quote.id, newStatus);
-      toast({
-        title: 'Estado Actualizado',
-        description: `La cotización ${quote.id.slice(-6)} ahora está en estado: ${newStatus}`,
-      });
-      refetchQuotes();
+        const result = await updateCotizacionStatus(quoteId, newStatus);
+        if (result.success) {
+            toast({
+                title: 'Estado Actualizado',
+                description: `La cotización ${quoteId.slice(-6)} ahora está en estado: ${newStatus}`,
+            });
+            refetchQuotes(); // Refrescar los datos para mostrar el cambio
+        } else {
+            throw new Error(result.message);
+        }
     } catch (error: any) {
       console.error('Error al actualizar estado:', error);
       toast({
@@ -176,6 +180,7 @@ export default function AdminCotizaciones() {
       setIsUpdatingStatus(false);
     }
   };
+
 
   const handleDelete = async (quote: Cotizacion | null) => {
     if (!quote || !quote.id) return;
@@ -418,7 +423,7 @@ export default function AdminCotizaciones() {
                    <Button
                       onClick={() => handleSendEmail(quoteToSend)}
                       disabled={isSending || isUpdatingStatus}
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       {isSending ? (
                         <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando a {quoteToSend.solicitante.mail}...</>
@@ -430,7 +435,7 @@ export default function AdminCotizaciones() {
                  <div className="flex space-x-3">
                   <Button
                     variant="outline"
-                    onClick={() => handleUpdateStatus(quoteToSend, 'ACEPTADA')}
+                    onClick={() => handleUpdateStatus(quoteToSend.id, 'ACEPTADA')}
                     disabled={isUpdatingStatus || quoteToSend?.status === 'ACEPTADA' || quoteToSend?.status === 'RECHAZADA'}
                     className="text-green-600 border-green-600 hover:bg-green-50"
                   >
@@ -439,13 +444,22 @@ export default function AdminCotizaciones() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleUpdateStatus(quoteToSend, 'RECHAZADA')}
+                    onClick={() => handleUpdateStatus(quoteToSend.id, 'RECHAZADA')}
                     disabled={isUpdatingStatus || quoteToSend?.status === 'ACEPTADA' || quoteToSend?.status === 'RECHAZADA'}
                     className="text-red-600 border-red-600 hover:bg-red-50"
                   >
                     {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
                     Marcar como RECHAZADA
                   </Button>
+                  {quoteToSend.status === 'ENVIADA' && (
+                    <Button
+                        variant="secondary"
+                        onClick={() => handleUpdateStatus(quoteToSend.id, 'ACEPTADA')}
+                        disabled={isUpdatingStatus}
+                    >
+                        <FlaskConical className="mr-2 h-4 w-4" /> Forzar Aceptación (Prueba)
+                    </Button>
+                  )}
                 </div>
               </div>
 
