@@ -20,13 +20,13 @@ export async function updateCotizacionStatus(
     return { success: false, message: 'El ID de la cotización y el nuevo estado son requeridos.' };
   }
 
-  // Ruta de Super-Usuario requerida por el entorno para el Admin SDK
-  // La variable __APP_ID es inyectada por el sistema.
-  const collectionPath = `/artifacts/${process.env.__APP_ID}/public/data/cotizaciones`;
+  // Se usa la ruta de colección raíz simple: 'cotizaciones'.
+  const collectionPath = 'cotizaciones';
 
   try {
     const cotizacionRef = db.collection(collectionPath).doc(cotizacionId);
     
+    // Se utiliza la sintaxis nativa del Admin SDK: .update() sobre la referencia del documento.
     await cotizacionRef.update({
       status: nuevoEstado,
     });
