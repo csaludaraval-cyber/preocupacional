@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import ClienteForm from './ClienteForm';
 import { formatRut } from '@/lib/utils';
+import { Badge } from '../ui/badge';
 
 
 export function AdminClientes() {
@@ -63,6 +64,7 @@ export function AdminClientes() {
             title: 'Cliente Eliminado',
             description: `El cliente ${clienteToDelete.razonSocial} ha sido eliminado.`,
         });
+        refetchClientes();
     } catch (e) {
         console.error("Error deleting document: ", e);
         toast({
@@ -151,6 +153,7 @@ export function AdminClientes() {
               <TableRow>
                 <TableHead>Razón Social</TableHead>
                 <TableHead>RUT</TableHead>
+                <TableHead>Modalidad</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Ciudad</TableHead>
                 <TableHead className="w-[100px] text-center">Acciones</TableHead>
@@ -161,6 +164,11 @@ export function AdminClientes() {
                 <TableRow key={cliente.rut}>
                   <TableCell className="font-medium">{cliente.razonSocial}</TableCell>
                   <TableCell>{formatRut(cliente.rut)}</TableCell>
+                  <TableCell>
+                    <Badge variant={cliente.modalidadFacturacion === 'frecuente' ? 'default' : 'outline'}>
+                        {cliente.modalidadFacturacion === 'frecuente' ? 'Frecuente' : 'Normal'}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{cliente.email}</TableCell>
                   <TableCell>{cliente.ciudad}</TableCell>
                   <TableCell className="text-center">
@@ -182,7 +190,7 @@ export function AdminClientes() {
                 </TableRow>
               )) : (
                  <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                         No se encontraron clientes.
                     </TableCell>
                 </TableRow>

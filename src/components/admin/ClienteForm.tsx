@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Loader2 } from 'lucide-react';
 import { formatRut, cleanRut } from '@/lib/utils';
+import { Switch } from '../ui/switch';
 
 interface ClienteFormProps {
   cliente: Empresa | null;
@@ -29,6 +30,7 @@ const clienteSchema = z.object({
   ciudad: z.string().min(1, 'La ciudad es obligatoria.'),
   comuna: z.string().min(1, 'La comuna es obligatoria.'),
   region: z.string().min(1, 'La región es obligatoria.'),
+  modalidadFacturacion: z.enum(['normal', 'frecuente']).default('normal'),
 });
 
 
@@ -45,6 +47,7 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
       ciudad: '',
       comuna: '',
       region: '',
+      modalidadFacturacion: 'normal',
     },
   });
 
@@ -54,7 +57,8 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
     if (cliente) {
       form.reset({
         ...cliente,
-        rut: formatRut(cliente.rut) // Format on load
+        rut: formatRut(cliente.rut), // Format on load
+        modalidadFacturacion: cliente.modalidadFacturacion || 'normal',
       });
     } else {
       form.reset({
@@ -66,6 +70,7 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
         ciudad: '',
         comuna: '',
         region: '',
+        modalidadFacturacion: 'normal',
       });
     }
   }, [cliente, form]);
@@ -80,7 +85,6 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
       
       const docRef = doc(firestore, 'empresas', cleanedRut);
       
-      // Save the non-formatted RUT in the document data as well
       const dataToSave = { ...values, rut: cleanedRut };
 
       await setDoc(docRef, dataToSave, { merge: true });
@@ -102,53 +106,77 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField control={form.control} name="razonSocial" render={({ field }) => (
-                <FormItem><FormLabel>Razón Social</FormLabel><FormControl><Input placeholder="Nombre de la empresa" {...field} /></FormControl><FormMessage /></FormItem>
-            )}/>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="space-y-4">
              <FormField
                 control={form.control}
-                name="rut"
+                name="modalidadFacturacion"
                 render={({ field }) => (
-                <FormItem>
-                    <FormLabel>RUT</FormLabel>
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                    <FormLabel className="text-base">
+                        Cliente Frecuente
+                    </FormLabel>
+                     <FormMessage>
+                        Habilitar para facturación consolidada mensual y omitir cotizaciones individuales.
+                    </FormMessage>
+                    </div>
                     <FormControl>
-                    <Input
-                        placeholder="12.345.678-9"
-                        {...field}
-                        onChange={(e) => {
-                            field.onChange(formatRut(e.target.value));
-                        }}
-                        disabled={!!cliente}
+                    <Switch
+                        checked={field.value === 'frecuente'}
+                        onCheckedChange={(checked) => field.onChange(checked ? 'frecuente' : 'normal')}
                     />
                     </FormControl>
-                    <FormMessage />
                 </FormItem>
                 )}
             />
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-             <FormField control={form.control} name="giro" render={({ field }) => (
-                <FormItem><FormLabel>Giro</FormLabel><FormControl><Input placeholder="Giro comercial" {...field} /></FormControl><FormMessage /></FormItem>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField control={form.control} name="razonSocial" render={({ field }) => (
+                    <FormItem><FormLabel>Razón Social</FormLabel><FormControl><Input placeholder="Nombre de la empresa" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField
+                    control={form.control}
+                    name="rut"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>RUT</FormLabel>
+                        <FormControl>
+                        <Input
+                            placeholder="12.345.678-9"
+                            {...field}
+                            onChange={(e) => {
+                                field.onChange(formatRut(e.target.value));
+                            }}
+                            disabled={!!cliente}
+                        />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField control={form.control} name="giro" render={({ field }) => (
+                    <FormItem><FormLabel>Giro</FormLabel><FormControl><Input placeholder="Giro comercial" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="email" render={({ field }) => (
+                    <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="contacto@empresa.com" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+            </div>
+            <FormField control={form.control} name="direccion" render={({ field }) => (
+                <FormItem><FormLabel>Dirección</FormLabel><FormControl><Input placeholder="Dirección de facturación" {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
-             <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="contacto@empresa.com" {...field} /></FormControl><FormMessage /></FormItem>
-            )}/>
-        </div>
-         <FormField control={form.control} name="direccion" render={({ field }) => (
-            <FormItem><FormLabel>Dirección</FormLabel><FormControl><Input placeholder="Dirección de facturación" {...field} /></FormControl><FormMessage /></FormItem>
-        )}/>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-             <FormField control={form.control} name="ciudad" render={({ field }) => (
-                <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )}/>
-             <FormField control={form.control} name="comuna" render={({ field }) => (
-                <FormItem><FormLabel>Comuna</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )}/>
-             <FormField control={form.control} name="region" render={({ field }) => (
-                <FormItem><FormLabel>Región</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )}/>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <FormField control={form.control} name="ciudad" render={({ field }) => (
+                    <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="comuna" render={({ field }) => (
+                    <FormItem><FormLabel>Comuna</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="region" render={({ field }) => (
+                    <FormItem><FormLabel>Región</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+            </div>
         </div>
 
         <div className="flex justify-end pt-4">

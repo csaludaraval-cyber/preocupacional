@@ -42,6 +42,11 @@
             "type": "string",
             "description": "Email de contacto de la empresa.",
             "format": "email"
+        },
+        "modalidadFacturacion": {
+            "type": "string",
+            "description": "Define si el cliente es 'normal' o 'frecuente' para facturación consolidada.",
+            "enum": ["normal", "frecuente"]
         }
       },
       "required": [
