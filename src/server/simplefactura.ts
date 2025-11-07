@@ -4,13 +4,13 @@
 import { firestore } from '@/lib/firebase';
 import { CotizacionFirestore, Empresa } from '@/lib/types';
 import { collection, doc, writeBatch } from 'firebase/firestore';
+import { 
+    SIMPLEFACTURA_API_BASE_URL, 
+    RUT_EMISOR, 
+    DTE_TIPO 
+} from '@/config/simplefactura';
 
 const API_KEY = process.env.SIMPLEFACTURA_API_KEY;
-const API_URL = 'https://api.simplefactura.cl/v1';
-
-// Constantes del emisor (ARAVAL)
-const rutEmisor = process.env.EMISOR_RUT; 
-const nombreSucursal = process.env.EMISOR_SUCURSAL || 'Casa Matriz';
 
 interface SimpleFacturaResponse {
     success: boolean;
@@ -21,20 +21,19 @@ interface SimpleFacturaResponse {
 
 interface CreateInvoicePayload {
     invoice: {
-        TipoDTE: number; // 34 para Factura Exenta
+        TipoDTE: number;
         RutReceptor: string;
         RznSocReceptor: string;
         GiroReceptor: string;
         DirReceptor: string;
         CmnaReceptor: string;
         CiudadReceptor: string;
-        Sucursal: string;
         Detalles: {
             NmbItem: string;
             QtyItem: number;
             PrcItem: number;
         }[];
-        MntExento: number; // Campo clave para DTE exento
+        MntExento: number;
     };
 }
 
@@ -55,8 +54,8 @@ export async function createSimpleFacturaInvoice(
     if (!API_KEY) {
         throw new Error('La API Key de SimpleFactura no está configurada en las variables de entorno.');
     }
-     if (!rutEmisor) {
-        throw new Error('El RUT del emisor no está configurado en las variables de entorno.');
+     if (!RUT_EMISOR) {
+        throw new Error('El RUT del emisor no está configurado en el archivo de configuración.');
     }
 
     const isImmediateBilling = quotes.length === 1;
@@ -68,14 +67,13 @@ export async function createSimpleFacturaInvoice(
     // --- PASO 1: Crear el Payload para la API de SimpleFactura ---
     const payload: CreateInvoicePayload = {
         invoice: {
-            TipoDTE: 34, // 34 = Factura Exenta
+            TipoDTE: DTE_TIPO.FACTURA_EXENTA,
             RutReceptor: empresa.rut,
             RznSocReceptor: empresa.razonSocial,
             GiroReceptor: empresa.giro,
             DirReceptor: empresa.direccion,
             CmnaReceptor: empresa.comuna,
             CiudadReceptor: empresa.ciudad,
-            Sucursal: nombreSucursal,
             Detalles: [
                 {
                     NmbItem: detailDescription,
@@ -83,12 +81,12 @@ export async function createSimpleFacturaInvoice(
                     PrcItem: totalAmount,
                 },
             ],
-            MntExento: totalAmount, // Especificar que el monto es exento
+            MntExento: totalAmount,
         },
     };
 
     // --- PASO 2: Emitir el DTE en SimpleFactura ---
-    const emissionResponse = await fetch(`${API_URL}/issue.aspx`, {
+    const emissionResponse = await fetch(`${SIMPLEFACTURA_API_BASE_URL}/issue.aspx`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -111,7 +109,7 @@ export async function createSimpleFacturaInvoice(
     const folio = emissionResult.folio;
 
     // --- PASO 3: Obtener el PDF del DTE emitido ---
-    const pdfResponse = await fetch(`${API_URL}/getpdf.aspx`, {
+    const pdfResponse = await fetch(`${SIMPLEFACTURA_API_BASE_URL}/getpdf.aspx`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -119,7 +117,7 @@ export async function createSimpleFacturaInvoice(
         },
         body: JSON.stringify({
             getpdf: {
-                TipoDTE: 34,
+                TipoDTE: DTE_TIPO.FACTURA_EXENTA,
                 Folio: folio,
                 RutReceptor: empresa.rut,
                 Formato: 'rollo',
