@@ -1,41 +1,37 @@
 
 'use server';
 
-import { doc, updateDoc, getFirestore } from 'firebase/firestore';
-import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+// Usa la instancia de DB del SDK de Admin, que es el correcto para Server Actions
+import { db } from '@/lib/firestore-admin';
 import type { StatusCotizacion } from '@/lib/types';
-import { firebaseConfig } from '@/firebase/config'; // Importar la configuración explícita
 
 /**
  * Server Action para actualizar el estado de una cotización.
- * Utiliza el SDK de cliente de Firebase pero se ejecuta en el servidor.
- * La inicialización se maneja de forma segura para evitar duplicados.
- * @param cotizacionId - El ID del documento de la cotización.
+ * Utiliza el SDK de Firebase Admin para ejecutarse de forma segura en el servidor.
+ * @param cotizacionId - El ID del documento de la cotización a actualizar.
  * @param nuevoEstado - El nuevo estado a asignar.
  */
 export async function updateCotizacionStatus(
   cotizacionId: string,
   nuevoEstado: StatusCotizacion
 ): Promise<{ success: boolean; message: string }> {
+
   if (!cotizacionId || !nuevoEstado) {
     return { success: false, message: 'El ID de la cotización y el nuevo estado son requeridos.' };
   }
 
   try {
-    // Inicialización segura de Firebase en el entorno del servidor usando la configuración importada
-    const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
+    // La ruta de la colección raíz es simplemente 'cotizaciones'
     const collectionPath = 'cotizaciones';
-    const cotizacionRef = doc(db, collectionPath, cotizacionId);
+    const cotizacionRef = db.collection(collectionPath).doc(cotizacionId);
     
-    await updateDoc(cotizacionRef, {
+    await cotizacionRef.update({
       status: nuevoEstado,
     });
 
     return { success: true, message: `Estado actualizado a ${nuevoEstado}` };
   } catch (error: any) {
-    console.error(`[Server Action Error] al actualizar ${cotizacionId}:`, error);
+    console.error(`[Server Action Error] al actualizar ${cotizacionId} a ${nuevoEstado}:`, error);
     
     // Proporciona un mensaje de error más detallado para la depuración
     const errorMessage = `Fallo al actualizar el estado: ${error.code || error.message}`;
