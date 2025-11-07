@@ -1,7 +1,8 @@
+
 'use server';
 
-import { doc, updateDoc, getFirestore, initializeApp, getApps } from 'firebase/firestore';
-import { getApp } from 'firebase/app';
+import { doc, updateDoc, getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import type { StatusCotizacion } from '@/lib/types';
 
 // This is a global variable that is injected by the hosting environment.
