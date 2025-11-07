@@ -2,8 +2,8 @@
 'use server';
 
 import { firestore } from '@/lib/firebase';
-import { Cotizacion, Empresa } from '@/types/models';
-import { collection, doc, documentId, getDocs, query, writeBatch } from 'firebase/firestore';
+import { CotizacionFirestore, Empresa } from '@/lib/types';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 
 const API_KEY = process.env.SIMPLEFACTURA_API_KEY;
 const API_URL = 'https://api.simplefactura.cl/v1';
@@ -48,7 +48,7 @@ interface CreateInvoicePayload {
  */
 export async function createSimpleFacturaInvoice(
     empresa: Empresa,
-    quotes: Cotizacion[],
+    quotes: CotizacionFirestore[],
     totalAmount: number
 ): Promise<{ pdfBase64: string; folio: number }> {
     if (!API_KEY) {

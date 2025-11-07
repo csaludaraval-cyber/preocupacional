@@ -42,7 +42,7 @@ const downloadPdfFromBase64 = (base64: string, folio: number, empresaRut: string
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `DTE-Factura-${folio}-RUT-${empresaRut}.pdf`;
+    link.download = `FACTURA_EXENTA_${folio}_${empresaRut}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -71,7 +71,7 @@ export function AdminFacturacionConsolidada() {
     const groups: Record<string, GroupedQuotes> = {};
 
     quotesToBill.forEach(quote => {
-      const empresaId = quote.empresaId;
+      const empresaId = quote.empresaData.rut; // Use RUT as the unique key
       if (!groups[empresaId]) {
         groups[empresaId] = {
           empresa: quote.empresaData,
@@ -165,7 +165,7 @@ export function AdminFacturacionConsolidada() {
                 <TableRow>
                     <TableHead>Cliente Frecuente</TableHead>
                     <TableHead className="text-center">Órdenes Acumuladas</TableHead>
-                    <TableHead className="text-right">Monto a Facturar</TableHead>
+                    <TableHead className="text-right">Monto a Facturar (Exento)</TableHead>
                     <TableHead className="text-center w-[250px]">Acciones</TableHead>
                 </TableRow>
             </TableHeader>
@@ -194,7 +194,7 @@ export function AdminFacturacionConsolidada() {
                         ) : (
                             <Button onClick={() => handleGenerateInvoice(group)} disabled={isProcessing}>
                                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
-                                {isProcessing ? 'Generando DTE...' : 'Generar Factura'}
+                                {isProcessing ? 'Generando DTE...' : 'Generar Factura Exenta'}
                             </Button>
                         )}
                     </TableCell>

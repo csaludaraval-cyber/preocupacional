@@ -1,5 +1,4 @@
 
-
 import { type User as FirebaseUser } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
@@ -40,17 +39,23 @@ export type SolicitudTrabajador = {
   examenes: Examen[];
 };
 
-// This type is for the frontend display and URL passing
+// This is a combination of Firestore data and derived data for UI
 export type Cotizacion = {
   id: string;
-  empresa: Empresa;
-  solicitante: Omit<Trabajador, 'fechaNacimiento' | 'fechaAtencion'> & { mail: string; centroDeCostos: string; }; // Solicitante has different fields
-  solicitudes: SolicitudTrabajador[]; // Contains each worker with their specific exams
+  empresa: Empresa; // Kept for simplicity, but derived from empresaData
+  solicitante: Solicitante; // Kept for simplicity, derived from solicitanteData
+  solicitudes: SolicitudTrabajador[]; // Kept for simplicity, derived from solicitudesData
   total: number;
-  fecha: string;
-  fechaCreacion: Timestamp; // To keep the original timestamp for sorting
-  status: 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA' | 'orden_examen_enviada' | 'facturado_consolidado';
+  fecha: string; // Formatted date for display
+  fechaCreacion: Timestamp; 
+  status: StatusCotizacion;
+  // Denormalized data matching Firestore
+  empresaData: Empresa;
+  solicitanteData: Solicitante;
+  solicitudesData: SolicitudTrabajador[];
+  simpleFacturaInvoiceId?: string;
 };
+
 
 // This is the type that is stored in Firestore
 export type CotizacionFirestore = {
@@ -60,24 +65,39 @@ export type CotizacionFirestore = {
   fechaCreacion: Timestamp;
   total: number;
   empresaData: Empresa;
-  solicitanteData: Omit<Trabajador, 'fechaNacimiento' | 'fechaAtencion'> & { mail: string; centroDeCostos: string; }; // Main contact
-  solicitudesData: SolicitudTrabajador[]; // All workers with their exams
-  status: 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA' | 'orden_examen_enviada' | 'facturado_consolidado';
+  solicitanteData: Solicitante; 
+  solicitudesData: SolicitudTrabajador[]; 
+  status: StatusCotizacion;
+  simpleFacturaInvoiceId?: string; // To store the invoice folio from SimpleFactura
 }
+
+export type StatusCotizacion = 
+  | 'PENDIENTE' 
+  | 'ENVIADA' 
+  | 'ACEPTADA' 
+  | 'RECHAZADA' 
+  | 'orden_examen_enviada' 
+  | 'facturado_consolidado'
+  | 'facturado_simplefactura';
 
 export interface User extends FirebaseUser {
   role?: 'admin' | 'standard';
+}
+
+export type Solicitante = {
+  nombre: string;
+  rut: string;
+  cargo: string;
+  centroDeCostos: string;
+  mail: string;
 }
 
 // Type for the entire public submission, as it will be stored in Firestore
 export type SolicitudPublica = {
   id: string;
   empresa: Empresa;
-  solicitante: Omit<Trabajador, 'fechaNacimiento' | 'fechaAtencion'> & { mail: string; centroDeCostos: string; }; // Added to store contact person's data
-  solicitudes: {
-    trabajador: Trabajador,
-    examenes: Examen[]
-  }[];
+  solicitante: Solicitante;
+  solicitudes: SolicitudTrabajador[];
   fechaCreacion: Timestamp;
   estado: 'pendiente' | 'procesada' | 'orden_examen_enviada';
 };
