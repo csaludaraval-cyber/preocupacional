@@ -73,14 +73,16 @@ export interface SolicitudTrabajador {
  * - `PENDIENTE`: Creada pero no enviada.
  * - `ENVIADA`: Enviada al cliente normal.
  * - `ACEPTADA` / `RECHAZADA`: Estados finales para cliente normal.
- * - `orden_examen_enviada`: Estado especial para solicitudes de clientes frecuentes.
+ * - `orden_examen_enviada`: Estado especial para solicitudes de clientes frecuentes, pendiente de facturación.
+ * - `facturado_consolidado`: Estado final para órdenes que fueron parte de una facturación consolidada.
  */
 export type StatusCotizacion =
   | 'PENDIENTE'
   | 'ENVIADA'
   | 'ACEPTADA'
   | 'RECHAZADA'
-  | 'orden_examen_enviada';
+  | 'orden_examen_enviada'
+  | 'facturado_consolidado';
 
 /**
  * Representa el objeto de cotización que se guarda en Firestore y se utiliza
