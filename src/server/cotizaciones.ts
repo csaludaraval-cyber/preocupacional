@@ -1,36 +1,13 @@
 
 'use server';
 
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { doc, updateDoc } from 'firebase/firestore';
+import { firestore } from '@/lib/firebase'; // Usar la instancia de cliente exportada
 import type { StatusCotizacion } from '@/lib/types';
 
-// --- INICIALIZACIÓN DE FIREBASE ADMIN (SOLO PARA SERVIDOR) ---
-let serviceAccount;
-try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    }
-} catch (e) {
-    console.error("Error al parsear FIREBASE_SERVICE_ACCOUNT:", e);
-}
-
-if (!getApps().length) {
-    if (serviceAccount) {
-         initializeApp({
-            credential: cert(serviceAccount)
-        });
-    } else {
-        initializeApp();
-    }
-}
-
-const db = getFirestore();
-// --- FIN DE LA INICIALIZACIÓN ---
-
-
 /**
- * Server Action para actualizar el estado de una cotización usando el SDK de Admin.
+ * Server Action para actualizar el estado de una cotización usando el SDK del cliente.
+ * Este enfoque es compatible con el entorno de Server Actions de Next.js.
  * @param cotizacionId - El ID del documento de la cotización.
  * @param nuevoEstado - El nuevo estado a asignar.
  */
@@ -43,16 +20,19 @@ export async function updateCotizacionStatus(
   }
 
   try {
-    const cotizacionRef = db.collection('cotizaciones').doc(cotizacionId);
+    const cotizacionRef = doc(firestore, 'cotizaciones', cotizacionId);
 
-    await cotizacionRef.update({
+    // Usa las funciones del SDK del cliente para actualizar el documento.
+    await updateDoc(cotizacionRef, {
       status: nuevoEstado,
     });
 
-    console.log(`Estado de cotización ${cotizacionId} actualizado a ${nuevoEstado}`);
+    console.log(`Estado de cotización ${cotizacionId} actualizado a ${nuevoEstado} usando el SDK del cliente.`);
     return { success: true, message: `Estado actualizado a ${nuevoEstado}` };
-  } catch (error) {
-    console.error("Error al actualizar el estado de la cotización (Admin SDK):", error);
+  } catch (error: any) {
+    console.error("Error al actualizar el estado de la cotización (Client SDK en Server Action):", error);
+    // Devuelve un mensaje de error genérico para el cliente.
+    // El error detallado se registra en el servidor.
     return { success: false, message: 'Fallo al actualizar el estado.' };
   }
 }

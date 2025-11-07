@@ -1,3 +1,4 @@
+
 // This file is a central export point for client-side Firebase services.
 // It ensures that Firebase is initialized only once using the 'use client' context.
 
