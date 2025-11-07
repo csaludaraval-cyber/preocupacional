@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Sparkles, PlusCircle, Trash2, Users, Building, ShieldCheck } from 'lucide-react';
-import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, type Timestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, type Timestamp, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import type { Empresa, Examen, Trabajador, Cotizacion, SolicitudTrabajador, Solicitante } from '@/lib/types';
@@ -45,6 +45,7 @@ export function CrearCotizacion() {
   const [currentSolicitudIndex, setCurrentSolicitudIndex] = useState(0);
 
   const [isClienteFrecuente, setIsClienteFrecuente] = useState(false);
+  const [originalRequestId, setOriginalRequestId] = useState<string | null>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -92,6 +93,7 @@ export function CrearCotizacion() {
         const parsedData = JSON.parse(decodeURIComponent(solicitudData));
         setEmpresa(parsedData.empresa || initialEmpresa);
         setSolicitante(parsedData.solicitante || initialSolicitante);
+        setOriginalRequestId(parsedData.originalRequestId || null); // <-- STORE THE ORIGINAL ID
         
         if (parsedData.solicitudes && parsedData.solicitudes.length > 0) {
             setSolicitudes(parsedData.solicitudes.map((s: any) => ({
@@ -219,7 +221,7 @@ export function CrearCotizacion() {
 
     const total = allExams.reduce((acc, exam) => acc + exam.valor, 0);
 
-    const newQuoteFirestore = {
+    const newQuoteFirestore: any = {
       empresaId: cleanRut(empresa.rut),
       solicitanteId: user.uid,
       fechaCreacion: serverTimestamp(),
@@ -228,11 +230,20 @@ export function CrearCotizacion() {
       solicitanteData: solicitante,
       solicitudesData: solicitudes,
       status: isClienteFrecuente ? 'orden_examen_enviada' : 'PENDIENTE',
+      // Link back to the original request if it exists
+      originalRequestId: originalRequestId || null,
     };
 
     const cotizacionesRef = collection(firestore, 'cotizaciones');
     addDoc(cotizacionesRef, newQuoteFirestore)
-      .then(docRef => {
+      .then(async (docRef) => {
+        
+        // **STEP 3: Update original request status**
+        if (originalRequestId) {
+          const originalRequestRef = doc(firestore, 'solicitudes_publicas', originalRequestId);
+          await updateDoc(originalRequestRef, { estado: 'procesada' });
+        }
+
         if(isClienteFrecuente){
              toast({
                 title: 'Orden de Examen Acumulable Creada',
@@ -244,6 +255,7 @@ export function CrearCotizacion() {
             setSolicitudes([{ id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }]);
             setCurrentSolicitudIndex(0);
             setStep(1);
+            router.replace('/'); // Clean URL params
         } else {
              const quoteForDisplay: Cotizacion = {
                 id: docRef.id,
@@ -296,7 +308,7 @@ export function CrearCotizacion() {
               {isClienteFrecuente ? "Ingresar Orden de Examen (Frecuente)" : "Crear Nueva Cotización (Normal)"}
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
-              {isClienteFrecuente ? "Estás en modo Cliente Frecuente. Las órdenes se acumularán para facturación." : "Siga los pasos para generar una cotización de forma rápida y sencilla."}
+              {originalRequestId ? "Procesando solicitud pública. Verifique los datos y genere la cotización." : "Siga los pasos para generar una cotización de forma rápida y sencilla."}
             </p>
         </div>
 
@@ -365,6 +377,7 @@ export function CrearCotizacion() {
                 onGenerate={handleGenerateQuote}
                 isStep1={step === 1}
                 isFrecuente={isClienteFrecuente}
+                isProcessingPublicRequest={!!originalRequestId}
               />
             </div>
           </div>
@@ -381,7 +394,7 @@ export function CrearCotizacion() {
              {step === totalSteps && (
               <Button onClick={handleGenerateQuote} className="bg-accent text-accent-foreground hover:bg-accent/90">
                 <Sparkles className="mr-2 h-4 w-4" /> 
-                {isClienteFrecuente ? 'Guardar Orden Acumulable' : 'Generar Cotización Formal'}
+                {isFrecuente ? 'Guardar Orden Acumulable' : 'Generar Cotización Formal'}
               </Button>
             )}
           </div>

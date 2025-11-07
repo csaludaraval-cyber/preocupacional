@@ -13,14 +13,25 @@ interface Props {
   onGenerate: () => void;
   isStep1: boolean;
   isFrecuente?: boolean;
+  isProcessingPublicRequest?: boolean;
 }
 
-export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, isStep1, isFrecuente = false }: Props) {
+export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, isStep1, isFrecuente = false, isProcessingPublicRequest = false }: Props) {
   const total = selectedExams.reduce((acc, exam) => acc + exam.valor, 0);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
   };
+
+  const getButtonText = () => {
+    if (isFrecuente) {
+      return 'Guardar Orden Acumulable';
+    }
+    if (isProcessingPublicRequest) {
+      return 'Generar Cotización Formal';
+    }
+    return 'Generar Cotización';
+  }
 
   return (
     <Card className="sticky top-24 shadow-md">
@@ -63,7 +74,7 @@ export default function ResumenCotizacion({ selectedExams, onClear, onGenerate, 
           className="bg-accent text-accent-foreground hover:bg-accent/90 w-full"
         >
           <Sparkles className="mr-2 h-4 w-4" />
-           {isFrecuente ? 'Guardar Orden Acumulable' : 'Generar Cotización Formal'}
+           {getButtonText()}
         </Button>
       </CardFooter>
     </Card>

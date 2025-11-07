@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { collection, deleteDoc, doc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { Eye, Inbox, Loader2, Search, Shield, Trash2, XCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
@@ -47,8 +47,9 @@ export function AdminSolicitudes() {
   
   const filteredSolicitudes = useMemo(() => {
     if (!solicitudes) return [];
-    // Sort by most recent first
-    const sorted = [...solicitudes].sort((a, b) => b.fechaCreacion.toMillis() - a.fechaCreacion.toMillis());
+    // Filter out processed requests and sort by most recent first
+    const pendingOnly = solicitudes.filter(s => s.estado === 'pendiente');
+    const sorted = [...pendingOnly].sort((a, b) => b.fechaCreacion.toMillis() - a.fechaCreacion.toMillis());
 
     if (!searchTerm) return sorted;
 
@@ -93,11 +94,12 @@ export function AdminSolicitudes() {
   const prepareQuoteForProcessing = (request: WithId<SolicitudPublica>): string => {
     if (!request.solicitudes || request.solicitudes.length === 0) return '';
   
-    // Pass the whole structure to the quote creation page
+    // Pass the whole structure including the original request ID
     const quoteData = {
+      originalRequestId: request.id, // <-- ADD THIS LINE
       empresa: request.empresa,
-      solicitante: request.solicitante, // Pass the main contact
-      solicitudes: request.solicitudes, // Pass the detailed structure
+      solicitante: request.solicitante,
+      solicitudes: request.solicitudes,
     };
     return encodeURIComponent(JSON.stringify(quoteData));
   };
@@ -140,7 +142,7 @@ export function AdminSolicitudes() {
             Solicitudes de Exámenes Recibidas
         </CardTitle>
         <CardDescription>
-          Revise las solicitudes enviadas por clientes y procéselas para generar una cotización formal.
+          Revise las solicitudes pendientes enviadas por clientes y procéselas para generar una cotización formal. Las solicitudes procesadas desaparecerán de esta lista.
         </CardDescription>
         <div className="relative pt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -172,12 +174,12 @@ export function AdminSolicitudes() {
                       const quoteQuery = prepareQuoteForProcessing(req);
                       return(
                         <React.Fragment key={req.id}>
-                          <TableRow className="hover:bg-accent/50 bg-accent/20">
+                          <TableRow className="hover:bg-accent/50">
                               <TableCell className="font-mono text-xs font-bold">
                                   <Badge variant="secondary">{req.id.slice(-6)}</Badge>
                               </TableCell>
-                              <TableCell className='font-bold'>{formatDate(req.fechaCreacion)}</TableCell>
-                              <TableCell className="font-medium font-bold">{req.empresa?.razonSocial || 'N/A'}</TableCell>
+                              <TableCell>{formatDate(req.fechaCreacion)}</TableCell>
+                              <TableCell className="font-medium">{req.empresa?.razonSocial || 'N/A'}</TableCell>
                               <TableCell className='text-sm'>
                                 {req.solicitante?.nombre ? (
                                   <div className='flex flex-col'>
@@ -188,7 +190,7 @@ export function AdminSolicitudes() {
                                   <span className='text-muted-foreground italic'>N/A</span>
                                 )}
                               </TableCell>
-                              <TableCell className="text-muted-foreground font-bold">{req.solicitudes?.length || 0}</TableCell>
+                              <TableCell className="text-center">{req.solicitudes?.length || 0}</TableCell>
                               <TableCell><Badge variant={req.estado === 'pendiente' ? 'default' : 'secondary'}>{req.estado}</Badge></TableCell>
                               <TableCell className="text-center space-x-2">
                                   <Tooltip>
@@ -235,22 +237,12 @@ export function AdminSolicitudes() {
                                   </Tooltip>
                               </TableCell>
                           </TableRow>
-                          {req.solicitudes?.map((solicitud, index) => {
-                            const examCount = solicitud.examenes ? solicitud.examenes.length : 0;
-                            return (
-                              <TableRow key={`${req.id}-${index}`} className="hover:bg-accent/50 text-sm bg-gray-50/50">
-                                <TableCell colSpan={7} className='pl-12 text-muted-foreground'>
-                                  - <span className='font-medium text-foreground'>{solicitud.trabajador?.nombre || 'Trabajador sin nombre'}</span> ({examCount} exámenes)
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })}
                         </React.Fragment>
                       )
                     }) : (
                         <TableRow>
                             <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
-                                No se encontraron solicitudes.
+                                No se encontraron solicitudes pendientes.
                             </TableCell>
                         </TableRow>
                     )}
