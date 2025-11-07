@@ -56,6 +56,8 @@ const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'se
   ENVIADA: 'default',
   ACEPTADA: 'success',
   RECHAZADA: 'destructive',
+  orden_examen_enviada: 'secondary',
+  cotizacion_aceptada: 'success',
   facturado_simplefactura: 'default',
 };
 
@@ -169,7 +171,7 @@ export default function AdminCotizaciones() {
             });
             refetchQuotes(); // Refrescar los datos para mostrar el cambio
         } else {
-            toast({
+             toast({
                 variant: 'destructive',
                 title: 'Error al Actualizar Estado',
                 description: result.message || 'No se pudo guardar el nuevo estado. Intente de nuevo.',
@@ -320,7 +322,9 @@ export default function AdminCotizaciones() {
               </TableHeader>
               <TableBody>
                 {sortedQuotes.map((quote) => {
-                  const isNormalAccepted = quote.status === 'ACEPTADA' && quote.empresaData?.modalidadFacturacion === 'normal';
+                  const isNormalAccepted = 
+                    (quote.status === 'ACEPTADA' || quote.status === 'cotizacion_aceptada') && 
+                    quote.empresaData?.modalidadFacturacion === 'normal';
                   const isFacturing = facturingQuoteId === quote.id;
 
                   return (
@@ -461,7 +465,7 @@ export default function AdminCotizaciones() {
                   {quoteToSend.status === 'ENVIADA' && (
                     <Button
                         variant="secondary"
-                        onClick={() => handleUpdateStatus(quoteToSend.id, 'ACEPTADA')}
+                        onClick={() => handleUpdateStatus(quoteToSend.id, 'cotizacion_aceptada')}
                         disabled={isUpdatingStatus}
                     >
                         <FlaskConical className="mr-2 h-4 w-4" /> Forzar Aceptación (Prueba)
@@ -502,3 +506,5 @@ export default function AdminCotizaciones() {
     </TooltipProvider>
   );
 }
+
+    
