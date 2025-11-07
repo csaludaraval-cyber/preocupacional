@@ -325,8 +325,9 @@ export default function AdminCotizaciones() {
                 <TableBody>
                   {sortedQuotes.map((quote) => {
                     const isNormalAccepted = 
-                      (quote.status === 'ACEPTADA' || quote.status === 'cotizacion_aceptada') && 
-                      quote.empresaData?.modalidadFacturacion === 'normal';
+                        (quote.status === 'ACEPTADA' || quote.status === 'cotizacion_aceptada') && 
+                        quote.empresaData?.modalidadFacturacion === 'normal';
+
                     const isFacturing = facturingQuoteId === quote.id;
 
                     return (
@@ -367,7 +368,7 @@ export default function AdminCotizaciones() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  {isNormalAccepted && (
+                                  {isNormalAccepted ? (
                                       <DropdownMenuItem
                                           onClick={() => handleImmediateInvoice(quote)}
                                           disabled={isFacturing}
@@ -376,8 +377,7 @@ export default function AdminCotizaciones() {
                                           {isFacturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
                                           {isFacturing ? 'Facturando...' : 'Facturar Ahora (DTE)'}
                                       </DropdownMenuItem>
-                                  )}
-                                  {!isNormalAccepted && (
+                                  ) : (
                                       <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
                                           <Send className="mr-2 h-4 w-4" />
                                           Gestionar y Enviar
@@ -491,3 +491,5 @@ export default function AdminCotizaciones() {
       </>
   );
 }
+
+    
