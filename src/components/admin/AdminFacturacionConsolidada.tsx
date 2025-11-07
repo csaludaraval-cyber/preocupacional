@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useMemo } from 'react';
-import { collection, query, where, writeBatch } from 'firebase/firestore';
+import React, { useMemo, useState } from 'react';
+import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
@@ -12,20 +12,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, XCircle, FileClock, DollarSign, FileCheck2 } from 'lucide-react';
+import { Loader2, Shield, XCircle, FileClock, DollarSign, FileCheck2, Download } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from '@/components/ui/badge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { createSimpleFacturaInvoice } from '@/server/simplefactura';
 
 interface GroupedQuotes {
   empresa: Empresa;
@@ -34,10 +24,36 @@ interface GroupedQuotes {
   totalExams: number;
 }
 
+interface FacturaResult {
+    empresaId: string;
+    pdfBase64: string;
+    folio: number;
+}
+
+// Función helper para descargar el PDF en el cliente
+const downloadPdfFromBase64 = (base64: string, folio: number, empresaRut: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `DTE-Factura-${folio}-RUT-${empresaRut}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+
 export function AdminFacturacionConsolidada() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = React.useState(false);
+  const [processingCompanyId, setProcessingCompanyId] = useState<string | null>(null);
+  const [generatedInvoices, setGeneratedInvoices] = useState<FacturaResult[]>([]);
   
   const facturacionQuery = useMemoFirebase(() => 
     query(
@@ -72,35 +88,31 @@ export function AdminFacturacionConsolidada() {
     return Object.values(groups).sort((a, b) => b.totalAmount - a.totalAmount);
   }, [quotesToBill]);
 
-  const handleGenerateConsolidatedBilling = async () => {
-    if (!quotesToBill || quotesToBill.length === 0) {
-      toast({ title: 'Nada que procesar', description: 'No hay órdenes pendientes para facturar.' });
-      return;
-    }
-
-    setIsProcessing(true);
-    const batch = writeBatch(firestore);
-
-    quotesToBill.forEach(quote => {
-      const quoteRef = doc(firestore, 'cotizaciones', quote.id);
-      batch.update(quoteRef, { status: 'facturado_consolidado' });
-    });
-
+  const handleGenerateInvoice = async (group: GroupedQuotes) => {
+    setProcessingCompanyId(group.empresa.rut);
     try {
-      await batch.commit();
-      toast({
-        title: 'Cierre Exitoso',
-        description: `${quotesToBill.length} órdenes han sido marcadas como facturadas. La lista se ha limpiado.`,
-      });
-      refetch(); // Trigger a re-fetch of the data
+        const { pdfBase64, folio } = await createSimpleFacturaInvoice(group.empresa, group.quotes, group.totalAmount);
+        
+        toast({
+            title: '¡Factura Emitida!',
+            description: `Se ha generado el DTE Folio N° ${folio} para ${group.empresa.razonSocial}.`,
+        });
+
+        // Guardar el resultado para mostrar el botón de descarga
+        setGeneratedInvoices(prev => [...prev, { empresaId: group.empresa.rut, pdfBase64, folio }]);
+        
+        // Refrescar la lista de pendientes
+        refetch();
+
     } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error al procesar el cierre',
-        description: err.message || 'No se pudo actualizar el estado de las órdenes.',
-      });
+        console.error(err);
+        toast({
+            variant: 'destructive',
+            title: 'Error al Facturar',
+            description: err.message,
+        });
     } finally {
-      setIsProcessing(false);
+        setProcessingCompanyId(null);
     }
   };
   
@@ -142,7 +154,7 @@ export function AdminFacturacionConsolidada() {
                     Facturación Consolidada de Clientes Frecuentes
                 </CardTitle>
                 <CardDescription>
-                  Revisa las órdenes de examen acumuladas por cliente frecuente y genera el cierre para facturación.
+                  Revisa las órdenes de examen acumuladas por cliente frecuente y genera el DTE correspondiente.
                 </CardDescription>
             </div>
         </div>
@@ -153,22 +165,42 @@ export function AdminFacturacionConsolidada() {
                 <TableRow>
                     <TableHead>Cliente Frecuente</TableHead>
                     <TableHead className="text-center">Órdenes Acumuladas</TableHead>
-                    <TableHead className="text-center">Exámenes Totales</TableHead>
-                    <TableHead className="text-right font-bold">Monto Total a Facturar</TableHead>
+                    <TableHead className="text-right">Monto a Facturar</TableHead>
+                    <TableHead className="text-center w-[250px]">Acciones</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
-              {groupedData.length > 0 ? groupedData.map(({ empresa, quotes, totalAmount, totalExams }) => (
-                <TableRow key={empresa.rut} className="font-medium">
-                  <TableCell>
-                    <p className='font-semibold text-foreground'>{empresa.razonSocial}</p>
-                    <p className='text-sm text-muted-foreground'>RUT: {empresa.rut}</p>
-                  </TableCell>
-                  <TableCell className="text-center">{quotes.length}</TableCell>
-                  <TableCell className="text-center">{totalExams}</TableCell>
-                  <TableCell className="text-right text-lg font-bold text-primary">{formatCurrency(totalAmount)}</TableCell>
-                </TableRow>
-              )) : (
+              {groupedData.length > 0 ? groupedData.map((group) => {
+                const invoiceResult = generatedInvoices.find(inv => inv.empresaId === group.empresa.rut);
+                const isProcessing = processingCompanyId === group.empresa.rut;
+
+                return (
+                    <TableRow key={group.empresa.rut} className="font-medium">
+                    <TableCell>
+                        <p className='font-semibold text-foreground'>{group.empresa.razonSocial}</p>
+                        <p className='text-sm text-muted-foreground'>RUT: {group.empresa.rut}</p>
+                    </TableCell>
+                    <TableCell className="text-center">{group.quotes.length}</TableCell>
+                    <TableCell className="text-right text-lg font-bold text-primary">{formatCurrency(group.totalAmount)}</TableCell>
+                    <TableCell className="text-center">
+                        {invoiceResult ? (
+                             <Button
+                                variant="secondary"
+                                onClick={() => downloadPdfFromBase64(invoiceResult.pdfBase64, invoiceResult.folio, group.empresa.rut)}
+                            >
+                                <Download className="mr-2 h-4 w-4"/>
+                                Descargar Factura (DTE-{invoiceResult.folio})
+                            </Button>
+                        ) : (
+                            <Button onClick={() => handleGenerateInvoice(group)} disabled={isProcessing}>
+                                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
+                                {isProcessing ? 'Generando DTE...' : 'Generar Factura'}
+                            </Button>
+                        )}
+                    </TableCell>
+                    </TableRow>
+                )
+              }) : (
                  <TableRow>
                     <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
                         No hay órdenes de examen pendientes de facturación para clientes frecuentes.
@@ -178,37 +210,12 @@ export function AdminFacturacionConsolidada() {
             </TableBody>
         </Table>
       </CardContent>
-      <CardFooter className="border-t pt-6 flex-col items-end gap-4">
-        <div className="flex items-center gap-4">
-          <div className='text-right'>
-              <p className='text-sm text-muted-foreground'>Total a facturar (todos los clientes)</p>
-              <p className='text-2xl font-bold text-primary'>
-                {formatCurrency(groupedData.reduce((acc, group) => acc + group.totalAmount, 0))}
-              </p>
-          </div>
-           <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button size="lg" disabled={groupedData.length === 0 || isProcessing}>
-                  {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
-                  Generar Cierre Mensual
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Confirmar Cierre de Facturación?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta acción marcará todas las órdenes acumuladas como "facturadas" y las limpiará de esta lista.
-                    Este proceso es irreversible para el período actual. ¿Desea continuar?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleGenerateConsolidatedBilling} disabled={isProcessing}>
-                    Sí, generar cierre
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+      <CardFooter className="border-t pt-6 flex justify-end">
+        <div className='text-right'>
+            <p className='text-sm text-muted-foreground'>Total pendiente (todos los clientes)</p>
+            <p className='text-2xl font-bold text-primary'>
+            {formatCurrency(groupedData.reduce((acc, group) => acc + group.totalAmount, 0))}
+            </p>
         </div>
       </CardFooter>
     </Card>
