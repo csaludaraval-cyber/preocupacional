@@ -43,10 +43,11 @@ import { GeneradorPDF } from '@/components/cotizacion/GeneradorPDF';
 import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
-import { updateQuoteStatus, deleteQuote } from '@/lib/firestore';
-import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
 import { createSimpleFacturaInvoice } from '@/server/simplefactura';
 import { updateCotizacionStatus } from '@/server/cotizaciones';
+import { deleteDoc, doc } from 'firebase/firestore';
+import { firestore } from '@/lib/firebase';
+import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
 import { cleanRut } from '@/lib/utils';
 import { DTE_TIPO } from '@/config/simplefactura';
 
@@ -168,7 +169,6 @@ export default function AdminCotizaciones() {
             });
             refetchQuotes(); // Refrescar los datos para mostrar el cambio
         } else {
-            // En lugar de lanzar un error, mostramos el mensaje en un toast.
             toast({
                 variant: 'destructive',
                 title: 'Error al Actualizar Estado',
@@ -192,7 +192,8 @@ export default function AdminCotizaciones() {
     if (!quote || !quote.id) return;
     setIsDeleting(true);
     try {
-      await deleteQuote(quote.id);
+      const quoteRef = doc(firestore, 'cotizaciones', quote.id);
+      await deleteDoc(quoteRef);
       toast({
         title: "Cotización Eliminada",
         description: `La cotización N° ${quote.id.slice(-6)} ha sido eliminada.`,
@@ -470,11 +471,7 @@ export default function AdminCotizaciones() {
               </div>
 
               <div className="flex-grow overflow-y-auto bg-gray-100 p-4 rounded-lg">
-                {quoteToSend ? (
-                    <DetalleCotizacion quote={quoteToSend} />
-                ) : (
-                    <div className="text-center text-muted-foreground">No hay detalles de solicitud para mostrar.</div>
-                )}
+                <DetalleCotizacion quote={quoteToSend} />
               </div>
             </>
           )}
