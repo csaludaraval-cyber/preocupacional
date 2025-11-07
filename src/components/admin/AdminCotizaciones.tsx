@@ -167,13 +167,18 @@ export default function AdminCotizaciones() {
             });
             refetchQuotes(); // Refrescar los datos para mostrar el cambio
         } else {
-            throw new Error(result.message);
+            // En lugar de lanzar un error, mostramos el mensaje en un toast.
+            toast({
+                variant: 'destructive',
+                title: 'Error al Actualizar Estado',
+                description: result.message || 'No se pudo guardar el nuevo estado. Intente de nuevo.',
+            });
         }
     } catch (error: any) {
       console.error('Error al actualizar estado:', error);
       toast({
-        title: 'Error al Actualizar Estado',
-        description: 'No se pudo guardar el nuevo estado. Intente de nuevo.',
+        title: 'Error de Conexión',
+        description: 'Fallo al comunicarse con el servidor para actualizar el estado.',
         variant: 'destructive',
       });
     } finally {
