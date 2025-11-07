@@ -57,7 +57,7 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
     if (cliente) {
       form.reset({
         ...cliente,
-        rut: formatRut(cliente.rut), // Format on load
+        rut: formatRut(cliente.rut), // Format for display
         modalidadFacturacion: cliente.modalidadFacturacion || 'normal',
       });
     } else {
@@ -77,6 +77,7 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
 
   const onSubmit = async (values: z.infer<typeof clienteSchema>) => {
     try {
+      // Clean the RUT to use it as the document ID
       const cleanedRut = cleanRut(values.rut);
       if (!cleanedRut) {
           toast({ variant: 'destructive', title: 'RUT no válido' });
@@ -85,7 +86,11 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
       
       const docRef = doc(firestore, 'empresas', cleanedRut);
       
-      const dataToSave = { ...values, rut: cleanedRut };
+      // Save all form values, but ensure the 'rut' field in the document is also the cleaned one.
+      const dataToSave: Empresa = {
+        ...values,
+        rut: cleanedRut,
+      };
 
       await setDoc(docRef, dataToSave, { merge: true });
 
@@ -117,9 +122,7 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
                     <FormLabel className="text-base">
                         Cliente Frecuente
                     </FormLabel>
-                     <FormMessage>
-                        Habilitar para facturación consolidada mensual y omitir cotizaciones individuales.
-                    </FormMessage>
+                    <FormMessage />
                     </div>
                     <FormControl>
                     <Switch
@@ -147,7 +150,7 @@ export default function ClienteForm({ cliente, onSuccess }: ClienteFormProps) {
                             onChange={(e) => {
                                 field.onChange(formatRut(e.target.value));
                             }}
-                            disabled={!!cliente}
+                            disabled={!!cliente} // Disable RUT field when editing
                         />
                         </FormControl>
                         <FormMessage />
