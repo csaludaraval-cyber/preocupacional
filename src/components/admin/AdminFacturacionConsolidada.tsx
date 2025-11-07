@@ -20,6 +20,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '../ui/badge';
+import { DTE_TIPO } from '@/config/simplefactura';
+
 
 interface GroupedQuotes {
   empresa: Empresa;
@@ -54,7 +56,8 @@ const downloadPdfFromBase64 = (base64: string, folio: number, empresaRut: string
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `FACTURA_EXENTA_${folio}_${empresaRut}.pdf`;
+    const cleanedRut = cleanRut(empresaRut);
+    link.download = `FACTURA_DTE${DTE_TIPO.FACTURA_EXENTA}_${folio}_${cleanedRut}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

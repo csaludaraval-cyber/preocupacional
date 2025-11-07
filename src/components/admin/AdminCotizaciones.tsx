@@ -45,6 +45,8 @@ import { useRouter } from 'next/navigation';
 import { updateQuoteStatus, deleteQuote } from '@/lib/firestore';
 import type { Cotizacion, CotizacionFirestore, WithId } from '@/lib/types';
 import { createSimpleFacturaInvoice } from '@/server/simplefactura';
+import { cleanRut } from '@/lib/utils';
+import { DTE_TIPO } from '@/config/simplefactura';
 
 const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'secondary' | 'success'> = {
   PENDIENTE: 'secondary',
@@ -71,7 +73,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     });
 };
 
-const downloadPdfFromBase64 = (base64: string, folio: number, quoteId: string) => {
+const downloadPdfFromBase64 = (base64: string, folio: number, quote: Cotizacion) => {
     const byteCharacters = atob(base64);
     const byteNumbers = new Array(byteCharacters.length);
     for (let i = 0; i < byteCharacters.length; i++) {
@@ -82,7 +84,8 @@ const downloadPdfFromBase64 = (base64: string, folio: number, quoteId: string) =
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `FACTURA_EXENTA_${folio}_COT_${quoteId.slice(-6)}.pdf`;
+    const cleanedRut = cleanRut(quote.empresaData.rut);
+    link.download = `FACTURA_DTE${DTE_TIPO.FACTURA_EXENTA}_${folio}_${cleanedRut}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -225,7 +228,7 @@ export default function AdminCotizaciones() {
         });
 
         // Offer download
-        downloadPdfFromBase64(pdfBase64, folio, quote.id);
+        downloadPdfFromBase64(pdfBase64, folio, quote);
 
         refetchQuotes();
     } catch(err: any) {
