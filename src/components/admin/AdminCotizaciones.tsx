@@ -87,7 +87,7 @@ const downloadPdfFromBase64 = (base64: string, folio: number, quote: Cotizacion)
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    const cleanedRut = cleanRut(quote.empresaData.rut);
+    const cleanedRut = quote.empresaData ? cleanRut(quote.empresaData.rut) : 'SIN-RUT';
     link.download = `FACTURA_DTE${DTE_TIPO.FACTURA_EXENTA}_${folio}_${cleanedRut}.pdf`;
     document.body.appendChild(link);
     link.click();
@@ -320,7 +320,7 @@ export default function AdminCotizaciones() {
               </TableHeader>
               <TableBody>
                 {sortedQuotes.map((quote) => {
-                  const isNormalAccepted = quote.status === 'ACEPTADA' && quote.empresaData.modalidadFacturacion === 'normal';
+                  const isNormalAccepted = quote.status === 'ACEPTADA' && quote.empresaData?.modalidadFacturacion === 'normal';
                   const isFacturing = facturingQuoteId === quote.id;
 
                   return (
@@ -340,10 +340,10 @@ export default function AdminCotizaciones() {
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <div className="font-semibold text-gray-700">{quote.empresa.razonSocial}</div>
-                      <div className="text-sm text-gray-500">{quote.solicitante.nombre}</div>
+                      <div className="font-semibold text-gray-700">{quote.empresa?.razonSocial || 'N/A'}</div>
+                      <div className="text-sm text-gray-500">{quote.solicitante?.nombre || 'N/A'}</div>
                     </TableCell>
-                    <TableCell>{quote.solicitante.mail}</TableCell>
+                    <TableCell>{quote.solicitante?.mail || 'N/A'}</TableCell>
                     <TableCell>
                       {quote.fechaCreacion ? format(quote.fechaCreacion.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}
                     </TableCell>
@@ -502,5 +502,3 @@ export default function AdminCotizaciones() {
     </TooltipProvider>
   );
 }
-
-    

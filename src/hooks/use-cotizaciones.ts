@@ -52,6 +52,11 @@ export function useCotizaciones(): UseCotizacionesResult {
             fecha,
             fechaCreacion: q.fechaCreacion,
             status: q.status || 'PENDIENTE',
+            // Asegurarse de pasar todos los datos denormalizados
+            empresaData: q.empresaData,
+            solicitanteData: q.solicitanteData,
+            solicitudesData: q.solicitudesData,
+            simpleFacturaInvoiceId: q.simpleFacturaInvoiceId,
         } as Cotizacion;
     });
 
