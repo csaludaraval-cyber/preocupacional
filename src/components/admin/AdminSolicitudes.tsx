@@ -95,13 +95,13 @@ export function AdminSolicitudes() {
     if (!request.solicitudes || request.solicitudes.length === 0) return '';
   
     // Pass the whole structure including the original request ID
-    const quoteData = {
-      originalRequestId: request.id, // <-- ADD THIS LINE
+    const requestDataForQuote = {
+      originalRequestId: request.id,
       empresa: request.empresa,
       solicitante: request.solicitante,
       solicitudes: request.solicitudes,
     };
-    return encodeURIComponent(JSON.stringify(quoteData));
+    return encodeURIComponent(JSON.stringify(requestDataForQuote));
   };
 
 

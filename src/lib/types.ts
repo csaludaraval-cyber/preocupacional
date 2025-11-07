@@ -54,6 +54,7 @@ export type Cotizacion = {
   solicitanteData: Solicitante;
   solicitudesData: SolicitudTrabajador[];
   simpleFacturaInvoiceId?: string;
+  originalRequestId?: string | null;
 };
 
 
@@ -69,7 +70,7 @@ export type CotizacionFirestore = {
   solicitudesData: SolicitudTrabajador[]; 
   status: StatusCotizacion;
   simpleFacturaInvoiceId?: string; // To store the invoice folio from SimpleFactura
-  originalRequestId?: string | null; // <-- ADD THIS LINE
+  originalRequestId?: string | null;
 }
 
 export type StatusCotizacion = 
@@ -109,5 +110,3 @@ export const EnviarCotizacionInputSchema = z.object({
   pdfBase64: z.string().describe('Contenido del archivo PDF codificado en Base64.'),
 });
 export type EnviarCotizacionInput = z.infer<typeof EnviarCotizacionInputSchema>;
-
-

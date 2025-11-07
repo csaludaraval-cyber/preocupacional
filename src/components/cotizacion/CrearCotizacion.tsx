@@ -93,7 +93,7 @@ export function CrearCotizacion() {
         const parsedData = JSON.parse(decodeURIComponent(solicitudData));
         setEmpresa(parsedData.empresa || initialEmpresa);
         setSolicitante(parsedData.solicitante || initialSolicitante);
-        setOriginalRequestId(parsedData.originalRequestId || null); // <-- STORE THE ORIGINAL ID
+        setOriginalRequestId(parsedData.originalRequestId || null);
         
         if (parsedData.solicitudes && parsedData.solicitudes.length > 0) {
             setSolicitudes(parsedData.solicitudes.map((s: any) => ({
@@ -230,7 +230,6 @@ export function CrearCotizacion() {
       solicitanteData: solicitante,
       solicitudesData: solicitudes,
       status: isClienteFrecuente ? 'orden_examen_enviada' : 'PENDIENTE',
-      // Link back to the original request if it exists
       originalRequestId: originalRequestId || null,
     };
 
@@ -238,7 +237,6 @@ export function CrearCotizacion() {
     addDoc(cotizacionesRef, newQuoteFirestore)
       .then(async (docRef) => {
         
-        // **STEP 3: Update original request status**
         if (originalRequestId) {
           const originalRequestRef = doc(firestore, 'solicitudes_publicas', originalRequestId);
           await updateDoc(originalRequestRef, { estado: 'procesada' });
