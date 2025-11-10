@@ -14,13 +14,13 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Shield, XCircle, FileClock, FileCheck2, Download, History, ChevronDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { createSimpleFacturaInvoice } from '@/server/simplefactura';
+import { createLiorenInvoice } from '@/server/lioren';
 import { cleanRut } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '../ui/badge';
-import { DTE_TIPO } from '@/config/simplefactura';
+import { DTE_TIPO } from '@/config/lioren';
 
 
 interface GroupedQuotes {
@@ -32,7 +32,7 @@ interface GroupedQuotes {
 
 interface FacturaResult {
     empresaId: string;
-    pdfBase64: string;
+    pdfUrl: string;
     folio: number;
 }
 
@@ -43,25 +43,6 @@ interface BilledInvoice {
     totalAmount: number;
     fechaFacturacion: string;
 }
-
-// Función helper para descargar el PDF en el cliente
-const downloadPdfFromBase64 = (base64: string, folio: number, empresaRut: string) => {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/pdf' });
-    
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    const cleanedRut = cleanRut(empresaRut);
-    link.download = `FACTURA_DTE${DTE_TIPO.FACTURA_EXENTA}_${folio}_${cleanedRut}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
 
 
 export function AdminFacturacionConsolidada() {
@@ -139,13 +120,13 @@ export function AdminFacturacionConsolidada() {
     const cleanRutEmpresa = cleanRut(group.empresa.rut);
     setProcessingCompanyId(cleanRutEmpresa);
     try {
-        const { pdfBase64, folio } = await createSimpleFacturaInvoice(group.empresa, group.quotes, group.totalAmount);
+        const { pdfUrl, folio } = await createLiorenInvoice(group.empresa, group.quotes, group.totalAmount);
         
         toast({
             title: '¡Factura Emitida!',
             description: `Se ha generado el DTE Folio N° ${folio} para ${group.empresa.razonSocial}.`,
         });
-        setGeneratedInvoices(prev => [...prev, { empresaId: cleanRutEmpresa, pdfBase64, folio }]);
+        setGeneratedInvoices(prev => [...prev, { empresaId: cleanRutEmpresa, pdfUrl, folio }]);
         refetch();
     } catch (err: any) {
         console.error(err);
@@ -218,7 +199,7 @@ export function AdminFacturacionConsolidada() {
                             <TableCell className="text-right text-lg font-bold text-primary">{formatCurrency(group.totalAmount)}</TableCell>
                             <TableCell className="text-center">
                                 {invoiceResult ? (
-                                    <Button variant="secondary" onClick={() => downloadPdfFromBase64(invoiceResult.pdfBase64, invoiceResult.folio, group.empresa.rut)}>
+                                    <Button variant="secondary" onClick={() => window.open(invoiceResult.pdfUrl, '_blank')}>
                                         <Download className="mr-2 h-4 w-4"/> Descargar Factura (DTE-{invoiceResult.folio})
                                     </Button>
                                 ) : (
@@ -292,5 +273,3 @@ export function AdminFacturacionConsolidada() {
     </div>
   );
 }
-
-    

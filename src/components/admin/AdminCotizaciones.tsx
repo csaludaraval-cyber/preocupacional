@@ -44,12 +44,11 @@ import { GeneradorPDF } from '@/components/cotizacion/GeneradorPDF';
 import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
-import { createSimpleFacturaInvoice } from '@/server/simplefactura';
+import { createLiorenInvoice } from '@/server/lioren';
 import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
-import { cleanRut } from '@/lib/utils';
-import { DTE_TIPO } from '@/config/simplefactura';
+import { DTE_TIPO } from '@/config/lioren';
 
 const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'secondary' | 'success'> = {
   PENDIENTE: 'secondary',
@@ -76,24 +75,6 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
       };
       reader.readAsDataURL(blob);
     });
-};
-
-const downloadPdfFromBase64 = (base64: string, folio: number, quote: Cotizacion) => {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/pdf' });
-    
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    const cleanedRut = quote.empresaData ? cleanRut(quote.empresaData.rut) : 'SIN-RUT';
-    link.download = `FACTURA_DTE${DTE_TIPO.FACTURA_EXENTA}_${folio}_${cleanedRut}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
 };
 
 
@@ -231,7 +212,7 @@ export default function AdminCotizaciones() {
             status: 'cotizacion_aceptada', 
         }
         
-        const { pdfBase64, folio } = await createSimpleFacturaInvoice(
+        const { pdfUrl, folio } = await createLiorenInvoice(
             quote.empresaData,
             [quoteToBill],
             quote.total
@@ -239,10 +220,11 @@ export default function AdminCotizaciones() {
 
         toast({
             title: '¡Factura Inmediata Emitida!',
-            description: `Se generó el DTE Folio N° ${folio}.`,
+            description: `Se generó el DTE Folio N° ${folio}. Abriendo PDF...`,
         });
 
-        downloadPdfFromBase64(pdfBase64, folio, quote);
+        // Abre el PDF en una nueva pestaña
+        window.open(pdfUrl, '_blank');
 
         refetchQuotes();
     } catch(err: any) {
