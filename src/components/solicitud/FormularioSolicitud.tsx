@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Send, PlusCircle, Trash2, Users, FileText } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -27,15 +27,19 @@ export function FormularioSolicitud() {
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
   const [solicitante, setSolicitante] = useState(initialSolicitante);
   
-  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([
-    { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }
-  ]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([]);
   const [currentSolicitudIndex, setCurrentSolicitudIndex] = useState(0);
 
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { toast } = useToast();
+
+  // FIX: Move state initialization to useEffect to prevent hydration errors
+  useEffect(() => {
+    setSolicitudes([{ id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }]);
+  }, []);
+  
   const totalExams = useMemo(() => solicitudes.reduce((acc, s) => acc + s.examenes.length, 0), [solicitudes]);
   const currentSolicitud = solicitudes[currentSolicitudIndex];
   
@@ -147,16 +151,20 @@ export function FormularioSolicitud() {
     {
       id: 1,
       name: "Datos Empresa y Trabajador",
-      component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={updateCurrentTrabajador} />,
+      component: currentSolicitud ? <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={updateCurrentTrabajador} /> : null,
     },
     {
       id: 2,
       name: "Selección de Exámenes",
-      component: <Paso2SeleccionExamenes selectedExams={currentSolicitud.examenes} onExamToggle={handleExamToggle} showPrice={false}/>,
+      component: currentSolicitud ? <Paso2SeleccionExamenes selectedExams={currentSolicitud.examenes} onExamToggle={handleExamToggle} showPrice={false}/> : null,
     },
   ];
 
   const currentStepData = steps.find(s => s.id === step);
+
+  if (solicitudes.length === 0) {
+    return null; // Don't render until solicitudes is initialized in useEffect
+  }
 
   if (formSubmitted) {
     return (
