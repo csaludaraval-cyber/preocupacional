@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { GeneradorPDF } from './GeneradorPDF';
 import { DetalleCotizacion } from './DetalleCotizacion';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -41,6 +43,13 @@ export function VistaCotizacion() {
     if (data) {
       try {
         const parsedData = JSON.parse(decodeURIComponent(data));
+        
+        // Ensure fecha is correctly formatted on the client from the start
+        if (parsedData.fechaCreacion) {
+            const date = new Date(parsedData.fechaCreacion.seconds * 1000);
+            parsedData.fecha = format(date, 'dd/MM/yyyy', { locale: es });
+        }
+        
         setQuote(parsedData);
       } catch (error) {
         console.error("Error parsing quote data:", error);

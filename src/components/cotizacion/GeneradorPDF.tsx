@@ -7,16 +7,19 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import type { Cotizacion, Empresa, SolicitudTrabajador } from '@/lib/types';
 import { DetalleCotizacion } from './DetalleCotizacion';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
-export const OrdenDeExamen = ({ solicitud, empresa }: { solicitud: SolicitudTrabajador, empresa: Empresa }) => (
+export const OrdenDeExamen = ({ solicitud, empresa, fechaCotizacion }: { solicitud: SolicitudTrabajador, empresa: Empresa, fechaCotizacion: string }) => (
     <div className="order-page-container bg-white text-black p-8 print-container">
         <div className="max-w-4xl mx-auto text-sm space-y-4 font-sans">
             <header className="flex justify-between items-center mb-10">
                  <div className="bg-primary text-primary-foreground py-2 px-4 rounded-md">
                     <h2 className="font-semibold text-base tracking-wide">Orden de Examen Ocupacionales</h2>
                 </div>
-                 <div className="text-2xl font-bold font-headline text-primary">
-                    Araval
+                 <div className="text-right">
+                     <p className="text-2xl font-bold font-headline text-primary">Araval</p>
+                     <p className='text-xs text-gray-600'>Fecha Emisión: {fechaCotizacion}</p>
                  </div>
             </header>
 
@@ -86,6 +89,10 @@ export class GeneradorPDF {
 
     const root = ReactDOM.createRoot(container);
 
+    const fechaCotizacionStr = quote.fechaCreacion 
+        ? format(new Date(quote.fechaCreacion.seconds * 1000), 'dd/MM/yyyy', { locale: es })
+        : quote.fecha;
+
     const contentToRender = (
         <React.Fragment>
             <div id="printable-quote-temp">
@@ -96,6 +103,7 @@ export class GeneradorPDF {
                     key={solicitud.id || index} 
                     solicitud={solicitud} 
                     empresa={quote.empresaData}
+                    fechaCotizacion={fechaCotizacionStr}
                 />
             ))}
         </React.Fragment>

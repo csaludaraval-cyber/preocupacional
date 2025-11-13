@@ -7,6 +7,8 @@ import type { Cotizacion, Examen } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface DetalleCotizacionProps {
   quote: Cotizacion;
@@ -46,13 +48,18 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
     const iva = 0; // Valor exento
     const totalFinal = subtotal;
 
+    // Use fechaCreacion for consistent rendering
+    const displayDate = quote.fechaCreacion 
+        ? format(new Date(quote.fechaCreacion.seconds * 1000), 'dd/MM/yyyy', { locale: es })
+        : quote.fecha;
+
   return (
     <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none px-12 py-8">
         <header className="flex justify-between items-start pb-6 bg-primary text-primary-foreground -m-12 mb-8 p-12 -mx-12">
             <div>
                 <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
                 <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                <p className="mt-1 text-sm">Fecha: {quote.fecha}</p>
+                <p className="mt-1 text-sm">Fecha: {displayDate}</p>
             </div>
             <div className="text-2xl font-bold font-headline">
                 Araval

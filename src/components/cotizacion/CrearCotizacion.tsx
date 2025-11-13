@@ -14,6 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import Paso1DatosGenerales from './Paso1DatosGenerales';
 import Paso2SeleccionExamenes from './Paso2SeleccionExamenes';
@@ -259,15 +261,20 @@ export function CrearCotizacion() {
             setStep(1);
             router.replace('/'); // Clean URL params
         } else {
+             const now = new Date();
              const quoteForDisplay: Cotizacion = {
                 id: docRef.id,
                 empresa,
                 solicitante: solicitante,
                 solicitudes: solicitudes,
                 total,
-                fecha: new Date().toLocaleDateString('es-CL'),
-                fechaCreacion: newQuoteFirestore.fechaCreacion as Timestamp,
-                status: newQuoteFirestore.status
+                fecha: format(now, 'dd/MM/yyyy', { locale: es }),
+                fechaCreacion: Timestamp.fromDate(now),
+                status: newQuoteFirestore.status,
+                // Pass denormalized data
+                empresaData: newQuoteFirestore.empresaData,
+                solicitanteData: newQuoteFirestore.solicitanteData,
+                solicitudesData: newQuoteFirestore.solicitudesData,
             };
             const query = encodeURIComponent(JSON.stringify(quoteForDisplay));
             router.push(`/cotizacion?data=${query}`);
@@ -404,5 +411,3 @@ export function CrearCotizacion() {
     </div>
   );
 }
-
-    
