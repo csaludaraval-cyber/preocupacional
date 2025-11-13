@@ -81,26 +81,27 @@ export function AdminClientes() {
 
   const filteredClientes = useMemo(() => {
     if (!clientes) return [];
-
+    
     // Deduplicate clients based on clean RUT, keeping the one with the 'frecuente' status if duplicates exist
     const uniqueClientes = new Map<string, WithId<Empresa>>();
     clientes.forEach(cliente => {
         const cleanedRut = cleanRut(cliente.rut);
         const existing = uniqueClientes.get(cleanedRut);
         
-        // Prioritize 'frecuente' or keep the current one if no existing or the existing is not 'frecuente'
         if (!existing || cliente.modalidadFacturacion === 'frecuente') {
             uniqueClientes.set(cleanedRut, cliente);
         }
     });
 
-    const deduplicated = Array.from(uniqueClientes.values());
-    
-    const sortedClientes = [...deduplicated].sort((a, b) => (a.razonSocial || '').localeCompare(b.razonSocial || ''));
+    // Convert map to array and then sort it to ensure consistent order
+    const deduplicatedAndSorted = Array.from(uniqueClientes.values())
+        .sort((a, b) => (a.razonSocial || '').localeCompare(b.razonSocial || ''));
 
-    if (!searchTerm) return sortedClientes;
+    if (!searchTerm) {
+        return deduplicatedAndSorted;
+    }
     
-    return sortedClientes.filter(cliente => 
+    return deduplicatedAndSorted.filter(cliente => 
       cliente.razonSocial.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cleanRut(cliente.rut).toLowerCase().includes(cleanRut(searchTerm.toLowerCase())) ||
       (cliente.email && cliente.email.toLowerCase().includes(searchTerm.toLowerCase()))
