@@ -39,9 +39,7 @@ export function CrearCotizacion() {
   const [step, setStep] = useState(1);
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
   const [solicitante, setSolicitante] = useState(initialSolicitante);
-  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([
-    { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }
-  ]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([]);
   const [currentSolicitudIndex, setCurrentSolicitudIndex] = useState(0);
 
   const [isClienteFrecuente, setIsClienteFrecuente] = useState(false);
@@ -54,6 +52,12 @@ export function CrearCotizacion() {
 
   const allExams = useMemo(() => solicitudes.flatMap(s => s.examenes), [solicitudes]);
   const currentSolicitud = solicitudes[currentSolicitudIndex];
+
+  useEffect(() => {
+    // Garantiza que la inicialización con IDs aleatorios solo ocurra en el cliente
+    setSolicitudes([{ id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }]);
+  }, []);
+
 
   useEffect(() => {
     if (empresa.rut) {
@@ -288,7 +292,7 @@ export function CrearCotizacion() {
     {
       id: 1,
       name: "Datos Generales",
-      component: <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={updateCurrentTrabajador} />,
+      component: currentSolicitud ? <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={updateCurrentTrabajador} /> : null,
     },
     {
       id: 2,
@@ -298,6 +302,11 @@ export function CrearCotizacion() {
   ];
 
   const currentStepData = steps.find(s => s.id === step);
+
+  if (solicitudes.length === 0 || !currentSolicitud) {
+    return null; // O un spinner de carga
+  }
+
 
   return (
     <div className="space-y-8">
@@ -395,3 +404,5 @@ export function CrearCotizacion() {
     </div>
   );
 }
+
+    
