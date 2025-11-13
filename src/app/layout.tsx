@@ -1,9 +1,7 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
-import { ClientOnly } from '@/components/ClientOnly';
 import { Loader2 } from 'lucide-react';
-import Providers from '@/components/Providers';
+import AppWrapper from './AppWrapper';
 
 export const metadata: Metadata = {
   title: 'Araval Cotizaciones',
@@ -30,11 +28,9 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <ClientOnly fallback={<FullscreenLoader />}>
-            <Providers>
-                {children}
-            </Providers>
-        </ClientOnly>
+        <AppWrapper>
+          {children}
+        </AppWrapper>
       </body>
     </html>
   );

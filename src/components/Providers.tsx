@@ -1,9 +1,7 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
 import { AuthProvider } from '@/lib/auth';
-import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 /**
@@ -15,7 +13,6 @@ export default function Providers({ children }: { children: ReactNode }) {
     <FirebaseClientProvider>
       <AuthProvider>
         {children}
-        <Toaster />
       </AuthProvider>
     </FirebaseClientProvider>
   );
