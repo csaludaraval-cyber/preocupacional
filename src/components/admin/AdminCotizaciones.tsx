@@ -196,21 +196,9 @@ export default function AdminCotizaciones() {
 
     setFacturingQuoteId(quote.id);
     try {
-        const quoteToBill: WithId<CotizacionFirestore> = {
-            id: quote.id,
-            empresaId: quote.empresaData.rut, 
-            solicitanteId: quote.solicitanteData.rut,
-            fechaCreacion: new Timestamp(quote.fechaCreacion.seconds, quote.fechaCreacion.nanoseconds),
-            total: quote.total,
-            empresaData: quote.empresaData,
-            solicitanteData: quote.solicitanteData,
-            solicitudesData: quote.solicitudesData,
-            status: 'cotizacion_aceptada', 
-        }
-        
         const { pdfUrl, folio } = await createLiorenInvoice(
             quote.empresaData,
-            [quoteToBill],
+            [quote], // Pass the quote object directly
             quote.total
         );
 

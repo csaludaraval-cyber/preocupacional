@@ -4,7 +4,7 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import type { CotizacionFirestore, Empresa } from '@/lib/types';
+import type { Cotizacion, Empresa } from '@/lib/types';
 import { LIOREN_API_BASE_URL, DTE_TIPO } from '@/config/lioren';
 
 // --- INICIALIZACIÓN DE FIREBASE ADMIN (SOLO PARA SERVIDOR) ---
@@ -51,7 +51,7 @@ interface LiorenErrorResponse {
  */
 export async function createLiorenInvoice(
     empresa: Empresa,
-    quotes: CotizacionFirestore[],
+    quotes: Cotizacion[], // Accept the client-side Cotizacion type
     totalAmount: number
 ): Promise<{ pdfUrl: string; folio: number }> {
     if (!API_TOKEN) {
