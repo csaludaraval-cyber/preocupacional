@@ -45,7 +45,7 @@ import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { createLiorenInvoice } from '@/server/lioren';
-import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
 import { DTE_TIPO } from '@/config/lioren';
@@ -200,11 +200,7 @@ export default function AdminCotizaciones() {
             id: quote.id,
             empresaId: quote.empresaData.rut, 
             solicitanteId: quote.solicitanteData.rut,
-            // @ts-ignore - Convert Timestamp to a plain object for Server Action
-            fechaCreacion: {
-                seconds: quote.fechaCreacion.seconds,
-                nanoseconds: quote.fechaCreacion.nanoseconds,
-            },
+            fechaCreacion: new Timestamp(quote.fechaCreacion.seconds, quote.fechaCreacion.nanoseconds),
             total: quote.total,
             empresaData: quote.empresaData,
             solicitanteData: quote.solicitanteData,
@@ -255,8 +251,8 @@ export default function AdminCotizaciones() {
   const sortedQuotes = useMemo(() => {
     if (!quotes) return [];
     return [...quotes].sort((a, b) => {
-        const dateA = a.fechaCreacion?.toMillis() || 0;
-        const dateB = b.fechaCreacion?.toMillis() || 0;
+        const dateA = a.fechaCreacion?.seconds || 0;
+        const dateB = b.fechaCreacion?.seconds || 0;
         return dateB - dateA;
     });
   }, [quotes]);
@@ -325,7 +321,7 @@ export default function AdminCotizaciones() {
                       </TableCell>
                       <TableCell>{quote.solicitanteData?.mail || 'N/A'}</TableCell>
                       <TableCell>
-                        {quote.fechaCreacion ? format(quote.fechaCreacion.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}
+                        {quote.fechaCreacion ? format(new Date(quote.fechaCreacion.seconds * 1000), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}
                       </TableCell>
                       <TableCell className="font-bold text-lg text-primary">
                         {new Intl.NumberFormat('es-CL', {

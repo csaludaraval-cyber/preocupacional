@@ -47,7 +47,7 @@ export type Cotizacion = {
   solicitudes: SolicitudTrabajador[]; 
   total: number;
   fecha: string; // Formatted date for display
-  fechaCreacion: { seconds: number, nanoseconds: number }; 
+  fechaCreacion: { seconds: number; nanoseconds: number; }; 
   status: StatusCotizacion;
   // Denormalized data matching Firestore
   empresaData: Empresa;
