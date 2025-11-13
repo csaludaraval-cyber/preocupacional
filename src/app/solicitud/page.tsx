@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Send, PlusCircle, Trash2, Users, FileText, Loader2, ShieldCheck, Building } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
@@ -28,8 +28,9 @@ const BATERIA_HEFAISTOS_MOCK: Examen = {
 
 const initialEmpresa: Empresa = { rut: '', razonSocial: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
 const initialSolicitante: Solicitante = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
-const initialSolicitud: SolicitudTrabajador = { 
-    id: crypto.randomUUID(), 
+
+// Define el tipo sin el ID para la inicialización
+const initialSolicitudTemplate: Omit<SolicitudTrabajador, 'id'> = { 
     trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' },
     examenes: [] 
 };
@@ -40,19 +41,26 @@ export default function SolicitudPage() {
   const [empresa, setEmpresa] = useState<Empresa>(initialEmpresa);
   const [solicitante, setSolicitante] = useState<Solicitante>(initialSolicitante);
   
-  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([initialSolicitud]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudTrabajador[]>([]);
   const [currentSolicitudIndex, setCurrentSolicitudIndex] = useState(0);
 
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { toast } = useToast();
-  const totalExams = useMemo(() => solicitudes.reduce((acc, s) => acc + s.examenes.length, 0), [solicitudes]);
-  const currentSolicitud = solicitudes[currentSolicitudIndex];
-  
+
   const [rutEmpresa, setRutEmpresa] = useState('');
   const [isClienteFrecuente, setIsClienteFrecuente] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  
+  // Garantiza que la inicialización con IDs aleatorios solo ocurra en el cliente
+  useEffect(() => {
+    setSolicitudes([{ ...initialSolicitudTemplate, id: crypto.randomUUID() }]);
+  }, []);
+
+  const totalExams = useMemo(() => solicitudes.reduce((acc, s) => acc + s.examenes.length, 0), [solicitudes]);
+  const currentSolicitud = solicitudes[currentSolicitudIndex];
+
 
   // Auto-fill company data when validation finds a frequent client
   const handleValidateRut = async () => {
@@ -203,13 +211,13 @@ export default function SolicitudPage() {
     {
       id: 1,
       name: "Datos Empresa y Trabajador",
-      component: <Paso1DatosGenerales 
+      component: currentSolicitud ? <Paso1DatosGenerales 
         empresa={empresa} 
         setEmpresa={setEmpresa} 
         solicitante={solicitante} 
         setSolicitante={setSolicitante} 
         trabajador={currentSolicitud.trabajador} 
-        setTrabajador={(trabajador) => updateCurrentSolicitud({ trabajador })} />,
+        setTrabajador={(trabajador) => updateCurrentSolicitud({ trabajador })} /> : null,
     },
     {
       id: 2,
@@ -219,6 +227,14 @@ export default function SolicitudPage() {
   ];
 
   const currentStepData = steps.find(s => s.id === step);
+
+  if (solicitudes.length === 0) {
+    return (
+        <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   if (formSubmitted) {
     return (
@@ -365,5 +381,7 @@ export default function SolicitudPage() {
     </div>
   );
 }
+
+    
 
     
