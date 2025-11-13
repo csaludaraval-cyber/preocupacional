@@ -10,6 +10,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import * as nodemailer from 'nodemailer';
 import { EnviarCotizacionInputSchema, type EnviarCotizacionInput } from '@/lib/types';
+import { SMTP_CONFIG } from '@/server/config';
 
 
 // El flow de Genkit (no se exporta directamente)
@@ -25,31 +26,28 @@ const enviarCotizacionFlow = ai.defineFlow(
   async (input) => {
     const { clienteEmail, cotizacionId, pdfBase64 } = input;
 
-    // VALIDACIÓN EXPLÍCITA de variables de entorno
-    const SMTP_HOST = process.env.SMTP_HOST;
-    const SMTP_PORT = process.env.SMTP_PORT;
-    const SMTP_USER = process.env.SMTP_USER;
-    const SMTP_PASS = process.env.SMTP_PASS;
+    // VALIDACIÓN EXPLÍCITA de variables de entorno desde el archivo de config
+    const { host, port, user, pass, from } = SMTP_CONFIG;
 
-    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
-      console.error('SMTP environment variables not set');
+    if (!host || !port || !user || !pass) {
+      console.error('SMTP environment variables not set in src/server/config.ts');
       // Lanzar un error que será capturado por el frontend
       throw new Error('Las variables de entorno del servidor de correo (SMTP) no están configuradas.');
     }
 
     const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: parseInt(SMTP_PORT, 10),
-      secure: parseInt(SMTP_PORT, 10) === 465, // true for 465, false for other ports
+      host: host,
+      port: port,
+      secure: port === 465, // true for 465, false for other ports
       auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
+        user: user,
+        pass: pass,
       },
     });
 
     try {
       const info = await transporter.sendMail({
-        from: `"Equipo Araval" <${process.env.SMTP_USER || 'preocupacional@aravalcsalud.cl'}>`,
+        from: from,
         to: clienteEmail,
         subject: `Cotización de Servicios Araval N° ${cotizacionId}`,
         html: `
