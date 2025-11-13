@@ -120,7 +120,14 @@ export function AdminFacturacionConsolidada() {
     const cleanRutEmpresa = cleanRut(group.empresa.rut);
     setProcessingCompanyId(cleanRutEmpresa);
     try {
-        const { pdfUrl, folio } = await createLiorenInvoice(group.empresa, group.quotes, group.totalAmount);
+        // Corrected: Pass only the necessary, plain data to the Server Action.
+        const plainQuotes = group.quotes.map(q => ({ id: q.id }));
+
+        const { pdfUrl, folio } = await createLiorenInvoice(
+            group.empresa,
+            plainQuotes,
+            group.totalAmount
+        );
         
         toast({
             title: '¡Factura Emitida!',
