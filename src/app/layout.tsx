@@ -1,11 +1,9 @@
 
 import type { Metadata } from 'next';
 import './globals.css';
-import { AuthProvider } from '@/lib/auth';
-import { Toaster } from '@/components/ui/toaster';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ClientOnly } from '@/components/ClientOnly';
 import { Loader2 } from 'lucide-react';
+import Providers from '@/components/Providers';
 
 export const metadata: Metadata = {
   title: 'Araval Cotizaciones',
@@ -33,12 +31,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <ClientOnly fallback={<FullscreenLoader />}>
-            <FirebaseClientProvider>
-                <AuthProvider>
-                    {children}
-                    <Toaster />
-                </AuthProvider>
-            </FirebaseClientProvider>
+            <Providers>
+                {children}
+            </Providers>
         </ClientOnly>
       </body>
     </html>
