@@ -4,11 +4,19 @@ import './globals.css';
 import { AuthProvider } from '@/lib/auth';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { ClientOnly } from '@/components/ClientOnly';
+import { Loader2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Araval Cotizaciones',
   description: 'Sistema de Gestión de Cotizaciones',
 };
+
+const FullscreenLoader = () => (
+    <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+    </div>
+);
 
 export default function RootLayout({
   children,
@@ -24,12 +32,14 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <FirebaseClientProvider>
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </FirebaseClientProvider>
+        <ClientOnly fallback={<FullscreenLoader />}>
+            <FirebaseClientProvider>
+                <AuthProvider>
+                    {children}
+                    <Toaster />
+                </AuthProvider>
+            </FirebaseClientProvider>
+        </ClientOnly>
       </body>
     </html>
   );
