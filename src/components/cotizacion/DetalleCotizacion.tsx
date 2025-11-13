@@ -9,6 +9,8 @@ import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Timestamp } from 'firebase/firestore';
+
 
 interface DetalleCotizacionProps {
   quote: Cotizacion;
@@ -18,11 +20,25 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
 };
 
+const getDisplayDate = (fecha: string | undefined, fechaCreacion: any): string => {
+    if (fechaCreacion) {
+        if (fechaCreacion.toDate instanceof Function) { // Firebase Timestamp on server
+            return format(fechaCreacion.toDate(), 'dd/MM/yyyy', { locale: es });
+        }
+        if (typeof fechaCreacion.seconds === 'number') { // Serialized Timestamp on client
+            return format(new Date(fechaCreacion.seconds * 1000), 'dd/MM/yyyy', { locale: es });
+        }
+    }
+    return fecha || 'N/A'; // Fallback to the pre-formatted string if available
+};
+
+
 export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
 
     const allExams = React.useMemo(() => {
-        if (!quote?.solicitudes) return [];
-        return quote.solicitudes.flatMap(s => s.examenes);
+        const source = quote.solicitudesData || quote.solicitudes;
+        if (!source) return [];
+        return source.flatMap(s => s.examenes);
     }, [quote]);
 
     const examsByMainCategory = React.useMemo(() => {
@@ -48,10 +64,11 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
     const iva = 0; // Valor exento
     const totalFinal = subtotal;
 
-    // Use fechaCreacion for consistent rendering
-    const displayDate = quote.fechaCreacion 
-        ? format(new Date(quote.fechaCreacion.seconds * 1000), 'dd/MM/yyyy', { locale: es })
-        : quote.fecha;
+    const displayDate = getDisplayDate(quote.fecha, quote.fechaCreacion);
+    const empresa = quote.empresaData || quote.empresa;
+    const solicitante = quote.solicitanteData || quote.solicitante;
+    const solicitudes = quote.solicitudesData || quote.solicitudes;
+
 
   return (
     <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none px-12 py-8">
@@ -70,28 +87,28 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
         <section className="grid grid-cols-2 gap-8 mb-8">
             <div className="space-y-2">
             <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><Building className="h-5 w-5 text-gray-500" />Datos Empresa</h3>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {quote.empresa.razonSocial}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.empresa.rut}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {quote.empresa.direccion}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.empresa.email}</p>
+            <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {empresa.razonSocial}</p>
+            <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {empresa.rut}</p>
+            <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {empresa.direccion}</p>
+            <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {empresa.email}</p>
             </div>
             <div className="space-y-2">
             <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500" />Datos Solicitante</h3>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {quote.solicitante.nombre}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {quote.solicitante.rut}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {quote.solicitante.mail}</p>
+            <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {solicitante.nombre}</p>
+            <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {solicitante.rut}</p>
+            <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {solicitante.mail}</p>
             </div>
         </section>
 
-        {quote.solicitudes && quote.solicitudes.length > 0 && (
+        {solicitudes && solicitudes.length > 0 && (
             <section className="mb-8">
             <Card className="shadow-sm border-gray-200">
                 <CardHeader className="p-3 bg-primary text-primary-foreground rounded-t-lg">
-                <CardTitle className="font-headline text-base flex items-center gap-2"><Users className="h-5 w-5" />Trabajadores Incluidos ({quote.solicitudes.length})</CardTitle>
+                <CardTitle className="font-headline text-base flex items-center gap-2"><Users className="h-5 w-5" />Trabajadores Incluidos ({solicitudes.length})</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 text-sm">
                     <ul className="space-y-1 list-disc list-inside text-muted-foreground columns-2 md:columns-3">
-                    {quote.solicitudes.map((s, i) => (
+                    {solicitudes.map((s, i) => (
                         <li key={s.id || i}><span className="text-foreground font-medium">{s.trabajador.nombre}</span></li>
                     ))}
                 </ul>

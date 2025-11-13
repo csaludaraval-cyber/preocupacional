@@ -17,6 +17,13 @@ interface UseCotizacionesResult {
   refetchQuotes: () => void;
 }
 
+const toPlainObject = (timestamp: Timestamp) => {
+    return {
+        seconds: timestamp.seconds,
+        nanoseconds: timestamp.nanoseconds,
+    };
+};
+
 export function useCotizaciones(): UseCotizacionesResult {
   const cotizacionesQuery = useMemoFirebase(() => 
     query(
@@ -34,6 +41,10 @@ export function useCotizaciones(): UseCotizacionesResult {
     const filtered = rawQuotes.filter(q => q.status !== 'facturado_consolidado');
 
     const processed = filtered.map(q => {
+        const fechaCreacionSerializable = q.fechaCreacion instanceof Timestamp 
+            ? toPlainObject(q.fechaCreacion) 
+            : q.fechaCreacion;
+
         const fecha = q.fechaCreacion instanceof Timestamp 
             ? q.fechaCreacion.toDate().toLocaleDateString('es-CL')
             : new Date().toLocaleDateString('es-CL');
@@ -43,17 +54,15 @@ export function useCotizaciones(): UseCotizacionesResult {
         const solicitanteData: Solicitante = q.solicitanteData || { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
         const solicitudesData: SolicitudTrabajador[] = q.solicitudesData || [];
         
-        // CORRECCIÓN: Se elimina la lógica defectuosa y se asegura que modalidadFacturacion se pase directamente.
-        // Si q.empresaData existe, sus propiedades (incluida modalidadFacturacion) ya están en empresaData.
 
         return {
             id: q.id,
-            empresa: empresaData, // Obsoleto pero se mantiene por retrocompatibilidad
-            solicitante: solicitanteData, // Obsoleto pero se mantiene
-            solicitudes: solicitudesData, // Obsoleto pero se mantiene
+            empresa: empresaData, 
+            solicitante: solicitanteData, 
+            solicitudes: solicitudesData, 
             total: q.total,
             fecha,
-            fechaCreacion: q.fechaCreacion,
+            fechaCreacion: fechaCreacionSerializable,
             status: q.status || 'PENDIENTE',
             // Datos denormalizados que realmente se usan
             empresaData: empresaData,

@@ -43,13 +43,6 @@ export function VistaCotizacion() {
     if (data) {
       try {
         const parsedData = JSON.parse(decodeURIComponent(data));
-        
-        // Ensure fecha is correctly formatted on the client from the start
-        if (parsedData.fechaCreacion) {
-            const date = new Date(parsedData.fechaCreacion.seconds * 1000);
-            parsedData.fecha = format(date, 'dd/MM/yyyy', { locale: es });
-        }
-        
         setQuote(parsedData);
       } catch (error) {
         console.error("Error parsing quote data:", error);
@@ -92,7 +85,7 @@ export function VistaCotizacion() {
   const handleSendEmail = async () => {
       if (!quote) return;
 
-      const recipientEmail = quote.solicitante?.mail;
+      const recipientEmail = quote.solicitanteData?.mail ?? quote.solicitante?.mail;
       if (!recipientEmail) {
         toast({
           title: 'Error de Destinatario',
@@ -143,7 +136,7 @@ export function VistaCotizacion() {
   return (
     <>
       <div id="button-container" className="flex justify-end gap-2 mb-4 print:hidden">
-        <Button onClick={handleSendEmail} disabled={sendingEmail || loadingPdf || !quote.solicitante?.mail}>
+        <Button onClick={handleSendEmail} disabled={sendingEmail || loadingPdf || (!quote.solicitante?.mail && !quote.solicitanteData?.mail)}>
           {sendingEmail ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</>
           ) : (
