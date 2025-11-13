@@ -72,21 +72,12 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
   }, [empresa.rut, setEmpresa, setSolicitante, solicitante, toast]);
   
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-        // Al seleccionar, formatear a YYYY-MM-DD sin considerar la zona horaria local.
-        // date-fns formatISO hace esto por defecto con la opción 'date'.
-        const dateString = formatISO(date, { representation: 'date' });
-        setTrabajador({ ...trabajador, fechaAtencion: dateString });
-    } else {
-        setTrabajador({ ...trabajador, fechaAtencion: '' });
-    }
+    setTrabajador({ ...trabajador, fechaAtencion: date || '' });
   };
 
   const selectedDate = useMemo(() => {
     if (!trabajador.fechaAtencion) return undefined;
-    // Al parsear, parseISO trata la cadena 'YYYY-MM-DD' como fecha local a medianoche.
-    // Esto evita el salto de día por la conversión de zona horaria que ocurre con new Date('YYYY-MM-DD').
-    return parseISO(trabajador.fechaAtencion);
+    return new Date(trabajador.fechaAtencion);
   }, [trabajador.fechaAtencion]);
 
 

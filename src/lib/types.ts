@@ -30,7 +30,7 @@ export type Trabajador = {
   rut: string;
   cargo: string;
   fechaNacimiento: string;
-  fechaAtencion: string;
+  fechaAtencion: string | Date;
 };
 
 export type SolicitudTrabajador = {
@@ -47,7 +47,7 @@ export type Cotizacion = {
   solicitudes: SolicitudTrabajador[]; 
   total: number;
   fecha: string; // Formatted date for display
-  fechaCreacion: Timestamp; 
+  fechaCreacion: { seconds: number, nanoseconds: number }; 
   status: StatusCotizacion;
   // Denormalized data matching Firestore
   empresaData: Empresa;
