@@ -2,6 +2,7 @@
 'use server';
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import type { CotizacionFirestore, Empresa } from '@/lib/types';
 import { LIOREN_API_BASE_URL, DTE_TIPO } from '@/config/lioren';
@@ -67,6 +68,7 @@ export async function createLiorenInvoice(
     // --- PASO 1: Crear el Payload para la API de Lioren ---
     const payload = {
         fechaEmision: today,
+        fechaVencimiento: today,
         tipo: DTE_TIPO.FACTURA_EXENTA,
         receptor: {
             rut: empresa.rut,
@@ -94,7 +96,7 @@ export async function createLiorenInvoice(
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'X-API-TOKEN': API_TOKEN,
+            'Authorization': `Bearer ${API_TOKEN}`,
         },
         body: JSON.stringify(payload),
     });
@@ -117,18 +119,15 @@ export async function createLiorenInvoice(
     quotes.forEach(quote => {
         const quoteRef = firestore.collection('cotizaciones').doc(quote.id);
         batch.update(quoteRef, {
-            status: 'facturado_simplefactura', // Mantenemos el estado para no romper filtros
-            simpleFacturaInvoiceId: folio.toString(), // Reutilizamos el campo para el folio
+            status: 'facturado_simplefactura', 
+            simpleFacturaInvoiceId: folio.toString(), 
         });
     });
 
     try {
         await batch.commit();
     } catch (dbError: any) {
-        // En un escenario real, aquí se debería manejar la compensación
-        // (por ejemplo, intentar anular la factura emitida si la actualización de DB falla).
         console.error('CRÍTICO: La factura se emitió pero falló la actualización en Firestore.', dbError);
-        // NOTA: Lioren no parece tener una API de anulación directa, esto requeriría una Nota de Crédito.
         throw new Error(`Factura emitida (Folio ${folio}) pero no se pudo actualizar la base de datos. Contacte a soporte.`);
     }
 
