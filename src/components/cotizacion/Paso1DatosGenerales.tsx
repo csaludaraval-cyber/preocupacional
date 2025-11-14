@@ -6,7 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { Building, User, Loader2, Contact } from 'lucide-react';
 
 import { firestore } from '@/lib/firebase';
-import type { Empresa, Trabajador } from '@/lib/types';
+import type { Empresa, Trabajador, Solicitante } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -71,16 +71,17 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
     }
   }, [empresa.rut, setEmpresa, setSolicitante, solicitante, toast]);
   
-  const handleDateSelect = (date: Date | undefined) => {
-    setTrabajador({ ...trabajador, fechaAtencion: date || '' });
-  };
+    const handleDateSelect = (date: Date | undefined) => {
+      // Store date as ISO string to maintain a consistent serializable type in the state
+      setTrabajador({ ...trabajador, fechaAtencion: date ? date.toISOString() : '' });
+    };
 
   const selectedDate = useMemo(() => {
     // Defensively handle invalid or empty date values
     if (!trabajador.fechaAtencion || typeof trabajador.fechaAtencion !== 'string') {
         return undefined;
     }
-    const date = new Date(trabajador.fechaAtencion);
+    const date = parseISO(trabajador.fechaAtencion);
     // Check if the created date is valid
     return isNaN(date.getTime()) ? undefined : date;
   }, [trabajador.fechaAtencion]);
