@@ -186,7 +186,14 @@ export default function SolicitudPage() {
     const submissionData = {
       empresa: { ...empresa, rut: cleanRut(empresa.rut) },
       solicitante: solicitante,
-      solicitudes: solicitudes,
+      solicitudes: solicitudes.map(s => ({
+          ...s,
+          trabajador: {
+              ...s.trabajador,
+              // Sanitize date fields before submission
+              fechaAtencion: s.trabajador.fechaAtencion || null,
+          }
+      })),
       fechaCreacion: serverTimestamp(),
       estado: isClienteFrecuente ? 'orden_examen_enviada' : 'pendiente',
     };
@@ -381,7 +388,3 @@ export default function SolicitudPage() {
     </div>
   );
 }
-
-    
-
-    

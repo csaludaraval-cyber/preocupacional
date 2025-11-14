@@ -76,8 +76,13 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
   };
 
   const selectedDate = useMemo(() => {
-    if (!trabajador.fechaAtencion) return undefined;
-    return new Date(trabajador.fechaAtencion);
+    // Defensively handle invalid or empty date values
+    if (!trabajador.fechaAtencion || typeof trabajador.fechaAtencion !== 'string') {
+        return undefined;
+    }
+    const date = new Date(trabajador.fechaAtencion);
+    // Check if the created date is valid
+    return isNaN(date.getTime()) ? undefined : date;
   }, [trabajador.fechaAtencion]);
 
 
