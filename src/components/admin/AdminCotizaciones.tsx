@@ -109,17 +109,20 @@ export default function AdminCotizaciones() {
 
     setIsSending(true);
     try {
-      // Generate PDF with annexes for email
+      // 1. Generate PDF blob on the client
       const pdfBlob = await GeneradorPDF.generar(quote, true);
+      
+      // 2. Convert blob to Base64
       const pdfBase64 = await blobToBase64(pdfBlob);
 
-      // Pass only primitive, serializable data to the server action
+      // 3. Call server action with only primitive, serializable data
       await enviarCotizacion({
         clienteEmail: recipientEmail,
         cotizacionId: quote.id?.slice(-6) || 'S/N',
         pdfBase64: pdfBase64,
       });
 
+      // 4. Update status if necessary
       if (quote.status !== 'ENVIADA') {
         await handleUpdateStatus(quote.id, 'ENVIADA');
       }
@@ -134,7 +137,7 @@ export default function AdminCotizaciones() {
       console.error('Error al enviar cotización:', error);
       toast({
         title: 'Error Crítico de Envío',
-        description: error.message || 'No se pudo completar el envío.',
+        description: error.message || 'No se pudo completar el envío. Revise la consola.',
         variant: 'destructive',
       });
     } finally {
@@ -457,6 +460,3 @@ export default function AdminCotizaciones() {
       </>
   );
 }
-
-    
-    

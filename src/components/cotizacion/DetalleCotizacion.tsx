@@ -22,14 +22,15 @@ const formatCurrency = (value: number) => {
 
 const getDisplayDate = (fecha: string | undefined, fechaCreacion: any): string => {
     if (fechaCreacion) {
-        if (fechaCreacion.toDate instanceof Function) { // Firebase Timestamp on server
+        // Maneja tanto Timestamps de Firestore como objetos serializados
+        if (fechaCreacion.toDate instanceof Function) { // Firebase Timestamp en el servidor/cliente
             return format(fechaCreacion.toDate(), 'dd/MM/yyyy', { locale: es });
         }
-        if (typeof fechaCreacion.seconds === 'number') { // Serialized Timestamp on client
+        if (typeof fechaCreacion.seconds === 'number') { // Objeto serializado en el cliente
             return format(new Date(fechaCreacion.seconds * 1000), 'dd/MM/yyyy', { locale: es });
         }
     }
-    return fecha || 'N/A'; // Fallback to the pre-formatted string if available
+    return fecha || 'N/A'; // Fallback a la cadena pre-formateada si está disponible
 };
 
 
