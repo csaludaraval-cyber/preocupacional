@@ -390,7 +390,7 @@ export default function AdminCotizaciones() {
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                       >
                         {isSending ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando a {quoteToManage.solicitanteData.mail}...</>
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando a {quoteToManage.solicitanteData?.mail}...</>
                         ) : (
                           <><Send className="mr-2 h-4 w-4" /> Confirmar Envío / Reenviar</>
                         )}
@@ -458,4 +458,5 @@ export default function AdminCotizaciones() {
   );
 }
 
+    
     
