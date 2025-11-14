@@ -109,10 +109,11 @@ export default function AdminCotizaciones() {
 
     setIsSending(true);
     try {
-      // Corrected: Always generate PDF with annexes for email
+      // Generate PDF with annexes for email
       const pdfBlob = await GeneradorPDF.generar(quote, true);
       const pdfBase64 = await blobToBase64(pdfBlob);
 
+      // Pass only primitive, serializable data to the server action
       await enviarCotizacion({
         clienteEmail: recipientEmail,
         cotizacionId: quote.id?.slice(-6) || 'S/N',
@@ -456,3 +457,5 @@ export default function AdminCotizaciones() {
       </>
   );
 }
+
+    
