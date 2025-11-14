@@ -26,12 +26,13 @@ const getDisplayDate = (fecha: string | undefined, fechaCreacion: any): string =
         if (fechaCreacion instanceof Timestamp) {
             return format(fechaCreacion.toDate(), 'dd/MM/yyyy', { locale: es });
         }
-        if (fechaCreacion.toDate instanceof Function) {
-            return format(fechaCreacion.toDate(), 'dd/MM/yyyy', { locale: es });
-        }
         // Handle serialized object { seconds, nanoseconds } (client-side after JSON stringify/parse)
         if (typeof fechaCreacion.seconds === 'number') {
             return format(new Date(fechaCreacion.seconds * 1000), 'dd/MM/yyyy', { locale: es });
+        }
+        // Handle a date that might have been passed through another serialization
+        if (fechaCreacion.toDate instanceof Function) {
+            return format(fechaCreacion.toDate(), 'dd/MM/yyyy', { locale: es });
         }
     }
     // Fallback for older data structure or if fechaCreacion is just a string
@@ -188,3 +189,5 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
     </div>
   );
 }
+
+    
