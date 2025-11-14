@@ -281,17 +281,14 @@ export function CrearCotizacion() {
         }
       })
       .catch(error => {
-        const permissionError = new FirestorePermissionError({
+        errorEmitter.emit(
+          'permission-error',
+          new FirestorePermissionError({
             path: cotizacionesRef.path,
             operation: 'create',
             requestResourceData: newQuoteFirestore,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        toast({
-            variant: 'destructive',
-            title: 'Error de Permiso',
-            description: 'No se pudo guardar la cotización. Revisa los permisos.'
-        });
+          })
+        );
       });
   };
 
@@ -411,3 +408,5 @@ export function CrearCotizacion() {
     </div>
   );
 }
+
+    
