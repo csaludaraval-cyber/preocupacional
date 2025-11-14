@@ -23,6 +23,9 @@ const formatCurrency = (value: number) => {
 const getDisplayDate = (fecha: string | undefined, fechaCreacion: any): string => {
     if (fechaCreacion) {
         // Handle Firestore Timestamp (server-side or direct from hook)
+        if (fechaCreacion instanceof Timestamp) {
+            return format(fechaCreacion.toDate(), 'dd/MM/yyyy', { locale: es });
+        }
         if (fechaCreacion.toDate instanceof Function) {
             return format(fechaCreacion.toDate(), 'dd/MM/yyyy', { locale: es });
         }
@@ -185,5 +188,3 @@ export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
     </div>
   );
 }
-
-    
