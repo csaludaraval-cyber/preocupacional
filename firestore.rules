@@ -84,14 +84,16 @@ service cloud.firestore {
     /**
      * @description Allows a user to create their own admin role document. Grants full access to admins.
      * @path /roles_admin/{userId}
-     * @allow get, list: if isSignedIn() && isAdmin();
+     * @allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
+     * @allow list: if isSignedIn() && isAdmin();
      * @allow create: if isSignedIn() && isOwner(userId);
      * @allow update: if isSignedIn() && isAdmin();
      * @allow delete: if isSignedIn() && isAdmin();
-     * @principle Enforces admin role management.
+     * @principle Enforces admin role management and allows self-check for isAdmin().
      */
     match /roles_admin/{userId} {
-      allow get, list: if isSignedIn() && isAdmin();
+      allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
+      allow list: if isSignedIn() && isAdmin();
       allow create: if isSignedIn() && isOwner(userId);
       allow update: if isSignedIn() && isAdmin();
       allow delete: if isSignedIn() && isAdmin();
