@@ -13,15 +13,17 @@ import { EnviarCotizacionInputSchema, type EnviarCotizacionInput } from '@/lib/t
 import { SMTP_CONFIG } from '@/server/config';
 
 
+const EnviarCotizacionOutputSchema = z.object({
+  status: z.enum(['success', 'error']),
+  message: z.string(),
+});
+
 // El flow de Genkit (no se exporta directamente)
 const enviarCotizacionFlow = ai.defineFlow(
   {
     name: 'enviarCotizacionFlow',
     inputSchema: EnviarCotizacionInputSchema,
-    outputSchema: z.object({
-      status: z.string(),
-      message: z.string(),
-    }),
+    outputSchema: EnviarCotizacionOutputSchema,
   },
   async (input) => {
     const { clienteEmail, cotizacionId, pdfBase64 } = input;
@@ -31,8 +33,11 @@ const enviarCotizacionFlow = ai.defineFlow(
 
     if (!host || !port || !user || !pass) {
       console.error('SMTP environment variables not set in src/server/config.ts');
-      // Lanzar un error que será capturado por el frontend
-      throw new Error('Las variables de entorno del servidor de correo (SMTP) no están configuradas.');
+      // En lugar de lanzar un error, devolvemos un objeto de error estructurado.
+      return {
+        status: 'error',
+        message: 'Las variables de entorno del servidor de correo (SMTP) no están configuradas.',
+      };
     }
 
     const transporter = nodemailer.createTransport({
@@ -113,15 +118,23 @@ const enviarCotizacionFlow = ai.defineFlow(
       };
     } catch (error: any) {
       console.error('Error detallado de Nodemailer:', error);
-      // Re-lanzar el error para que Genkit/Next.js lo propaguen al cliente
-      throw new Error(`Error al contactar el servidor de correo: ${error.message}`);
+      // Devolvemos un objeto de error estructurado al cliente.
+      return {
+          status: 'error',
+          message: `Error al contactar el servidor de correo: ${error.message}`
+      };
     }
   }
 );
 
-// ÚNICA EXPORTACIÓN: Función contenedora asíncrona
-export async function enviarCotizacion(input: EnviarCotizacionInput): Promise<{ status: string; message: string; }> {
-    return await enviarCotizacionFlow(input);
-}
-
+// ÚNICA EXPORTACIÓN: Función contenedora asíncrona que ahora devuelve el tipo de salida del flow.
+export async function enviarCotizacion(input: EnviarCotizacionInput): Promise<z.infer<typeof EnviarCotizacionOutputSchema>> {
+    const result = await enviarCotizacionFlow(input);
     
+    // Si el flow devuelve un error estructurado, lo relanzamos para que el cliente lo capture en el catch.
+    if (result.status === 'error') {
+        throw new Error(result.message);
+    }
+    
+    return result;
+}
