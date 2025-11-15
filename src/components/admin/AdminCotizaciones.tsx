@@ -109,20 +109,23 @@ export default function AdminCotizaciones() {
 
     setIsSending(true);
     try {
-      // 1. Generate PDF blob on the client
-      const pdfBlob = await GeneradorPDF.generar(quote, true);
+      // 1. Create a clean quote object for PDF generation, removing the problematic field
+      const { fechaCreacion, ...quoteForPdf } = quote;
+
+      // 2. Generate PDF blob on the client with the clean object
+      const pdfBlob = await GeneradorPDF.generar(quoteForPdf as Cotizacion, true);
       
-      // 2. Convert blob to Base64
+      // 3. Convert blob to Base64
       const pdfBase64 = await blobToBase64(pdfBlob);
 
-      // 3. Call server action with only primitive, serializable data
+      // 4. Call server action with only primitive, serializable data
       await enviarCotizacion({
         clienteEmail: recipientEmail,
         cotizacionId: quote.id?.slice(-6) || 'S/N',
         pdfBase64: pdfBase64,
       });
 
-      // 4. Update status if necessary
+      // 5. Update status if necessary
       if (quote.status !== 'ENVIADA') {
         await handleUpdateStatus(quote.id, 'ENVIADA');
       }
