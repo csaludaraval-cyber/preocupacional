@@ -6,7 +6,7 @@ import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
-import type { CotizacionFirestore, Empresa } from '@/lib/types';
+import type { Cotizacion, CotizacionFirestore, Empresa } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -120,8 +120,19 @@ export function AdminFacturacionConsolidada() {
     const cleanRutEmpresa = cleanRut(group.empresa.rut);
     setProcessingCompanyId(cleanRutEmpresa);
     try {
-        // Corrected: Pass only the necessary, plain data to the Server Action.
-        const plainQuotes = group.quotes.map(q => ({ id: q.id }));
+        // Convert Firestore objects to plain Cotizacion objects
+        const plainQuotes: Cotizacion[] = group.quotes.map(q => ({
+            id: q.id,
+            ...q,
+            empresa: q.empresaData,
+            solicitante: q.solicitanteData,
+            solicitudes: q.solicitudesData,
+            fecha: q.fechaCreacion.toDate().toISOString(),
+            fechaCreacion: {
+              seconds: q.fechaCreacion.seconds,
+              nanoseconds: q.fechaCreacion.nanoseconds
+            },
+        }));
 
         const { pdfUrl, folio } = await createLiorenInvoice(
             group.empresa,

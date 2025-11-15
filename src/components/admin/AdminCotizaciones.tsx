@@ -202,7 +202,7 @@ export default function AdminCotizaciones() {
     try {
         const { pdfUrl, folio } = await createLiorenInvoice(
             quote.empresaData,
-            [{ id: quote.id }], // Pass only the ID
+            [quote], // Pass the full quote object
             quote.total
         );
 
@@ -460,5 +460,3 @@ export default function AdminCotizaciones() {
       </>
   );
 }
-
-    

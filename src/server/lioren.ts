@@ -51,7 +51,7 @@ interface LiorenErrorResponse {
  */
 export async function createLiorenInvoice(
     empresa: Empresa,
-    quotes: Pick<Cotizacion, 'id'>[],
+    quotes: Cotizacion[], // <--- CORRECCIÓN: Se acepta el objeto Cotizacion completo.
     totalAmount: number
 ): Promise<{ pdfUrl: string; folio: number }> {
     if (!API_TOKEN) {
@@ -137,5 +137,3 @@ export async function createLiorenInvoice(
         folio: folio,
     };
 }
-
-    
