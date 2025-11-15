@@ -28,18 +28,19 @@ const enviarCotizacionFlow = ai.defineFlow(
   async (input) => {
     const { clienteEmail, cotizacionId, pdfBase64 } = input;
 
-    // VALIDACIÓN EXPLÍCITA de variables de entorno desde el archivo de config
+    // FASE 1: VALIDACIÓN ESTRICTA de variables de entorno.
     const { host, port, user, pass, from } = SMTP_CONFIG;
 
     if (!host || !port || !user || !pass) {
-      console.error('SMTP environment variables not set in src/server/config.ts');
-      // En lugar de lanzar un error, devolvemos un objeto de error estructurado.
+      const errorMessage = 'Error Crítico de Configuración: Faltan una o más variables de entorno del servidor de correo (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS).';
+      console.error(errorMessage);
       return {
         status: 'error',
-        message: 'Las variables de entorno del servidor de correo (SMTP) no están configuradas.',
+        message: errorMessage,
       };
     }
 
+    // FASE 2: TRANSPORTER CON TIMEOUT
     const transporter = nodemailer.createTransport({
       host: host,
       port: port,
@@ -48,6 +49,8 @@ const enviarCotizacionFlow = ai.defineFlow(
         user: user,
         pass: pass,
       },
+      // AÑADIMOS TIMEOUT para evitar que la Server Action se cuelgue.
+      connectionTimeout: 10000, // 10 segundos
     });
 
     try {

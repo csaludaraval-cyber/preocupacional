@@ -1,24 +1,28 @@
 /**
  * @fileoverview Archivo de configuración centralizado para el lado del servidor.
  * ATENCIÓN: NO exponga este archivo al lado del cliente.
- * 
+ *
  * INSTRUCCIONES:
- * Reemplace los valores de ejemplo a continuación con sus credenciales reales del servidor de correo.
+ * Ahora dependemos estrictamente de las variables de entorno.
+ * Si alguna credencial sensible no está presente, el flow fallará inmediatamente
+ * con un mensaje de error claro en el archivo 'enviar-cotizacion-flow.ts'.
  */
+// Función auxiliar para parsear el puerto de forma segura.
+const getSmtpPort = (envPort: string | undefined): number => {
+  const port = parseInt(envPort || '587', 10);
+  // 587 es un buen puerto por defecto para TLS.
+  return isNaN(port) ? 587 : port;
+}
 
 export const SMTP_CONFIG = {
-  // El host de su proveedor de correo (ej: 'smtp.gmail.com', 'live.smtp.com')
-  host: process.env.SMTP_HOST || 'mail.aravalcsalud.cl',
-
-  // El puerto de conexión. 587 es el más común (para TLS), 465 es para SSL.
-  port: parseInt(process.env.SMTP_PORT || '465', 10),
-
-  // Su nombre de usuario o dirección de correo completa.
-  user: process.env.SMTP_USER || 'preocupacional@aravalcsalud.cl',
-
-  // Su contraseña de correo o una contraseña de aplicación si usa 2FA (muy recomendado).
-  pass: process.env.SMTP_PASS || 'Araval123456a',
-
-  // El nombre y correo que aparecerán como remitente en los emails.
+  // Eliminamos el fallback hardcodeado. Debe provenir de process.env.
+  host: process.env.SMTP_HOST,
+  // Utilizamos el puerto de ENV.
+  port: getSmtpPort(process.env.SMTP_PORT),
+  // Eliminamos el fallback hardcodeado. Debe provenir de process.env.
+  user: process.env.SMTP_USER,
+  // Eliminamos el secret hardcodeado. Debe provenir de process.env.
+  pass: process.env.SMTP_PASS,
+  // El 'from' puede tener un fallback por defecto que no es sensible.
   from: process.env.SMTP_FROM || '"Equipo Araval" <preocupacional@aravalcsalud.cl>',
 };
