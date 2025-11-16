@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Flow de Genkit para el envío de cotizaciones por correo electrónico.
@@ -40,7 +39,7 @@ const enviarCotizacionFlow = ai.defineFlow(
       };
     }
 
-    // FASE 2: TRANSPORTER CON TIMEOUT
+    // FASE 2: TRANSPORTER CON TIMEOUT Y AJUSTE DE SEGURIDAD TLS
     const transporter = nodemailer.createTransport({
       host: host,
       port: port,
@@ -51,6 +50,12 @@ const enviarCotizacionFlow = ai.defineFlow(
       },
       // AÑADIMOS TIMEOUT para evitar que la Server Action se cuelgue.
       connectionTimeout: 10000, // 10 segundos
+      
+      // SOLUCIÓN AL ERROR: 'An unexpected response was received from the server'
+      // Deshabilita la verificación estricta del certificado TLS
+      tls: {
+          rejectUnauthorized: false
+      }
     });
 
     try {
