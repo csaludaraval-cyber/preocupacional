@@ -39,11 +39,13 @@ const enviarCotizacionFlow = ai.defineFlow(
       };
     }
 
-    // FASE 2: TRANSPORTER CON TIMEOUT Y AJUSTE DE SEGURIDAD TLS
+    // FASE 2: TRANSPORTER CON TIMEOUT Y MODO DEBUG
     const transporter = nodemailer.createTransport({
       host: host,
       port: port,
-      secure: port === 465, // true for 465, false for other ports
+      // Forzamos el uso de STARTTLS en lugar de SSL/TLS implícito.
+      secure: false, 
+      requireTLS: true,
       auth: {
         user: user,
         pass: pass,
@@ -55,7 +57,10 @@ const enviarCotizacionFlow = ai.defineFlow(
       // Deshabilita la verificación estricta del certificado TLS
       tls: {
           rejectUnauthorized: false
-      }
+      },
+      // ACTIVACIÓN DEL MODO DEPURACIÓN
+      logger: true,
+      debug: true,
     });
 
     try {
