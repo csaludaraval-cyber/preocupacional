@@ -120,17 +120,17 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
  * @returns Un objeto con el resultado de la operación.
  */
 export async function emitirDTEInmediato(cotizacionId: string): Promise<{ success: boolean; folio?: number; error?: string }> {
-    console.log(`[SERVER ACTION] ==> Iniciando 'emitirDTEInmediato' para cotizacionId: ${cotizacionId}`);
-    
-    if (!cotizacionId) {
-        return { success: false, error: 'ID de cotización no proporcionado.' };
-    }
-    
-    if (!LIOREN_CONFIG.emisorRut) {
-        return { success: false, error: 'El RUT del emisor no está configurado en las variables de entorno (EMISOR_RUT).' };
-    }
-
     try {
+        console.log(`[SERVER ACTION] ==> Iniciando 'emitirDTEInmediato' para cotizacionId: ${cotizacionId}`);
+        
+        if (!cotizacionId) {
+            return { success: false, error: 'ID de cotización no proporcionado.' };
+        }
+        
+        if (!LIOREN_CONFIG.emisorRut) {
+            return { success: false, error: 'El RUT del emisor no está configurado en las variables de entorno (EMISOR_RUT).' };
+        }
+
         const cotizacionRef = doc(db, 'cotizaciones', cotizacionId);
         const cotizacionSnap = await getDoc(cotizacionRef);
 
@@ -192,7 +192,15 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
         return { success: true, folio: response.folio };
 
     } catch (error: any) {
-        console.error(`[SERVER ACTION ERROR] ==> Error al emitir DTE para cotización ${cotizacionId}:`, error);
-        return { success: false, error: error.message };
+        // ¡ESTO ES LO CRÍTICO! Capturar el error completo
+        console.error('ERROR CRÍTICO EN LA LÓGICA DE FACTURACIÓN (Lioren):', error);
+        // Imprimir el stack para ver la línea de código exacta
+        console.error('Stack Trace:', error.stack);
+        
+        // Devolver el error al frontend
+        return { 
+            success: false,
+            error: `Fallo interno al procesar la facturación: ${error.message}` 
+        };
     }
 }
