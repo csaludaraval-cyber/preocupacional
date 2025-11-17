@@ -53,7 +53,6 @@ export type Cotizacion = {
   empresaData: Empresa;
   solicitanteData: Solicitante;
   solicitudesData: SolicitudTrabajador[];
-  simpleFacturaInvoiceId?: string;
   originalRequestId?: string | null;
 };
 
@@ -69,7 +68,6 @@ export type CotizacionFirestore = {
   solicitanteData: Solicitante; 
   solicitudesData: SolicitudTrabajador[]; 
   status: StatusCotizacion;
-  simpleFacturaInvoiceId?: string; // To store the invoice folio from SimpleFactura
   originalRequestId?: string | null;
 }
 
@@ -79,8 +77,7 @@ export type StatusCotizacion =
   | 'ACEPTADA' 
   | 'RECHAZADA'
   | 'orden_examen_enviada'
-  | 'cotizacion_aceptada'
-  | 'facturado_simplefactura';
+  | 'cotizacion_aceptada';
 
 export interface User extends FirebaseUser {
   role?: 'admin' | 'standard';

@@ -75,15 +75,13 @@ export interface SolicitudTrabajador {
  * - `ENVIADA`: Enviada al cliente normal.
  * - `ACEPTADA` / `RECHAZADA`: Estados finales para cliente normal.
  * - `orden_examen_enviada`: Estado especial para solicitudes de clientes frecuentes, pendiente de facturación.
- * - `facturado_simplefactura`: Estado final para órdenes facturadas a través de SimpleFactura.
  */
 export type StatusCotizacion =
   | 'PENDIENTE'
   | 'ENVIADA'
   | 'ACEPTADA'
   | 'RECHAZADA'
-  | 'orden_examen_enviada'
-  | 'facturado_simplefactura';
+  | 'orden_examen_enviada';
 
 /**
  * Representa el objeto de cotización que se guarda en Firestore y se utiliza
@@ -101,5 +99,4 @@ export interface Cotizacion {
   solicitanteData: Solicitante;
   solicitudesData: SolicitudTrabajador[];
   total: number;
-  simpleFacturaInvoiceId?: string;
 }

@@ -38,7 +38,8 @@ export function useCotizaciones(): UseCotizacionesResult {
   const quotes = useMemo(() => {
     if (!rawQuotes) return [];
 
-    const filtered = rawQuotes.filter(q => q.status !== 'facturado_consolidado');
+    // Remove quotes with statuses related to billing
+    const filtered = rawQuotes.filter(q => q.status !== 'facturado_consolidado' && q.status !== 'facturado_simplefactura');
 
     const processed = filtered.map(q => {
         // KEEP the original Timestamp object if it exists, otherwise use the serialized one.
@@ -67,12 +68,9 @@ export function useCotizaciones(): UseCotizacionesResult {
             empresaData: empresaData,
             solicitanteData: solicitanteData,
             solicitudesData: solicitudesData,
-            simpleFacturaInvoiceId: q.simpleFacturaInvoiceId,
         } as Cotizacion;
     });
 
-    // The sorting logic now will be correct because we have a consistent object structure.
-    // The previous error happened because useMemo was sorting an array with mixed types.
     return processed.sort((a, b) => {
         const dateA = a.fechaCreacion?.seconds || 0;
         const dateB = b.fechaCreacion?.seconds || 0;

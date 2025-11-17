@@ -12,28 +12,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, XCircle, FileClock, FileCheck2, Download, History, ChevronDown } from 'lucide-react';
+import { Loader2, Shield, XCircle, FileClock, History, ChevronDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { createLiorenInvoice } from '@/server/lioren';
 import { cleanRut } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '../ui/badge';
-import { DTE_TIPO } from '@/config/lioren';
-
 
 interface GroupedQuotes {
   empresa: Empresa;
   quotes: WithId<CotizacionFirestore>[];
   totalAmount: number;
   totalExams: number;
-}
-
-interface FacturaResult {
-    empresaId: string;
-    pdfUrl: string;
-    folio: number;
 }
 
 interface BilledInvoice {
@@ -48,8 +39,6 @@ interface BilledInvoice {
 export function AdminFacturacionConsolidada() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [processingCompanyId, setProcessingCompanyId] = useState<string | null>(null);
-  const [generatedInvoices, setGeneratedInvoices] = useState<FacturaResult[]>([]);
   
   // Query for quotes pending billing
   const pendingQuery = useMemoFirebase(() => 
@@ -65,7 +54,7 @@ export function AdminFacturacionConsolidada() {
   const billedQuery = useMemoFirebase(() =>
     query(
       collection(firestore, 'cotizaciones'),
-      where('status', '==', 'facturado_simplefactura')
+      where('status', 'in', ['facturado_consolidado']) // Simplified to a single status if lioren is removed
     ),
     []
   );
@@ -97,8 +86,7 @@ export function AdminFacturacionConsolidada() {
       const history: Record<string, BilledInvoice> = {};
 
       billedQuotes.forEach(quote => {
-          const folio = quote.simpleFacturaInvoiceId;
-          if (!folio) return;
+          const folio = "N/A"; // No invoice ID available
           
           if (!history[folio]) {
               history[folio] = {
@@ -113,51 +101,9 @@ export function AdminFacturacionConsolidada() {
           history[folio].totalAmount += quote.total;
       });
 
-      return Object.values(history).sort((a, b) => parseInt(b.folio) - parseInt(a.folio));
+      return Object.values(history).sort((a,b) => b.fechaFacturacion.localeCompare(a.fechaFacturacion));
   }, [billedQuotes]);
 
-  const handleGenerateInvoice = async (group: GroupedQuotes) => {
-    const cleanRutEmpresa = cleanRut(group.empresa.rut);
-    setProcessingCompanyId(cleanRutEmpresa);
-    try {
-        // Convert Firestore objects to plain Cotizacion objects
-        const plainQuotes: Cotizacion[] = group.quotes.map(q => ({
-            id: q.id,
-            ...q,
-            empresa: q.empresaData,
-            solicitante: q.solicitanteData,
-            solicitudes: q.solicitudesData,
-            fecha: q.fechaCreacion.toDate().toISOString(),
-            fechaCreacion: {
-              seconds: q.fechaCreacion.seconds,
-              nanoseconds: q.fechaCreacion.nanoseconds
-            },
-        }));
-
-        const { pdfUrl, folio } = await createLiorenInvoice(
-            group.empresa,
-            plainQuotes,
-            group.totalAmount
-        );
-        
-        toast({
-            title: '¡Factura Emitida!',
-            description: `Se ha generado el DTE Folio N° ${folio} para ${group.empresa.razonSocial}.`,
-        });
-        setGeneratedInvoices(prev => [...prev, { empresaId: cleanRutEmpresa, pdfUrl, folio }]);
-        refetch();
-    } catch (err: any) {
-        console.error(err);
-        toast({
-            variant: 'destructive',
-            title: 'Error al Facturar',
-            description: err.message,
-        });
-    } finally {
-        setProcessingCompanyId(null);
-    }
-  };
-  
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
   };
@@ -198,39 +144,24 @@ export function AdminFacturacionConsolidada() {
                     Facturación Consolidada Pendiente
                 </CardTitle>
                 <CardDescription>
-                Revisa las órdenes de examen acumuladas por cliente frecuente y genera el DTE correspondiente.
+                Revisa las órdenes de examen acumuladas por cliente frecuente. La generación de facturas está temporalmente desactivada.
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
-                    <TableHeader><TableRow><TableHead>Cliente Frecuente</TableHead><TableHead className="text-center">Órdenes Acumuladas</TableHead><TableHead className="text-right">Monto a Facturar (Exento)</TableHead><TableHead className="text-center w-[250px]">Acciones</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Cliente Frecuente</TableHead><TableHead className="text-center">Órdenes Acumuladas</TableHead><TableHead className="text-right">Monto a Facturar (Exento)</TableHead></TableRow></TableHeader>
                     <TableBody>
                     {groupedData.length > 0 ? groupedData.map((group) => {
                         const cleanRutEmpresa = cleanRut(group.empresa.rut);
-                        const invoiceResult = generatedInvoices.find(inv => inv.empresaId === cleanRutEmpresa);
-                        const isProcessing = processingCompanyId === cleanRutEmpresa;
-
                         return (
                             <TableRow key={cleanRutEmpresa} className="font-medium">
                             <TableCell><p className='font-semibold text-foreground'>{group.empresa.razonSocial}</p><p className='text-sm text-muted-foreground'>RUT: {group.empresa.rut}</p></TableCell>
                             <TableCell className="text-center">{group.quotes.length}</TableCell>
                             <TableCell className="text-right text-lg font-bold text-primary">{formatCurrency(group.totalAmount)}</TableCell>
-                            <TableCell className="text-center">
-                                {invoiceResult ? (
-                                    <Button variant="secondary" onClick={() => window.open(invoiceResult.pdfUrl, '_blank')}>
-                                        <Download className="mr-2 h-4 w-4"/> Descargar Factura (DTE-{invoiceResult.folio})
-                                    </Button>
-                                ) : (
-                                    <Button onClick={() => handleGenerateInvoice(group)} disabled={isProcessing}>
-                                        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
-                                        {isProcessing ? 'Generando DTE...' : 'Generar Factura Exenta'}
-                                    </Button>
-                                )}
-                            </TableCell>
                             </TableRow>
                         )
                     }) : (
-                        <TableRow><TableCell colSpan={4} className="text-center h-24 text-muted-foreground">No hay órdenes de examen pendientes de facturación para clientes frecuentes.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={3} className="text-center h-24 text-muted-foreground">No hay órdenes de examen pendientes de facturación para clientes frecuentes.</TableCell></TableRow>
                     )}
                     </TableBody>
                 </Table>
@@ -256,7 +187,7 @@ export function AdminFacturacionConsolidada() {
                         <Collapsible key={invoice.folio} className="border rounded-lg p-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <div>
-                                    <p className="text-xs text-muted-foreground">DTE Folio</p>
+                                    <p className="text-xs text-muted-foreground">ID de Factura</p>
                                     <p className="font-bold text-primary text-lg">{invoice.folio}</p>
                                 </div>
                                 <div>

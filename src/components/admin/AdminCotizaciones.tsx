@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FileCheck2, FlaskConical, MoreVertical } from 'lucide-react';
+import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FlaskConical, MoreVertical } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,11 +44,9 @@ import { GeneradorPDF } from '@/components/cotizacion/GeneradorPDF';
 import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
-import { createLiorenInvoice } from '@/server/lioren';
 import { deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
-import { DTE_TIPO } from '@/config/lioren';
 
 const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'secondary' | 'success'> = {
   PENDIENTE: 'secondary',
@@ -57,7 +55,6 @@ const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'se
   RECHAZADA: 'destructive',
   orden_examen_enviada: 'secondary',
   cotizacion_aceptada: 'success',
-  facturado_simplefactura: 'default',
 };
 
 const blobToBase64 = (blob: Blob): Promise<string> => {
@@ -87,7 +84,6 @@ export default function AdminCotizaciones() {
   const [isSending, setIsSending] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [facturingQuoteId, setFacturingQuoteId] = useState<string | null>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -195,41 +191,6 @@ export default function AdminCotizaciones() {
     }
   };
 
-  const handleImmediateInvoice = async (quote: Cotizacion) => {
-    if (!quote.empresaData) {
-        toast({ variant: 'destructive', title: 'Datos Incompletos', description: 'Faltan los datos de la empresa en esta cotización.'});
-        return;
-    }
-
-    setFacturingQuoteId(quote.id);
-    try {
-        const { pdfUrl, folio } = await createLiorenInvoice(
-            quote.empresaData,
-            [quote], // Pass the full quote object
-            quote.total
-        );
-
-        toast({
-            title: '¡Factura Inmediata Emitida!',
-            description: `Se generó el DTE Folio N° ${folio}. Abriendo PDF...`,
-        });
-
-        // Abre el PDF en una nueva pestaña
-        window.open(pdfUrl, '_blank');
-
-        refetchQuotes();
-    } catch(err: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Error al Facturar',
-            description: err.message,
-        });
-    } finally {
-        setFacturingQuoteId(null);
-    }
-  }
-
-
   const handleOpenDownloadPage = (quote: any) => {
     const dataString = encodeURIComponent(JSON.stringify(quote));
     router.push(`/cotizacion?data=${dataString}`);
@@ -295,12 +256,6 @@ export default function AdminCotizaciones() {
                 </TableHeader>
                 <TableBody>
                   {sortedQuotes.map((quote) => {
-                    const isNormalAccepted = 
-                        (quote.status === 'ACEPTADA' || quote.status === 'cotizacion_aceptada') && 
-                        quote.empresaData?.modalidadFacturacion === 'normal';
-
-                    const isFacturing = facturingQuoteId === quote.id;
-
                     return (
                     <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
                       <TableCell className="font-medium flex items-center space-x-2">
@@ -339,22 +294,10 @@ export default function AdminCotizaciones() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  {!isNormalAccepted && (
-                                     <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
-                                          <Send className="mr-2 h-4 w-4" />
-                                          Gestionar y Enviar
-                                      </DropdownMenuItem>
-                                  )}
-                                  {isNormalAccepted && (
-                                      <DropdownMenuItem
-                                          onClick={() => handleImmediateInvoice(quote)}
-                                          disabled={isFacturing}
-                                          className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                      >
-                                          {isFacturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileCheck2 className="mr-2 h-4 w-4"/>}
-                                          {isFacturing ? 'Facturando...' : 'Facturar Ahora (DTE)'}
-                                      </DropdownMenuItem>
-                                  )}
+                                  <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
+                                        <Send className="mr-2 h-4 w-4" />
+                                        Gestionar y Enviar
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleOpenDownloadPage(quote)}>
                                       <Download className="mr-2 h-4 w-4" />
                                       Ver / Descargar PDF
