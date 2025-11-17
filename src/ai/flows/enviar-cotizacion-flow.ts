@@ -39,16 +39,20 @@ const enviarCotizacionFlow = ai.defineFlow(
       };
     }
 
-    // FASE 2: TRANSPORTER CON TIMEOUT. Configuración estándar para la mayoría de proveedores.
+    // FASE 2: TRANSPORTER CON DEPURACIÓN ACTIVADA
     const transporter = nodemailer.createTransport({
       host: host,
       port: port,
-      secure: port === 465, // true for 465, false for other ports (like 587 for TLS)
+      secure: port === 465, // true para 465, false para otros puertos (como 587)
       auth: {
         user: user,
         pass: pass,
       },
+      // TIMEOUT para evitar que la Server Action se cuelgue.
       connectionTimeout: 10000, // 10 segundos
+      // MODO DEPURACIÓN ACTIVADO
+      logger: true,
+      debug: true,
     });
 
     try {
