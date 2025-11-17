@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileoverview Lógica de negocio para interactuar con la API de Lioren.
@@ -59,6 +60,10 @@ async function getAuthToken(): Promise<string> {
 export async function createDTE(dteData: any): Promise<any> {
   const token = await getAuthToken();
 
+  console.log('--- ENVIANDO A LIOREN ---');
+  console.log(JSON.stringify(dteData, null, 2));
+  console.log('-------------------------');
+
   const response = await fetch(`${LIOREN_API_URL}/dtes`, {
     method: 'POST',
     headers: {
@@ -70,6 +75,11 @@ export async function createDTE(dteData: any): Promise<any> {
   });
 
   const responseData = await response.json();
+
+  console.log('--- RESPUESTA DE LIOREN ---');
+  console.log(JSON.stringify(responseData, null, 2));
+  console.log('---------------------------');
+
 
   if (!response.ok) {
     console.error('Error de Lioren al crear DTE:', responseData);
