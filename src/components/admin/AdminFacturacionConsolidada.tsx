@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
@@ -12,13 +12,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, XCircle, FileClock, History, ChevronDown } from 'lucide-react';
+import { Loader2, Shield, XCircle, FileClock, History, ChevronDown, Download, FileText } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cleanRut } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '../ui/badge';
+import { emitirDTEConsolidado } from '@/server/actions/facturacionActions';
 
 interface GroupedQuotes {
   empresa: Empresa;
@@ -33,6 +34,7 @@ interface BilledInvoice {
     quotes: WithId<CotizacionFirestore>[];
     totalAmount: number;
     fechaFacturacion: string;
+    pdfUrl?: string;
 }
 
 
@@ -40,6 +42,8 @@ export function AdminFacturacionConsolidada() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+
   // Query for quotes pending billing
   const pendingQuery = useMemoFirebase(() => 
     query(
@@ -54,7 +58,7 @@ export function AdminFacturacionConsolidada() {
   const billedQuery = useMemoFirebase(() =>
     query(
       collection(firestore, 'cotizaciones'),
-      where('status', 'in', ['facturado_consolidado']) // Simplified to a single status if lioren is removed
+      where('status', '==', 'facturado_lioren')
     ),
     []
   );
@@ -86,7 +90,7 @@ export function AdminFacturacionConsolidada() {
       const history: Record<string, BilledInvoice> = {};
 
       billedQuotes.forEach(quote => {
-          const folio = "N/A"; // No invoice ID available
+          const folio = quote.liorenFolio || "N/A";
           
           if (!history[folio]) {
               history[folio] = {
@@ -94,15 +98,42 @@ export function AdminFacturacionConsolidada() {
                   empresa: quote.empresaData,
                   quotes: [],
                   totalAmount: 0,
-                  fechaFacturacion: quote.fechaCreacion ? format(quote.fechaCreacion.toDate(), 'PPP', { locale: es }) : 'Fecha no disponible'
+                  pdfUrl: quote.liorenPdfUrl,
+                  fechaFacturacion: quote.liorenFechaEmision ? format(new Date(quote.liorenFechaEmision), 'PPP', { locale: es }) : (quote.fechaCreacion ? format(quote.fechaCreacion.toDate(), 'PPP', { locale: es }) : 'N/A')
               };
           }
           history[folio].quotes.push(quote);
           history[folio].totalAmount += quote.total;
       });
 
-      return Object.values(history).sort((a,b) => b.fechaFacturacion.localeCompare(a.fechaFacturacion));
+      return Object.values(history).sort((a,b) => new Date(b.fechaFacturacion).getTime() - new Date(a.fechaFacturacion).getTime());
   }, [billedQuotes]);
+
+  const handleProcessGroup = async (group: GroupedQuotes) => {
+    const rutCliente = cleanRut(group.empresa.rut);
+    setIsProcessing(rutCliente);
+    try {
+      const result = await emitirDTEConsolidado(rutCliente);
+
+      if (result.success) {
+        toast({
+          title: "Facturación Exitosa",
+          description: `Se emitió la factura consolidada para ${group.empresa.razonSocial} con folio ${result.folio}.`
+        });
+        refetch(); // Refresca las listas de pendientes y facturados
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error de Facturación",
+        description: `No se pudo procesar la facturación para ${group.empresa.razonSocial}. ${error.message}`
+      });
+    } finally {
+      setIsProcessing(null);
+    }
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
@@ -144,12 +175,12 @@ export function AdminFacturacionConsolidada() {
                     Facturación Consolidada Pendiente
                 </CardTitle>
                 <CardDescription>
-                Revisa las órdenes de examen acumuladas por cliente frecuente. La generación de facturas está temporalmente desactivada.
+                Revisa y procesa las órdenes de examen acumuladas por cliente frecuente para emitir una única factura (DTE 34) a través de Lioren.
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
-                    <TableHeader><TableRow><TableHead>Cliente Frecuente</TableHead><TableHead className="text-center">Órdenes Acumuladas</TableHead><TableHead className="text-right">Monto a Facturar (Exento)</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Cliente Frecuente</TableHead><TableHead className="text-center">Órdenes Acumuladas</TableHead><TableHead className="text-right">Monto a Facturar (Exento)</TableHead><TableHead className="text-center">Acción</TableHead></TableRow></TableHeader>
                     <TableBody>
                     {groupedData.length > 0 ? groupedData.map((group) => {
                         const cleanRutEmpresa = cleanRut(group.empresa.rut);
@@ -158,10 +189,16 @@ export function AdminFacturacionConsolidada() {
                             <TableCell><p className='font-semibold text-foreground'>{group.empresa.razonSocial}</p><p className='text-sm text-muted-foreground'>RUT: {group.empresa.rut}</p></TableCell>
                             <TableCell className="text-center">{group.quotes.length}</TableCell>
                             <TableCell className="text-right text-lg font-bold text-primary">{formatCurrency(group.totalAmount)}</TableCell>
+                            <TableCell className="text-center">
+                                <Button size="sm" onClick={() => handleProcessGroup(group)} disabled={isProcessing === cleanRutEmpresa}>
+                                {isProcessing === cleanRutEmpresa ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileText className="mr-2 h-4 w-4"/>}
+                                Facturar Grupo
+                                </Button>
+                            </TableCell>
                             </TableRow>
                         )
                     }) : (
-                        <TableRow><TableCell colSpan={3} className="text-center h-24 text-muted-foreground">No hay órdenes de examen pendientes de facturación para clientes frecuentes.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-center h-24 text-muted-foreground">No hay órdenes de examen pendientes de facturación para clientes frecuentes.</TableCell></TableRow>
                     )}
                     </TableBody>
                 </Table>
@@ -178,16 +215,16 @@ export function AdminFacturacionConsolidada() {
                     Historial de Facturas Emitidas
                 </CardTitle>
                 <CardDescription>
-                    Consulta las facturas consolidadas que ya han sido generadas.
+                    Consulta las facturas consolidadas que ya han sido generadas a través de Lioren.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 {billedHistory.length > 0 ? (
                     billedHistory.map(invoice => (
                         <Collapsible key={invoice.folio} className="border rounded-lg p-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
+                            <div className="grid grid-cols-5 items-center gap-4">
                                 <div>
-                                    <p className="text-xs text-muted-foreground">ID de Factura</p>
+                                    <p className="text-xs text-muted-foreground">Folio DTE</p>
                                     <p className="font-bold text-primary text-lg">{invoice.folio}</p>
                                 </div>
                                 <div>
@@ -198,8 +235,18 @@ export function AdminFacturacionConsolidada() {
                                     <p className="text-xs text-muted-foreground">Monto Facturado</p>
                                     <p className="font-semibold">{formatCurrency(invoice.totalAmount)}</p>
                                 </div>
+                                <div>
+                                    {invoice.pdfUrl && (
+                                        <Button asChild variant="outline" size="sm">
+                                            <a href={invoice.pdfUrl} target="_blank" rel="noopener noreferrer">
+                                                <Download className="mr-2 h-4 w-4"/>
+                                                Ver PDF
+                                            </a>
+                                        </Button>
+                                    )}
+                                </div>
                                 <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" className="flex items-center gap-2">
+                                    <Button variant="ghost" className="flex items-center gap-2 justify-self-end">
                                         Ver Órdenes ({invoice.quotes.length}) <ChevronDown className="h-4 w-4"/>
                                     </Button>
                                 </CollapsibleTrigger>

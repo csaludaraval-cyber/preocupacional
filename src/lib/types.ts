@@ -69,6 +69,11 @@ export type CotizacionFirestore = {
   solicitudesData: SolicitudTrabajador[]; 
   status: StatusCotizacion;
   originalRequestId?: string | null;
+  // Lioren fields
+  liorenFolio?: string;
+  liorenId?: string;
+  liorenFechaEmision?: string;
+  liorenPdfUrl?: string;
 }
 
 export type StatusCotizacion = 
@@ -77,7 +82,8 @@ export type StatusCotizacion =
   | 'ACEPTADA' 
   | 'RECHAZADA'
   | 'orden_examen_enviada'
-  | 'cotizacion_aceptada';
+  | 'cotizacion_aceptada'
+  | 'facturado_lioren'; // New status for Lioren
 
 export interface User extends FirebaseUser {
   role?: 'admin' | 'standard';

@@ -39,7 +39,7 @@ export function useCotizaciones(): UseCotizacionesResult {
     if (!rawQuotes) return [];
 
     // Remove quotes with statuses related to billing
-    const filtered = rawQuotes.filter(q => q.status !== 'facturado_consolidado' && q.status !== 'facturado_simplefactura');
+    const filtered = rawQuotes.filter(q => q.status !== 'facturado_consolidado');
 
     const processed = filtered.map(q => {
         // KEEP the original Timestamp object if it exists, otherwise use the serialized one.

@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FlaskConical, MoreVertical } from 'lucide-react';
+import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FlaskConical, MoreVertical, FileText } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +47,7 @@ import { useRouter } from 'next/navigation';
 import { deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
+import { emitirDTEInmediato } from '@/server/actions/facturacionActions';
 
 const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'secondary' | 'success'> = {
   PENDIENTE: 'secondary',
@@ -55,6 +56,7 @@ const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'se
   RECHAZADA: 'destructive',
   orden_examen_enviada: 'secondary',
   cotizacion_aceptada: 'success',
+  facturado_lioren: 'default',
 };
 
 const blobToBase64 = (blob: Blob): Promise<string> => {
@@ -84,6 +86,7 @@ export default function AdminCotizaciones() {
   const [isSending, setIsSending] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isInvoicing, setIsInvoicing] = useState<string | null>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -191,6 +194,31 @@ export default function AdminCotizaciones() {
     }
   };
 
+  const handleInvoiceNow = async (quoteId: string) => {
+    setIsInvoicing(quoteId);
+    try {
+      const result = await emitirDTEInmediato(quoteId);
+      if (result.success) {
+        toast({
+          title: 'Factura Emitida',
+          description: `DTE Folio ${result.folio} enviado a Lioren.`,
+        });
+        refetchQuotes();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al Facturar',
+        description: error.message,
+      });
+    } finally {
+      setIsInvoicing(null);
+    }
+  };
+
+
   const handleOpenDownloadPage = (quote: any) => {
     const dataString = encodeURIComponent(JSON.stringify(quote));
     router.push(`/cotizacion?data=${dataString}`);
@@ -251,11 +279,12 @@ export default function AdminCotizaciones() {
                     <TableHead>Fecha</TableHead>
                     <TableHead>Monto</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead className="text-center w-[150px]">Acciones</TableHead>
+                    <TableHead className="text-center w-[200px]">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedQuotes.map((quote) => {
+                    const isInvoiceable = quote.status === 'cotizacion_aceptada';
                     return (
                     <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
                       <TableCell className="font-medium flex items-center space-x-2">
@@ -285,10 +314,18 @@ export default function AdminCotizaciones() {
                           {quote.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center space-x-1">
+                          {isInvoiceable ? (
+                            <Button size="sm" onClick={() => handleInvoiceNow(quote.id)} disabled={isInvoicing === quote.id}>
+                                {isInvoicing === quote.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileText className="mr-2 h-4 w-4"/>}
+                                Facturar Ahora
+                            </Button>
+                          ) : (
+                            <div className="h-9"></div> // Placeholder for alignment
+                          )}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
+                                  <Button variant="ghost" size="icon" className="h-9 w-9">
                                       <MoreVertical className="h-4 w-4" />
                                       <span className="sr-only">Acciones</span>
                                   </Button>
