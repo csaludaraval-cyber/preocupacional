@@ -43,7 +43,7 @@ export function useCotizaciones(): UseCotizacionesResult {
 
     const processed = filtered.map(q => {
         // KEEP the original Timestamp object if it exists, otherwise use the serialized one.
-        const fechaCreacionSerializable = q.fechaCreacion;
+        const fechaCreacionSerializable = q.fechaCreacion instanceof Timestamp ? { seconds: q.fechaCreacion.seconds, nanoseconds: q.fechaCreacion.nanoseconds } : q.fechaCreacion;
 
         const fecha = q.fechaCreacion instanceof Timestamp 
             ? q.fechaCreacion.toDate().toLocaleDateString('es-CL')
@@ -62,7 +62,7 @@ export function useCotizaciones(): UseCotizacionesResult {
             solicitudes: solicitudesData, 
             total: q.total,
             fecha,
-            fechaCreacion: fechaCreacionSerializable as unknown as { seconds: number; nanoseconds: number; }, // Assert type
+            fechaCreacion: fechaCreacionSerializable as { seconds: number; nanoseconds: number; }, // Assert type
             status: q.status || 'PENDIENTE',
             // Datos denormalizados que realmente se usan
             empresaData: empresaData,

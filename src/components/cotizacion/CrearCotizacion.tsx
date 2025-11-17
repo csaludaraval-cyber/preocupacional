@@ -8,7 +8,7 @@ import { ArrowLeft, ArrowRight, Sparkles, PlusCircle, Trash2, Users, Building, S
 import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, type Timestamp, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
-import type { Empresa, Examen, Trabajador, Cotizacion, SolicitudTrabajador, Solicitante } from '@/lib/types';
+import type { Empresa, Examen, Trabajador, Cotizacion, Solicitante } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -23,6 +23,7 @@ import ResumenCotizacion from './ResumenCotizacion';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cleanRut } from '@/lib/utils';
+import type { SolicitudTrabajador } from '@/types/models';
 
 const BATERIA_HEFAISTOS_MOCK: Examen = {
   id: 'MOCK-001',
@@ -284,7 +285,7 @@ export function CrearCotizacion() {
                 solicitudes: solicitudes,
                 total,
                 fecha: format(now, 'dd/MM/yyyy', { locale: es }),
-                fechaCreacion: Timestamp.fromDate(now),
+                fechaCreacion: { seconds: now.getTime() / 1000, nanoseconds: 0 },
                 status: newQuoteFirestore.status,
                 // Pass denormalized data
                 empresaData: newQuoteFirestore.empresaData,

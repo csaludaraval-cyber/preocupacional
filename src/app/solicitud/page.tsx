@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Send, PlusCircle, Trash2, Users, FileText, Loader2, ShieldCheck, Building } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
-import type { Empresa, Examen, SolicitudTrabajador, Solicitante } from '@/lib/types';
+import type { Empresa, Examen, Solicitante } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cleanRut, formatRut } from '@/lib/utils';
 import Paso1DatosGenerales from '@/components/cotizacion/Paso1DatosGenerales';
 import Paso2SeleccionExamenes from '@/components/cotizacion/Paso2SeleccionExamenes';
+import type { SolicitudTrabajador } from '@/types/models';
 
 const BATERIA_HEFAISTOS_MOCK: Examen = {
   id: 'MOCK-001',

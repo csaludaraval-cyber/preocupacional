@@ -1,43 +1,11 @@
 
-import { type User as FirebaseUser } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
+import type { Examen, Empresa, Trabajador, SolicitudTrabajador, Solicitante, StatusCotizacion } from '@/types/models';
+
+export type { Examen, Empresa, Trabajador, SolicitudTrabajador, Solicitante, StatusCotizacion };
 
 export type WithId<T> = T & { id: string };
-
-export type Examen = {
-  id: string;
-  codigo: string;
-  nombre: string;
-  categoria: string;
-  valor: number;
-};
-
-export type Empresa = {
-  razonSocial: string;
-  rut: string;
-  direccion: string;
-  giro: string;
-  ciudad: string;
-  comuna: string;
-  region: string;
-  email: string;
-  modalidadFacturacion?: 'normal' | 'frecuente';
-};
-
-export type Trabajador = {
-  nombre: string;
-  rut: string;
-  cargo: string;
-  fechaNacimiento: string;
-  fechaAtencion: string | Date;
-};
-
-export type SolicitudTrabajador = {
-  id: string; 
-  trabajador: Trabajador;
-  examenes: Examen[];
-};
 
 // This is the primary type used throughout the application, combining Firestore data and UI needs.
 export type Cotizacion = {
@@ -79,27 +47,6 @@ export type CotizacionFirestore = {
   liorenId?: string;
   liorenFechaEmision?: string;
   liorenPdfUrl?: string;
-}
-
-export type StatusCotizacion = 
-  | 'PENDIENTE' 
-  | 'ENVIADA' 
-  | 'ACEPTADA' 
-  | 'RECHAZADA'
-  | 'orden_examen_enviada'
-  | 'cotizacion_aceptada'
-  | 'facturado_lioren'; // New status for Lioren
-
-export interface User extends FirebaseUser {
-  role?: 'admin' | 'standard';
-}
-
-export type Solicitante = {
-  nombre: string;
-  rut: string;
-  cargo: string;
-  centroDeCostos: string;
-  mail: string;
 }
 
 // Type for the entire public submission, as it will be stored in Firestore

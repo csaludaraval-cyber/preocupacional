@@ -81,7 +81,10 @@ export type StatusCotizacion =
   | 'ENVIADA'
   | 'ACEPTADA'
   | 'RECHAZADA'
-  | 'orden_examen_enviada';
+  | 'orden_examen_enviada'
+  | 'cotizacion_aceptada'
+  | 'facturado_lioren';
+
 
 /**
  * Representa el objeto de cotización que se guarda en Firestore y se utiliza
