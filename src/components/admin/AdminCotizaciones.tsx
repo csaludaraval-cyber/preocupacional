@@ -195,6 +195,12 @@ export default function AdminCotizaciones() {
   };
 
   const handleInvoiceNow = async (quoteId: string) => {
+    console.log(`[DEBUG] Iniciando facturación para quoteId: ${quoteId}`);
+    toast({
+      title: "Iniciando facturación...",
+      description: `Se está procesando la factura para la cotización ${quoteId.slice(-6)}.`,
+    });
+    
     setIsInvoicing(quoteId);
     try {
       const result = await emitirDTEInmediato(quoteId);
@@ -339,10 +345,10 @@ export default function AdminCotizaciones() {
                                       <Download className="mr-2 h-4 w-4" />
                                       Ver / Descargar PDF
                                   </DropdownMenuItem>
-                                  {quote.status !== 'ACEPTADA' && quote.status !== 'facturado_lioren' && (
-                                   <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, 'cotizacion_aceptada')}>
-                                      <FlaskConical className="mr-2 h-4 w-4" />
-                                      Forzar Aceptación (Prueba)
+                                  {(quote.status !== 'ACEPTADA' && quote.status !== 'cotizacion_aceptada' && quote.status !== 'facturado_lioren') && (
+                                   <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, 'ACEPTADA')}>
+                                      <Check className="mr-2 h-4 w-4" />
+                                      Marcar como ACEPTADA
                                   </DropdownMenuItem>
                                   )}
                                   <DropdownMenuSeparator />
@@ -449,3 +455,5 @@ export default function AdminCotizaciones() {
       </>
   );
 }
+
+    
