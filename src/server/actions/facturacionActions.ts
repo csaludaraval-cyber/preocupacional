@@ -5,6 +5,7 @@ import { db } from '@/lib/firestore-admin';
 import { createDTE } from '@/server/lioren';
 import { cleanRut } from '@/lib/utils';
 import type { CotizacionFirestore, Empresa } from '@/lib/types';
+import { LIOREN_CONFIG } from '@/server/config';
 
 // Tipos de DTE según Lioren
 const DTE_TIPO = {
@@ -21,6 +22,10 @@ const DTE_TIPO = {
 export async function emitirDTEConsolidado(rutCliente: string): Promise<{ success: boolean; folio?: number; error?: string }> {
     if (!rutCliente) {
         return { success: false, error: 'RUT del cliente no proporcionado.' };
+    }
+    
+    if (!LIOREN_CONFIG.emisorRut) {
+        return { success: false, error: 'El RUT del emisor no está configurado en las variables de entorno (EMISOR_RUT).' };
     }
 
     try {
@@ -52,7 +57,7 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
 
         const dteData = {
             tipo: DTE_TIPO.FACTURA_EXENTA,
-            emisor: { rut: cleanRut(process.env.EMISOR_RUT || '') }, // RUT del emisor desde .env
+            emisor: { rut: cleanRut(LIOREN_CONFIG.emisorRut) },
             receptor: {
                 rut: cleanRut(empresaData.rut),
                 razonSocial: empresaData.razonSocial,
@@ -115,6 +120,10 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
      if (!cotizacionId) {
         return { success: false, error: 'ID de cotización no proporcionado.' };
     }
+    
+    if (!LIOREN_CONFIG.emisorRut) {
+        return { success: false, error: 'El RUT del emisor no está configurado en las variables de entorno (EMISOR_RUT).' };
+    }
 
     try {
         const cotizacionRef = doc(db, 'cotizaciones', cotizacionId);
@@ -142,7 +151,7 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
 
          const dteData = {
             tipo: DTE_TIPO.FACTURA_EXENTA,
-            emisor: { rut: cleanRut(process.env.EMISOR_RUT || '') }, // RUT del emisor desde .env
+            emisor: { rut: cleanRut(LIOREN_CONFIG.emisorRut) },
             receptor: {
                 rut: cleanRut(empresaData.rut),
                 razonSocial: empresaData.razonSocial,

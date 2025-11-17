@@ -38,7 +38,8 @@ async function getAuthToken(): Promise<string> {
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`Error al autenticar con Lioren: ${response.status} ${errorBody}`);
+    console.error(`Error de autenticación con Lioren: ${response.status}`, errorBody);
+    throw new Error(`Error al autenticar con Lioren: ${response.status}. Respuesta: ${errorBody}`);
   }
 
   const data = await response.json();
@@ -71,7 +72,7 @@ export async function createDTE(dteData: any): Promise<any> {
   const responseData = await response.json();
 
   if (!response.ok) {
-    console.error('Error de Lioren:', responseData);
+    console.error('Error de Lioren al crear DTE:', responseData);
     const errorMessage = responseData.message || 'Error desconocido al crear el DTE.';
     throw new Error(`Error al crear DTE en Lioren: ${errorMessage}`);
   }
