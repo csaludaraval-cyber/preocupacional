@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { format } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import Paso1DatosGenerales from './Paso1DatosGenerales';
@@ -102,11 +102,26 @@ export function CrearCotizacion() {
         setOriginalRequestId(parsedData.originalRequestId || null);
         
         if (parsedData.solicitudes && parsedData.solicitudes.length > 0) {
-            setSolicitudes(parsedData.solicitudes.map((s: any) => ({
-              ...s, 
-              id: s.id || crypto.randomUUID(),
-              trabajador: { ...initialTrabajador, ...s.trabajador }
-            })));
+            setSolicitudes(parsedData.solicitudes.map((s: any) => {
+              // Sanitize fechaAtencion to ensure it's a valid ISO string or an empty string
+              let fechaAtencionISO = '';
+              if (s.trabajador.fechaAtencion) {
+                const parsedDate = parseISO(s.trabajador.fechaAtencion);
+                if (isValid(parsedDate)) {
+                  fechaAtencionISO = parsedDate.toISOString();
+                }
+              }
+              
+              return {
+                ...s, 
+                id: s.id || crypto.randomUUID(),
+                trabajador: { 
+                  ...initialTrabajador, 
+                  ...s.trabajador,
+                  fechaAtencion: fechaAtencionISO
+                }
+              };
+            }));
             setCurrentSolicitudIndex(0);
         }
         
@@ -408,5 +423,7 @@ export function CrearCotizacion() {
     </div>
   );
 }
+
+    
 
     
