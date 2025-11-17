@@ -120,7 +120,9 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
  * @returns Un objeto con el resultado de la operación.
  */
 export async function emitirDTEInmediato(cotizacionId: string): Promise<{ success: boolean; folio?: number; error?: string }> {
-     if (!cotizacionId) {
+    console.log(`[SERVER ACTION] ==> Iniciando 'emitirDTEInmediato' para cotizacionId: ${cotizacionId}`);
+    
+    if (!cotizacionId) {
         return { success: false, error: 'ID de cotización no proporcionado.' };
     }
     
@@ -138,7 +140,6 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
 
         const cotizacion = cotizacionSnap.data() as CotizacionFirestore;
 
-        // CORRECCIÓN: Permitir ambos estados 'ACEPTADA' y 'cotizacion_aceptada'
         if (cotizacion.status !== 'cotizacion_aceptada' && cotizacion.status !== 'ACEPTADA') {
             return { success: false, error: `La cotización no está en un estado aceptado para facturar, sino '${cotizacion.status}'.` };
         }
@@ -146,7 +147,6 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
         const empresaData = cotizacion.empresaData;
         const totalNeto = cotizacion.total;
 
-        // CORRECCIÓN CRÍTICA: Usar flatMap para asegurar un array plano de detalles
         const detalles = cotizacion.solicitudesData.flatMap(s => 
             s.examenes.map(e => ({
                 nombre: e.nombre,
