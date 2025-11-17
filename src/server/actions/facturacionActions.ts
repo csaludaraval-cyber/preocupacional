@@ -1,3 +1,4 @@
+
 'use server';
 
 import { doc, getDoc, getDocs, collection, query, where, writeBatch } from 'firebase-admin/firestore';
@@ -46,13 +47,15 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
         const empresaData = primeraCotizacion.empresaData;
         const totalNeto = cotizaciones.reduce((acc, curr) => acc + curr.total, 0);
 
-        // Prepara los detalles para el DTE
-        const detalles = cotizaciones.flatMap(c =>
-            c.solicitudesData.flatMap(s => s.examenes.map(e => ({
-                nombre: e.nombre,
-                cantidad: 1,
-                precio: e.valor,
-            })))
+        // CORRECCIÓN: Usar flatMap para asegurar un array plano de detalles
+        const detalles = cotizaciones.flatMap(c => 
+            c.solicitudesData.flatMap(s => 
+                s.examenes.map(e => ({
+                    nombre: e.nombre,
+                    cantidad: 1,
+                    precio: e.valor,
+                }))
+            )
         );
 
         const dteData = {
@@ -143,12 +146,14 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
         const empresaData = cotizacion.empresaData;
         const totalNeto = cotizacion.total;
 
-        // Prepara los detalles para el DTE
-        const detalles = cotizacion.solicitudesData.flatMap(s => s.examenes.map(e => ({
-            nombre: e.nombre,
-            cantidad: 1,
-            precio: e.valor,
-        })));
+        // CORRECCIÓN CRÍTICA: Usar flatMap para asegurar un array plano de detalles
+        const detalles = cotizacion.solicitudesData.flatMap(s => 
+            s.examenes.map(e => ({
+                nombre: e.nombre,
+                cantidad: 1,
+                precio: e.valor,
+            }))
+        );
 
          const dteData = {
             tipo: DTE_TIPO.FACTURA_EXENTA,
