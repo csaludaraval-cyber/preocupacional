@@ -135,8 +135,9 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
 
         const cotizacion = cotizacionSnap.data() as CotizacionFirestore;
 
-        if (cotizacion.status !== 'cotizacion_aceptada') {
-            return { success: false, error: `La cotización no está en estado 'cotizacion_aceptada', sino '${cotizacion.status}'.` };
+        // CORRECCIÓN: Permitir ambos estados 'ACEPTADA' y 'cotizacion_aceptada'
+        if (cotizacion.status !== 'cotizacion_aceptada' && cotizacion.status !== 'ACEPTADA') {
+            return { success: false, error: `La cotización no está en un estado aceptado para facturar, sino '${cotizacion.status}'.` };
         }
         
         const empresaData = cotizacion.empresaData;
