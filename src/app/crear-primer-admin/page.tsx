@@ -19,8 +19,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus } from 'lucide-react';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function CreateFirstAdminPage() {
   const [name, setName] = useState('');
@@ -46,55 +44,35 @@ export default function CreateFirstAdminPage() {
     }
 
     try {
-      // 1. Create user in Firebase Auth
+      // 1. Crear usuario en Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. Update user profile with name
+      // 2. Actualizar perfil de usuario con el nombre
       await updateProfile(user, { displayName: name });
 
-      // 3. Create admin role document in Firestore (non-blocking with detailed error)
+      // 3. Crear el documento de rol de administrador en Firestore
+      //    Esto es CRÍTICO para que las reglas de seguridad funcionen
       const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
-      const adminRoleData = { admin: true, createdAt: new Date() };
-      setDoc(adminRoleRef, adminRoleData)
-        .catch(error => {
-          errorEmitter.emit(
-            'permission-error',
-            new FirestorePermissionError({
-              path: adminRoleRef.path,
-              operation: 'create',
-              requestResourceData: adminRoleData,
-            })
-          );
-        });
+      await setDoc(adminRoleRef, { admin: true, createdAt: new Date() });
+      
+      // 4. Crear el perfil de solicitante para este administrador (opcional pero buena práctica)
+       const userProfileRef = doc(firestore, 'solicitantes', user.uid);
+       await setDoc(userProfileRef, {
+           nombre: name,
+           mail: email,
+           rut: '', 
+           cargo: 'Administrador',
+           centroDeCostos: 'N/A'
+       }, { merge: true });
 
-      // 4. Create user profile document (non-blocking with detailed error)
-      const userProfileRef = doc(firestore, 'solicitantes', user.uid);
-      const userProfileData = {
-          nombre: name,
-          mail: email,
-          rut: '', // Add fields as necessary
-          cargo: 'Administrador',
-          centroCostos: 'N/A'
-      };
-      setDoc(userProfileRef, userProfileData, { merge: true })
-        .catch(error => {
-          errorEmitter.emit(
-            'permission-error',
-            new FirestorePermissionError({
-              path: userProfileRef.path,
-              operation: 'create',
-              requestResourceData: userProfileData,
-            })
-          );
-        });
 
       toast({
         title: 'Administrador creado',
-        description: 'La cuenta de administrador ha sido creada exitosamente.',
+        description: 'La cuenta de administrador ha sido creada exitosamente con los permisos correctos.',
       });
 
-      // 5. Redirect to the admin panel
+      // 5. Redirigir al panel de administración
       router.push('/admin');
 
     } catch (error: any) {
