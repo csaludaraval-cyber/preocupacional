@@ -39,27 +39,23 @@ const enviarCotizacionFlow = ai.defineFlow(
       };
     }
 
-    // FASE 2: TRANSPORTER CON MODO DE DEPURACIÓN ACTIVADO
+    // FASE 2: TRANSPORTER CON TIMEOUT Y AJUSTE DE SEGURIDAD TLS
     const transporter = nodemailer.createTransport({
       host: host,
       port: port,
-      secure: port === 465,
+      secure: port === 465, // true for 465, false for other ports
       auth: {
         user: user,
         pass: pass,
       },
-      // TIMEOUT para evitar que la Server Action se cuelgue.
-      connectionTimeout: 10000, // 10 segundos
+      // AUMENTAMOS TIMEOUT para dar tiempo a la generación del PDF.
+      connectionTimeout: 180000, // 3 minutos
       
       // SOLUCIÓN AL ERROR: 'An unexpected response was received from the server'
       // Deshabilita la verificación estricta del certificado TLS.
       tls: {
           rejectUnauthorized: false
       },
-
-      // ACTIVACIÓN DE DEPURACIÓN PARA DIAGNÓSTICO FINAL
-      logger: true,
-      debug: true,
     });
 
     try {
