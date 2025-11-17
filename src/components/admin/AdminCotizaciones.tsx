@@ -339,6 +339,10 @@ export default function AdminCotizaciones() {
                                       <Download className="mr-2 h-4 w-4" />
                                       Ver / Descargar PDF
                                   </DropdownMenuItem>
+                                   <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, 'cotizacion_aceptada')}>
+                                      <FlaskConical className="mr-2 h-4 w-4" />
+                                      Forzar Aceptación (Prueba)
+                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => setQuoteToDelete(quote)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                                       <Trash2 className="mr-2 h-4 w-4" />
@@ -401,7 +405,7 @@ export default function AdminCotizaciones() {
                       {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
                       Marcar como RECHAZADA
                     </Button>
-                    {(quoteToManage.status === 'ENVIADA' || quoteToManage.status === 'PENDIENTE') && (
+                    {(quoteToManage.status === 'ENVIADA' || quoteToManage.status === 'PENDIENTE' || quoteToManage.status === 'ACEPTADA') && (
                       <Button
                           variant="secondary"
                           onClick={() => handleUpdateStatus(quoteToManage.id, 'cotizacion_aceptada')}
