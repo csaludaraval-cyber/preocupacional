@@ -284,7 +284,7 @@ export default function AdminCotizaciones() {
                 </TableHeader>
                 <TableBody>
                   {sortedQuotes.map((quote) => {
-                    const isInvoiceable = quote.status === 'cotizacion_aceptada';
+                    const isInvoiceable = quote.status === 'cotizacion_aceptada' || quote.status === 'ACEPTADA';
                     return (
                     <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
                       <TableCell className="font-medium flex items-center space-x-2">
@@ -339,10 +339,12 @@ export default function AdminCotizaciones() {
                                       <Download className="mr-2 h-4 w-4" />
                                       Ver / Descargar PDF
                                   </DropdownMenuItem>
+                                  {quote.status !== 'ACEPTADA' && quote.status !== 'facturado_lioren' && (
                                    <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, 'cotizacion_aceptada')}>
                                       <FlaskConical className="mr-2 h-4 w-4" />
                                       Forzar Aceptación (Prueba)
                                   </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => setQuoteToDelete(quote)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                                       <Trash2 className="mr-2 h-4 w-4" />
@@ -405,7 +407,7 @@ export default function AdminCotizaciones() {
                       {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
                       Marcar como RECHAZADA
                     </Button>
-                    {(quoteToManage.status === 'ENVIADA' || quoteToManage.status === 'PENDIENTE' || quoteToManage.status === 'ACEPTADA') && (
+                    {(quoteToManage.status === 'ENVIADA' || quoteToManage.status === 'PENDIENTE') && (
                       <Button
                           variant="secondary"
                           onClick={() => handleUpdateStatus(quoteToManage.id, 'cotizacion_aceptada')}
