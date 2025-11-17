@@ -195,7 +195,6 @@ export default function AdminCotizaciones() {
   };
 
   const handleInvoiceNow = async (quoteId: string) => {
-    console.log(`[DEBUG] Iniciando facturación para quoteId: ${quoteId}`);
     toast({
       title: "Iniciando facturación...",
       description: `Se está procesando la factura para la cotización ${quoteId.slice(-6)}.`,
