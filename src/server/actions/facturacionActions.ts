@@ -120,8 +120,6 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
  * @returns Un objeto con el resultado de la operación.
  */
 export async function emitirDTEInmediato(cotizacionId: string): Promise<{ success: boolean; folio?: number; error?: string }> {
-    console.log(`[SERVER ACTION] ==> Iniciando emitirDTEInmediato para cotizacionId: ${cotizacionId}`);
-
      if (!cotizacionId) {
         return { success: false, error: 'ID de cotización no proporcionado.' };
     }
