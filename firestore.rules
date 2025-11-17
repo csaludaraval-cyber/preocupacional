@@ -18,7 +18,6 @@
  * - Admin role is determined by the existence of a document in /roles_admin/{userId}.
  * - Users can only access their own /solicitantes/{solicitanteId} document.
  * - Quotations store companyId and solicitanteId to avoid hierarchical get() calls for authorization.
- * - Listing of collections is generally restricted except for admins or based on ownership.
  *
  * Denormalization for Authorization:
  * - Quotations store companyId and solicitanteId to avoid needing to fetch company or applicant documents for authorization.
@@ -48,7 +47,8 @@ service cloud.firestore {
     match /solicitantes/{solicitanteId} {
       allow get: if isSignedIn() && (isOwner(solicitanteId) || isAdmin());
       allow list: if isSignedIn() && isAdmin();
-      allow create: if isSignedIn() && (isOwner(solicitanteId) || isAdmin());
+      // Any signed-in user can create their own profile. This is needed for the sign-up flow.
+      allow create: if isSignedIn() && isOwner(solicitanteId);
       allow update: if isSignedIn() && (isOwner(solicitanteId) || isAdmin());
       allow delete: if isSignedIn() && isAdmin();
     }
@@ -76,7 +76,7 @@ service cloud.firestore {
     match /cotizaciones/{cotizacionId} {
       allow get, list: if isSignedIn();
       // Only an admin can create a quote, and they must be the solicitante.
-      allow create: if isSignedIn() && isAdmin() && request.resource.data.solicitanteId == request.auth.uid;
+      allow create: if isSignedIn() && isAdmin();
       allow update, delete: if isSignedIn() && isAdmin();
     }
 
