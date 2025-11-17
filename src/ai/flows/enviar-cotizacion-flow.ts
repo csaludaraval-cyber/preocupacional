@@ -10,14 +10,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import * as nodemailer from 'nodemailer';
 import { SMTP_CONFIG } from '@/server/config';
-
-// Safe import for server side
-export const EnviarCotizacionInputSchema = z.object({
-  clienteEmail: z.string().email().describe('Correo electrónico del cliente destinatario.'),
-  cotizacionId: z.string().describe('ID de la cotización para el asunto y nombre del archivo.'),
-  pdfBase64: z.string().describe('Contenido del archivo PDF codificado en Base64.'),
-});
-export type EnviarCotizacionInput = z.infer<typeof EnviarCotizacionInputSchema>;
+import { EnviarCotizacionInputSchema, type EnviarCotizacionInput } from '@/lib/types';
 
 
 const EnviarCotizacionOutputSchema = z.object({
