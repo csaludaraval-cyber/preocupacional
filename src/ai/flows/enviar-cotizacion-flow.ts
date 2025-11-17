@@ -39,28 +39,16 @@ const enviarCotizacionFlow = ai.defineFlow(
       };
     }
 
-    // FASE 2: TRANSPORTER CON TIMEOUT Y MODO DEBUG
+    // FASE 2: TRANSPORTER CON TIMEOUT. Configuración estándar para la mayoría de proveedores.
     const transporter = nodemailer.createTransport({
       host: host,
       port: port,
-      // Forzamos el uso de STARTTLS en lugar de SSL/TLS implícito.
-      secure: false, 
-      requireTLS: true,
+      secure: port === 465, // true for 465, false for other ports (like 587 for TLS)
       auth: {
         user: user,
         pass: pass,
       },
-      // AÑADIMOS TIMEOUT para evitar que la Server Action se cuelgue.
       connectionTimeout: 10000, // 10 segundos
-      
-      // SOLUCIÓN AL ERROR: 'An unexpected response was received from the server'
-      // Deshabilita la verificación estricta del certificado TLS
-      tls: {
-          rejectUnauthorized: false
-      },
-      // ACTIVACIÓN DEL MODO DEPURACIÓN
-      logger: true,
-      debug: true,
     });
 
     try {
