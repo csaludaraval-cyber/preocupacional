@@ -39,24 +39,27 @@ const enviarCotizacionFlow = ai.defineFlow(
       };
     }
 
-    // FASE 2: TRANSPORTER CON TIMEOUT Y AJUSTE DE SEGURIDAD TLS
+    // FASE 2: TRANSPORTER CON MODO DE DEPURACIÓN ACTIVADO
     const transporter = nodemailer.createTransport({
       host: host,
       port: port,
-      secure: port === 465, // true para 465 (SSL), false para otros puertos (TLS/STARTTLS)
+      secure: port === 465,
       auth: {
         user: user,
         pass: pass,
       },
-      // TIMEOUT para evitar que la Server Action se cuelgue por 30 segundos.
+      // TIMEOUT para evitar que la Server Action se cuelgue.
       connectionTimeout: 10000, // 10 segundos
       
       // SOLUCIÓN AL ERROR: 'An unexpected response was received from the server'
       // Deshabilita la verificación estricta del certificado TLS.
-      // Esto es necesario si el servidor de correo usa un certificado autofirmado.
       tls: {
           rejectUnauthorized: false
-      }
+      },
+
+      // ACTIVACIÓN DE DEPURACIÓN PARA DIAGNÓSTICO FINAL
+      logger: true,
+      debug: true,
     });
 
     try {
