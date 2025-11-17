@@ -39,7 +39,7 @@ export type SolicitudTrabajador = {
   examenes: Examen[];
 };
 
-// This is a combination of Firestore data and derived data for UI
+// This is the primary type used throughout the application, combining Firestore data and UI needs.
 export type Cotizacion = {
   id: string;
   empresa: Empresa; 
@@ -54,6 +54,11 @@ export type Cotizacion = {
   solicitanteData: Solicitante;
   solicitudesData: SolicitudTrabajador[];
   originalRequestId?: string | null;
+  // Lioren fields, now correctly part of the main type
+  liorenFolio?: string;
+  liorenId?: string;
+  liorenFechaEmision?: string;
+  liorenPdfUrl?: string;
 };
 
 
