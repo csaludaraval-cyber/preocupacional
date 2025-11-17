@@ -1,7 +1,13 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    serverActions: {
+      // Aumentamos el timeout para dar tiempo a procesos largos como la generación de PDF
+      // y el envío de correos. 5 minutos (300s) deberían ser suficientes.
+      executionTimeout: 300, 
+    },
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
