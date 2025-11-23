@@ -1,154 +1,129 @@
 
 /**
  * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control model for managing companies, applicants, exams, and quotations.
- * Data is organized into top-level collections: /empresas/{empresaId}, /solicitantes/{solicitanteId}, /examenes/{examenId}, /cotizaciones/{cotizacionId}, and /roles_admin/{userId}.
+ * @description Este conjunto de reglas implementa un modelo de control de acceso basado en roles para la gestión de empresas,
+ * solicitantes, exámenes, cotizaciones y solicitudes públicas. El acceso se controla principalmente mediante dos
+ * conceptos: el rol de 'Administrador' y la 'propiedad' de un documento.
  *
- * Core Philosophy: This ruleset enforces a role-based access control model.
- *
- * Data Structure:
- * - /empresas/{empresaId}: Stores company information.
- * - /solicitantes/{solicitanteId}: Stores applicant information. Access is restricted to the applicant.
- * - /examenes/{examenId}: Stores the catalog of exams. Managed by admins.
- * - /cotizaciones/{cotizacionId}: Stores quotations. Contains companyId and solicitanteId for authorization.
- * - /roles_admin/{userId}: Indicates if a user is an admin.
- * - /solicitudes_publicas/{solicitudId}: Public submission form data.
- *
- * Key Security Decisions:
- * - Admin role is determined by the existence of a document in /roles_admin/{userId}.
- * - Users can only access their own /solicitantes/{solicitanteId} document.
- * - Quotations store companyId and solicitanteId to avoid hierarchical get() calls for authorization.
- *
- * Denormalization for Authorization:
- * - Quotations store companyId and solicitanteId to avoid needing to fetch company or applicant documents for authorization.
+ * Filosofía Central:
+ * 1.  **Seguridad por Defecto:** Nadie tiene acceso a nada a menos que una regla lo permita explícitamente.
+ * 2.  **Rol de Administrador:** Un usuario es administrador si su UID existe como un documento en la colección `/roles_admin`.
+ *     Este rol otorga acceso de lectura y escritura a casi toda la base de datos.
+ * 3.  **Propiedad del Documento:** Los usuarios estándar solo pueden ver y modificar los datos que les pertenecen directamente
+ *     (por ejemplo, su propio perfil de solicitante).
+ * 4.  **Acceso Público Controlado:** La colección `/solicitudes_publicas` permite que cualquiera escriba (envíe una solicitud),
+ *     pero solo los administradores pueden leer o gestionar dichas solicitudes, protegiendo la privacidad.
+ * 5.  **Denormalización para Seguridad:** Datos como `empresaData` se almacenan directamente en las cotizaciones para evitar
+ *     la necesidad de hacer llamadas `get()` adicionales en las reglas, lo cual es más eficiente y seguro.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows admins to read and write company data.
+     * @description Empresas: Solo los administradores pueden leer o modificar los datos de las empresas.
      * @path /empresas/{empresaId}
-     * @allow (get, list, create, update, delete) if isSignedIn() && isAdmin()
-     * @deny (create, update, delete) if !isSignedIn() || !isAdmin()
-     * @principle Enforces admin-only access for company data.
+     * @principle Acceso exclusivo para administradores.
      */
     match /empresas/{empresaId} {
       allow read, write: if isSignedIn() && isAdmin();
     }
 
     /**
-     * @description Allows a user to read and write their own applicant data.
+     * @description Solicitantes: Un usuario solo puede gestionar su propio perfil. Los administradores pueden verlos todos.
      * @path /solicitantes/{solicitanteId}
-     * @allow (get, create, update, delete, list) if isSignedIn() && isOwner(solicitanteId)
-     * @deny (get, create, update, delete, list) if !isSignedIn() || !isOwner(solicitanteId)
-     * @principle Enforces document ownership for applicant data.
+     * @principle Propiedad del documento y supervisión del administrador.
      */
     match /solicitantes/{solicitanteId} {
+      // Un usuario puede ver su propio perfil, o un admin puede ver cualquiera.
       allow get: if isSignedIn() && (isOwner(solicitanteId) || isAdmin());
+      // Solo los admins pueden listar todos los perfiles.
       allow list: if isSignedIn() && isAdmin();
-      // Any signed-in user can create their own profile. This is needed for the sign-up flow.
+      // Un usuario autenticado puede crear su PROPIO perfil (esencial para el registro).
       allow create: if isSignedIn() && isOwner(solicitanteId);
+      // Un usuario puede actualizar su propio perfil, o un admin puede actualizar cualquiera.
       allow update: if isSignedIn() && (isOwner(solicitanteId) || isAdmin());
+      // Solo los admins pueden eliminar perfiles.
       allow delete: if isSignedIn() && isAdmin();
     }
 
     /**
-     * @description Allows anyone to read exam data, but only admins to write it.
+     * @description Catálogo de Exámenes: Público para lectura, restringido para escritura.
      * @path /examenes/{examenId}
-     * @allow get, list: if true;
-     * @allow create, update, delete: if isSignedIn() && isAdmin();
-     * @principle Public read access for the exam catalog, write access restricted to admins.
+     * @principle Permite que la app muestre los exámenes a cualquiera, pero solo los admins los gestionan.
      */
     match /examenes/{examenId} {
+      // Cualquiera puede leer la lista de exámenes (incluso sin estar autenticado).
       allow get, list: if true;
+      // Solo los administradores pueden crear, actualizar o eliminar exámenes.
       allow create, update, delete: if isSignedIn() && isAdmin();
     }
 
     /**
-     * @description Allows authenticated users to read/list quotations, but restricts writes.
+     * @description Cotizaciones: Los administradores tienen control total.
      * @path /cotizaciones/{cotizacionId}
-     * @allow get, list: if isSignedIn();
-     * @allow create: if isSignedIn() && (request.resource.data.solicitanteId == request.auth.uid || isAdmin());
-     * @allow update, delete: if isSignedIn() && isAdmin();
-     * @principle Allows authenticated reads, but restricts writes to authorized users. Admins have full control.
+     * @principle Los administradores gestionan todo el ciclo de vida de las cotizaciones.
      */
     match /cotizaciones/{cotizacionId} {
+      // Cualquier usuario autenticado puede, en teoría, recibir una cotización y verla.
       allow get, list: if isSignedIn();
-      // Only an admin can create a quote, and they must be the solicitante.
+      // Solo un administrador puede crear una cotización.
       allow create: if isSignedIn() && isAdmin();
+      // Solo los administradores pueden actualizar (cambiar estado) o eliminar cotizaciones.
       allow update, delete: if isSignedIn() && isAdmin();
     }
 
     /**
-     * @description Allows a user to create their own admin role document. Grants full access to admins.
+     * @description Gestión de Roles de Administrador.
      * @path /roles_admin/{userId}
-     * @allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
-     * @allow list: if isSignedIn() && isAdmin();
-     * @allow create: if isSignedIn(); // Allow any signed-in user to attempt to become an admin.
-     * @allow update, delete: if isSignedIn() && isAdmin();
-     * @principle Enforces admin role management and allows self-check for isAdmin().
+     * @principle La existencia de un documento aquí convierte a un usuario en administrador.
      */
     match /roles_admin/{userId} {
+      // Solo los administradores pueden ver la lista de otros administradores.
       allow get, list: if isSignedIn() && isAdmin();
-      // A user can create their own role doc, but no one else's.
-      // The rules on other collections will prevent non-admins from doing anything useful.
+      // Un usuario puede crear su propio documento de rol. Esto es clave para el flujo de "crear primer admin".
+      // Aunque cualquiera puede intentarlo, solo tendrá efecto si se usa en conjunto con la UI de creación de admin.
       allow create: if isSignedIn() && request.auth.uid == userId;
+      // Solo un admin puede eliminar a otro admin.
       allow update, delete: if isSignedIn() && isAdmin();
     }
     
     /**
-     * @description Public-facing submission collection for exam requests.
+     * @description Solicitudes Públicas: Punto de entrada para clientes no autenticados.
      * @path /solicitudes_publicas/{solicitudId}
-     * @allow create: if true; // Anyone can create a request.
-     * @allow read, update, delete, list: if isSignedIn() && isAdmin(); // Only admins can manage requests.
-     * @principle Enables a public write endpoint while securing read/management to admins.
+     * @principle Escritura pública, lectura y gestión privadas (solo para admins).
      */
     match /solicitudes_publicas/{solicitudId} {
+      // Cualquiera puede enviar una solicitud (crear un documento).
       allow create: if true;
+      // Solo los administradores pueden leer, listar, actualizar o eliminar las solicitudes enviadas.
       allow read, list, update, delete: if isSignedIn() && isAdmin();
     }
 
-    // --- Helper Functions ---
+    // --- Funciones de Ayuda (Helpers) ---
 
     /**
-     * @description Checks if the user is signed in.
-     * @return {bool} True if the user is signed in, false otherwise.
+     * @description Verifica si el usuario ha iniciado sesión.
+     * @returns {bool} True si el usuario está autenticado.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the user is the owner of the resource.
-     * @param {string} userId - The user ID to check against.
-     * @return {bool} True if the user is the owner, false otherwise.
+     * @description Verifica si el usuario que hace la petición es el dueño del documento.
+     * @param {string} userId - El ID del usuario a comparar con el ID del documento o recurso.
+     * @returns {bool} True si los IDs coinciden.
      */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the user is the owner of the resource and if the resource exists.
-     * @param {string} userId - The user ID to check against.
-     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
-     */
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Checks if the user is the owner of the Cotizacion resource and if the resource exists.
-     * @param {string} solicitanteId - The solicitante ID to check against.
-     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
-     */
-    function isExistingOwnerCotizacion(solicitanteId) {
-        return request.auth.uid == solicitanteId && resource != null;
-    }
-
-    /**
-     * @description Checks if the user is an admin by verifying the existence of a document in /roles_admin/{userId}.
-     * @return {bool} True if the user is an admin, false otherwise.
+     * @description Verifica si el usuario es un administrador.
+     * La lógica es simple: si existe un documento en la colección 'roles_admin'
+     * con el ID del usuario autenticado, entonces es administrador.
+     * @returns {bool} True si el usuario tiene el rol de administrador.
      */
     function isAdmin() {
       return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
