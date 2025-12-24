@@ -2,7 +2,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Header } from '@/components/layout/Header';
 import { AppStatus } from '@/components/admin/AppStatus';
 import { Suspense } from 'react';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
@@ -77,19 +76,14 @@ export default function StatusPage() {
   const [isUnlocked, setIsUnlocked] = useState(false);
 
   return (
-    <div className="min-h-screen w-full bg-background">
-      <Header />
-      <main className="container mx-auto px-4 py-8 md:px-6">
-        <FirebaseClientProvider>
-          {isUnlocked ? (
-            <Suspense fallback={<p>Cargando estado del sistema...</p>}>
-              <AppStatus />
-            </Suspense>
-          ) : (
-            <PinLockScreen onUnlock={() => setIsUnlocked(true)} />
-          )}
-        </FirebaseClientProvider>
-      </main>
-    </div>
+    <FirebaseClientProvider>
+      {isUnlocked ? (
+        <Suspense fallback={<p>Cargando estado del sistema...</p>}>
+          <AppStatus />
+        </Suspense>
+      ) : (
+        <PinLockScreen onUnlock={() => setIsUnlocked(true)} />
+      )}
+    </FirebaseClientProvider>
   );
 }
