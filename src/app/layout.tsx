@@ -1,28 +1,19 @@
+// src/app/layout.tsx
 import type { Metadata } from 'next';
 import './globals.css';
-import { Loader2 } from 'lucide-react';
 import AppWrapper from './AppWrapper';
 import { Header } from '@/components/layout/Header';
+import { Sidebar } from '@/components/layout/Sidebar'; // Importar nuevo Sidebar
 
 export const metadata: Metadata = {
-  title: 'Araval Cotizaciones',
-  description: 'Sistema de Gestión de Cotizaciones',
+  title: 'Araval Preocupacional', // Título actualizado
+  description: 'Sistema de Gestión de Exámenes Preocupacionales',
 };
 
-const FullscreenLoader = () => (
-    <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-    </div>
-);
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode; }) {
   return (
     <html lang="es">
-      <head>
+       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
@@ -30,10 +21,15 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <AppWrapper>
-          <Header />
-          <main className="container mx-auto px-4 py-8 md:px-6">
-            {children}
-          </main>
+          <div className="flex min-h-screen">
+            <Sidebar /> {/* Sidebar a la izquierda */}
+            <div className="flex-1 flex flex-col">
+              <Header /> {/* Header se mantiene, puede ajustarlo si es necesario */}
+              <main className="flex-1 p-6 lg:p-8 bg-background overflow-y-auto">
+                {children}
+              </main>
+            </div>
+          </div>
         </AppWrapper>
       </body>
     </html>

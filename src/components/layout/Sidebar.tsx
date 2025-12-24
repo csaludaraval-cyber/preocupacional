@@ -1,76 +1,58 @@
-
+// src/components/layout/Sidebar.tsx
 "use client";
-
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { FileText, Shield, History, Inbox, Activity, Users, FileClock } from 'lucide-react';
+import { Home, FileText, Settings, FileClock, Inbox, History, Shield, Activity, Users } from 'lucide-react'; // Importar iconos
 import { useAuth } from '@/lib/auth';
-import { cn } from '@/lib/utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
-const NavLink = ({ href, path, icon: Icon, label }: { href: string; path: string; icon: React.ElementType; label: string }) => (
-    <Tooltip>
-        <TooltipTrigger asChild>
-            <Link
-            href={href}
-            className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8',
-                path === href && 'bg-accent text-accent-foreground'
-            )}
-            >
-            <Icon className="h-5 w-5" />
-            <span className="sr-only">{label}</span>
-            </Link>
-        </TooltipTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
-);
 
-export function SidebarContent() {
+export const Sidebar = () => {
     const pathname = usePathname();
     const { user } = useAuth();
-    
+
+    const navLinks = user?.role === 'admin' ? [
+        { href: '/', label: 'Crear Cotización', icon: FileText },
+        { href: '/solicitudes-recibidas', label: 'Solicitudes', icon: Inbox },
+        { href: '/cotizaciones-guardadas', label: 'Cotizaciones', icon: History },
+        { href: '/admin/facturacion-consolidada', label: 'Facturación', icon: FileClock },
+        { href: '/admin', label: 'Catálogo', icon: Shield },
+        { href: '/admin/clientes', label: 'Clientes', icon: Users },
+        { href: '/admin/status', label: 'Sistema', icon: Activity },
+    ] : [
+        { href: '/solicitud', label: 'Solicitar Examen', icon: FileText },
+    ];
+
+
     return (
-        <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
-            <Link
-              href="/"
-              className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
-            >
-              <Image src="/images/logo.png" alt="Araval Logo" width={24} height={24} className="transition-all group-hover:scale-110" />
-              <span className="sr-only">Araval</span>
-            </Link>
-            
-            {user && (
-                 <NavLink href="/" path={pathname} icon={FileText} label="Crear Cotización" />
-            )}
-            {user?.role === 'admin' && (
-                <>
-                    <NavLink href="/solicitudes-recibidas" path={pathname} icon={Inbox} label="Solicitudes Recibidas" />
-                    <NavLink href="/cotizaciones-guardadas" path={pathname} icon={History} label="Ver Cotizaciones" />
-                    <NavLink href="/admin/facturacion-consolidada" path={pathname} icon={FileClock} label="Facturación Consolidada" />
-                    <NavLink href="/admin" path={pathname} icon={Shield} label="Administrar Catálogo" />
-                    <NavLink href="/admin/clientes" path={pathname} icon={Users} label="Gestionar Clientes" />
-                    <NavLink href="/admin/status" path={pathname} icon={Activity} label="Estado del Sistema" />
-                </>
-            )}
-        </nav>
-    )
-}
-
-
-export function Sidebar() {
-
-  return (
-    <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-card sm:flex print:hidden">
-        <TooltipProvider>
-            <SidebarContent />
-        </TooltipProvider>
-    </aside>
-  );
-}
+        <aside className="w-64 flex-col bg-sidebar-background p-4 hidden md:flex print:hidden">
+            <div className="px-2 py-4 mb-4">
+                <Link href="/">
+                    <Image src="/images/logo2.png" alt="Logo Araval" width={160} height={80} priority />
+                </Link>
+            </div>
+            <nav className="flex flex-col gap-2">
+                {navLinks.map(({ href, label, icon: Icon }) => {
+                    const isActive = pathname === href;
+                    return (
+                        <Link
+                            key={href}
+                            href={href}
+                            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                                isActive 
+                                    ? 'bg-sidebar-active-background text-sidebar-active-foreground shadow-sm' 
+                                    : 'text-sidebar-foreground hover:bg-white/10'
+                            }`}
+                        >
+                            <Icon className="h-5 w-5" />
+                            {label}
+                        </Link>
+                    );
+                })}
+            </nav>
+            <div className="mt-auto text-center text-xs text-sidebar-foreground/50">
+                <span>© {new Date().getFullYear()} JRTEC</span>
+            </div>
+        </aside>
+    );
+};

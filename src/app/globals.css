@@ -2,40 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer base {
   :root {
-    --background: 225 73% 57%; /* Azul Rey como fondo principal */
-    --foreground: 210 40% 98%; /* Texto blanco para alto contraste */
-    --card: 0 0% 100%; /* Tarjetas/Formularios en blanco puro */
-    --card-foreground: 215 25% 27%; /* Texto oscuro para tarjetas */
+    --background: 220 20% 96%; /* Gris Claro para el fondo */
+    --foreground: 222 47% 11%; /* Texto principal oscuro */
+    
+    --card: 0 0% 100%; /* Tarjetas blancas */
+    --card-foreground: 222 47% 11%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 27%;
-    --primary: 225 73% 57%; /* Azul Rey sigue siendo el primario */
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 217 91% 60%; /* Azul primario para acentos */
     --primary-foreground: 210 40% 98%;
-    --secondary: 220 20% 95%; /* Gris claro para elementos secundarios */
-    --secondary-foreground: 215 25% 27%;
-    --muted: 220 10% 90%;
-    --muted-foreground: 215 20% 45%;
-    --accent: 225 73% 57%; /* Botón de acento ahora es Azul Rey */
-    --accent-foreground: 210 40% 98%; /* Texto blanco para el botón de acento */
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
+
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 220 15% 88%;
-    --input: 0 0% 100%; /* Fondo de inputs en blanco puro */
-    --ring: 225 73% 57%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 217 91% 60%;
+    
+    /* --- Nuevas Variables para el Sidebar --- */
+    --sidebar-background: 222 47% 11%; /* Azul Marino Oscuro */
+    --sidebar-foreground: 220 14% 71%; /* Texto gris claro inactivo */
+    --sidebar-active-background: 217 91% 60%; /* Fondo azul primario activo */
+    --sidebar-active-foreground: 210 40% 98%; /* Texto blanco activo */
+
     --radius: 0.5rem;
   }
+
   .dark {
-    --background: 215 28% 17%;
+    /* El modo oscuro se mantiene como estaba, para no romper compatibilidad */
+    --background: 222 47% 11%;
     --foreground: 210 40% 98%;
     --card: 215 28% 17%;
     --card-foreground: 210 40% 98%;
@@ -63,10 +71,6 @@ body {
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
 }

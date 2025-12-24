@@ -3,23 +3,18 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LogOut, FileText, History, Shield, Inbox, Activity, Users, FileClock } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../ui/skeleton';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet"
+import { Sidebar } from './Sidebar';
 
-const NavLink = ({ href, path, children }: { href: string; path: string; children: React.ReactNode }) => (
-    <Link
-      href={href}
-      className={cn(
-        'transition-colors hover:text-primary',
-        path === href ? 'text-primary font-semibold' : 'text-card-foreground/80'
-      )}
-    >
-      {children}
-    </Link>
-  );
 
 export function Header() {
   const { user, loading, logout } = useAuth();
@@ -28,26 +23,20 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm print:hidden">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/images/logo.png" alt="Araval Logo" width={32} height={32} />
-          </Link>
-           <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-                {user && (
-                    <NavLink href="/" path={pathname}>Crear Cotización</NavLink>
-                )}
-                {user?.role === 'admin' && (
-                    <>
-                        <NavLink href="/solicitudes-recibidas" path={pathname}>Solicitudes</NavLink>
-                        <NavLink href="/cotizaciones-guardadas" path={pathname}>Cotizaciones</NavLink>
-                        <NavLink href="/admin/facturacion-consolidada" path={pathname}>Facturación</NavLink>
-                        <NavLink href="/admin" path={pathname}>Catálogo</NavLink>
-                        <NavLink href="/admin/clientes" path={pathname}>Clientes</NavLink>
-                        <NavLink href="/admin/status" path={pathname}>Sistema</NavLink>
-                    </>
-                )}
-           </nav>
+        <div className="flex items-center gap-6 md:hidden">
+            <Sheet>
+                <SheetTrigger asChild>
+                    <Button variant="outline" size="icon">
+                        <Menu className="h-5 w-5" />
+                    </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="p-0 w-64 border-r-0">
+                    <Sidebar />
+                </SheetContent>
+            </Sheet>
         </div>
+        
+        <div className="flex-1" />
 
         <div className="flex items-center gap-4">
           {loading ? (
