@@ -188,7 +188,7 @@ export function AdminFacturacionConsolidada() {
                             <TableRow key={cleanRutEmpresa} className="font-medium">
                             <TableCell><p className='font-semibold text-foreground'>{group.empresa.razonSocial}</p><p className='text-sm text-muted-foreground'>RUT: {group.empresa.rut}</p></TableCell>
                             <TableCell className="text-center">{group.quotes.length}</TableCell>
-                            <TableCell className="text-right text-lg font-bold text-primary">{formatCurrency(group.totalAmount)}</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(group.totalAmount)}</TableCell>
                             <TableCell className="text-center">
                                 <Button size="sm" onClick={() => handleProcessGroup(group)} disabled={isProcessing === cleanRutEmpresa}>
                                 {isProcessing === cleanRutEmpresa ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileText className="mr-2 h-4 w-4"/>}
@@ -204,7 +204,7 @@ export function AdminFacturacionConsolidada() {
                 </Table>
             </CardContent>
             <CardFooter className="border-t pt-6 flex justify-end">
-                <div className='text-right'><p className='text-sm text-muted-foreground'>Total pendiente (todos los clientes)</p><p className='text-2xl font-bold text-primary'>{formatCurrency(groupedData.reduce((acc, group) => acc + group.totalAmount, 0))}</p></div>
+                <div className='text-right'><p className='text-sm text-muted-foreground'>Total pendiente (todos los clientes)</p><p className='text-2xl font-bold'>{formatCurrency(groupedData.reduce((acc, group) => acc + group.totalAmount, 0))}</p></div>
             </CardFooter>
         </Card>
 

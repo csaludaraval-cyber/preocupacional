@@ -45,7 +45,7 @@ export const Sidebar = () => {
                                     : 'text-sidebar-foreground hover:bg-white/10'
                             }`}
                         >
-                            <Icon className={`h-5 w-5 ${isActive ? 'text-sidebar-active-foreground' : 'text-primary'}`} />
+                            <Icon className="h-5 w-5" />
                             {label}
                         </Link>
                     );
