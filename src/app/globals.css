@@ -13,7 +13,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 217 91% 60%; /* Azul primario para acentos */
+    --primary: 240 96% 36%; /* Azul #0303b5 para acentos y títulos */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -30,7 +30,7 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 217 91% 60%;
+    --ring: 240 96% 36%;
     
     /* --- Nuevas Variables para el Sidebar --- */
     --sidebar-background: 240 75% 22%; /* Azul #0E0E61 */
