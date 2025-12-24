@@ -33,7 +33,7 @@
     --ring: 217 91% 60%;
     
     /* --- Nuevas Variables para el Sidebar --- */
-    --sidebar-background: 222 47% 11%; /* Azul Marino Oscuro - AJUSTADO */
+    --sidebar-background: 240 97% 36%; /* Azul #0303b5 */
     --sidebar-foreground: 220 14% 71%; /* Texto gris claro inactivo */
     --sidebar-active-background: 217 91% 60%; /* Fondo azul primario activo */
     --sidebar-active-foreground: 210 40% 98%; /* Texto blanco activo */
