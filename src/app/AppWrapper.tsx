@@ -17,9 +17,7 @@ export default function AppWrapper({ children }: { children: ReactNode }) {
     <ClientOnly>
       {/* Movemos los Providers y el Toaster DENTRO del componente ClientOnly */}
       <Providers>
-        <main className="flex flex-col flex-grow">
           {children}
-        </main>
       </Providers>
       <Toaster position="bottom-right" richColors />
     </ClientOnly>

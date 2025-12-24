@@ -2,90 +2,55 @@
 "use client";
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { FileText, Shield, History, Inbox, LogOut, Activity, Users, FileClock } from 'lucide-react';
-
+import { LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '../ui/skeleton';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet"
+import { SidebarContent } from './Sidebar';
+
 
 export function Header() {
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
 
-  const navLinkClasses = (path: string) =>
-    cn(
-      'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-      pathname === path
-        ? 'bg-primary/10 text-primary'
-        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-    );
-
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-card/80 backdrop-blur-sm print:hidden">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-        <Link href="/" className="flex items-center gap-3">
-           <Image src="/images/logo.png" alt="Araval Logo" width={40} height={40} />
-           <span className="text-xl font-bold font-headline text-primary">Araval</span>
-        </Link>
-        <nav className="hidden items-center gap-4 md:flex">
-          {user && (
-            <Link href="/" className={navLinkClasses('/')}>
-              <FileText className="h-4 w-4" />
-              Crear Cotización
-            </Link>
-          )}
-          {user?.role === 'admin' && (
-            <>
-               <Link href="/solicitudes-recibidas" className={navLinkClasses('/solicitudes-recibidas')}>
-                  <Inbox className="h-4 w-4" />
-                  Solicitudes Recibidas
-              </Link>
-              <Link href="/cotizaciones-guardadas" className={navLinkClasses('/cotizaciones-guardadas')}>
-                  <History className="h-4 w-4" />
-                  Ver Cotizaciones
-              </Link>
-              <Link href="/admin/facturacion-consolidada" className={navLinkClasses('/admin/facturacion-consolidada')}>
-                  <FileClock className="h-4 w-4" />
-                  Facturación Consolidada
-              </Link>
-              <Link href="/admin" className={navLinkClasses('/admin')}>
-                <Shield className="h-4 w-4" />
-                Administrar Catálogo
-              </Link>
-               <Link href="/admin/clientes" className={navLinkClasses('/admin/clientes')}>
-                <Users className="h-4 w-4" />
-                Gestionar Clientes
-              </Link>
-               <Link href="/admin/status" className={navLinkClasses('/admin/status')}>
-                <Activity className="h-4 w-4" />
-                Estado del Sistema
-              </Link>
-            </>
-          )}
-        </nav>
-        <div className="flex items-center gap-4">
-          {loading ? (
-             <Skeleton className="h-8 w-24" />
-          ) : user ? (
-            <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-muted-foreground hidden sm:inline">
-                    {user.email}
-                </span>
-                <Button variant="ghost" size="icon" onClick={logout}>
-                    <LogOut className="h-5 w-5 text-muted-foreground" />
-                </Button>
-            </div>
-          ) : (
-            <Button asChild variant="outline">
-              <Link href="/solicitud">
-                Solicitar Exámenes
-              </Link>
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-card/80 px-4 backdrop-blur-sm sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 print:hidden">
+       <Sheet>
+          <SheetTrigger asChild>
+            <Button size="icon" variant="outline" className="sm:hidden text-card-foreground">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle Menu</span>
             </Button>
-          )}
-        </div>
+          </SheetTrigger>
+          <SheetContent side="left" className="sm:max-w-xs bg-card text-card-foreground">
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
+      <div className="ml-auto flex items-center gap-4">
+        {loading ? (
+           <Skeleton className="h-8 w-24" />
+        ) : user ? (
+          <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-card-foreground hidden sm:inline">
+                  {user.email}
+              </span>
+              <Button variant="ghost" size="icon" onClick={logout}>
+                  <LogOut className="h-5 w-5 text-card-foreground" />
+              </Button>
+          </div>
+        ) : (
+          <Button asChild variant="secondary">
+            <Link href="/solicitud">
+              Solicitar Exámenes
+            </Link>
+          </Button>
+        )}
       </div>
     </header>
   );

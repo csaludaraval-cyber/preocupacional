@@ -329,9 +329,9 @@ export function CrearCotizacion() {
 
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 bg-card text-card-foreground p-6 rounded-lg shadow-lg">
         <div className="text-center">
-            <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="font-headline text-3xl font-bold tracking-tight text-card-foreground sm:text-4xl">
               {isClienteFrecuente ? "Ingresar Orden de Examen (Frecuente)" : "Crear Nueva Cotización (Normal)"}
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
@@ -340,20 +340,20 @@ export function CrearCotizacion() {
         </div>
 
         {isClienteFrecuente && (
-            <Alert className="border-green-500 text-green-700">
+            <Alert className="border-green-500 text-green-700 bg-green-50">
                 <ShieldCheck className="h-4 w-4 !text-green-700" />
-                <AlertTitle className="font-semibold">Modo Cliente Frecuente Activado</AlertTitle>
-                <AlertDescription>Los exámenes base se han pre-seleccionado. Puedes añadir más si es necesario.</AlertDescription>
+                <AlertTitle className="font-semibold text-green-800">Modo Cliente Frecuente Activado</AlertTitle>
+                <AlertDescription className="text-green-700">Los exámenes base se han pre-seleccionado. Puedes añadir más si es necesario.</AlertDescription>
             </Alert>
         )}
 
-      <Card className="border-2 border-primary/20 shadow-lg">
-        <CardContent className="p-6">
+      <div>
+        <CardContent className="p-0">
           <div className="mb-6 space-y-4">
             <Progress value={progress} className="h-2" />
             <div className="flex justify-between font-medium text-sm text-muted-foreground">
                 <span>Paso {step} de {totalSteps}</span>
-                <span className="font-bold text-foreground">{currentStepData?.name}</span>
+                <span className="font-bold text-card-foreground">{currentStepData?.name}</span>
             </div>
           </div>
           
@@ -420,7 +420,7 @@ export function CrearCotizacion() {
             )}
           </div>
         </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }
