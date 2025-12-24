@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Loader2 } from 'lucide-react';
 import AppWrapper from './AppWrapper';
-import { Sidebar } from '@/components/layout/Sidebar';
+import { Header } from '@/components/layout/Header';
 
 export const metadata: Metadata = {
   title: 'Araval Cotizaciones',
@@ -29,11 +29,12 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <div className="flex min-h-screen w-full">
-            <AppWrapper>
-                {children}
-            </AppWrapper>
-        </div>
+        <AppWrapper>
+          <Header />
+          <main className="container mx-auto px-4 py-8 md:px-6">
+            {children}
+          </main>
+        </AppWrapper>
       </body>
     </html>
   );
