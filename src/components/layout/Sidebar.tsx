@@ -51,7 +51,7 @@ export const Sidebar = () => {
                 })}
             </nav>
             <div className="mt-auto text-center text-xs text-sidebar-foreground/50">
-                <span>© {new Date().getFullYear()} JRTEC</span>
+                <span>© {new Date().getFullYear()} ARAVAL SALUD</span>
             </div>
         </aside>
     );
