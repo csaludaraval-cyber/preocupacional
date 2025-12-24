@@ -1,3 +1,4 @@
+
 // src/components/layout/Sidebar.tsx
 "use client";
 import Link from 'next/link';
@@ -44,7 +45,7 @@ export const Sidebar = () => {
                                     : 'text-sidebar-foreground hover:bg-white/10'
                             }`}
                         >
-                            <Icon className="h-5 w-5" />
+                            <Icon className={`h-5 w-5 ${isActive ? 'text-sidebar-active-foreground' : 'text-primary'}`} />
                             {label}
                         </Link>
                     );
