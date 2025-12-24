@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import { Header } from '@/components/layout/Header';
 import { CrearCotizacion } from '@/components/cotizacion/CrearCotizacion';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
-import AITimer from '@/components/AITimer';
 
 export default function Home() {
   return (
@@ -14,7 +13,6 @@ export default function Home() {
         <main className="container mx-auto px-4 py-8 md:px-6">
           {/* ENVOLVER el contenido principal con Suspense */}
           <Suspense fallback={<div>Cargando contenido...</div>}>
-            <AITimer />
             <div className="mt-8">
               <CrearCotizacion />
             </div>
