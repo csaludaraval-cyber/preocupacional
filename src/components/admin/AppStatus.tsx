@@ -61,7 +61,7 @@ export function AppStatus() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline text-3xl flex items-center gap-3">
+        <CardTitle className="font-headline text-3xl flex items-center gap-3 text-primary uppercase font-bold">
             <Activity className="h-8 w-8 text-primary"/>
             Estado del Sistema
         </CardTitle>

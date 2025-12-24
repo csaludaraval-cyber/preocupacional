@@ -262,7 +262,7 @@ export default function SolicitudPage() {
   return (
     <div className="space-y-8">
         <div className="text-center">
-            <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="font-headline text-3xl font-bold tracking-tight text-primary uppercase sm:text-4xl">
               Solicitud de Exámenes
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
@@ -272,7 +272,7 @@ export default function SolicitudPage() {
 
       <Card className="border-2 border-primary/20 shadow-lg">
         <CardHeader>
-             <CardTitle>Validación de Cliente Frecuente</CardTitle>
+             <CardTitle className='font-headline uppercase text-primary font-bold'>Validación de Cliente Frecuente</CardTitle>
              <CardDescription>Si su empresa está registrada como cliente frecuente, ingrese su RUT para autocompletar los datos y acceder a la carga rápida.</CardDescription>
         </CardHeader>
         <CardContent>

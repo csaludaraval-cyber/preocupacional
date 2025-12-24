@@ -170,7 +170,7 @@ export function AdminFacturacionConsolidada() {
     <div className='space-y-8'>
         <Card>
             <CardHeader>
-                <CardTitle className="font-headline text-3xl flex items-center gap-3">
+                <CardTitle className="font-headline text-3xl flex items-center gap-3 text-primary uppercase font-bold">
                     <FileClock className="h-8 w-8 text-primary"/>
                     Facturación Consolidada Pendiente
                 </CardTitle>
@@ -210,7 +210,7 @@ export function AdminFacturacionConsolidada() {
 
         <Card>
             <CardHeader>
-                <CardTitle className="font-headline text-3xl flex items-center gap-3">
+                <CardTitle className="font-headline text-3xl flex items-center gap-3 text-primary uppercase font-bold">
                     <History className="h-8 w-8 text-primary"/>
                     Historial de Facturas Emitidas
                 </CardTitle>

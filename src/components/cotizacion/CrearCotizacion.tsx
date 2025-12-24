@@ -331,7 +331,7 @@ export function CrearCotizacion() {
   return (
     <div className="space-y-8 bg-card text-card-foreground p-6 rounded-lg shadow-lg">
         <div className="text-center">
-            <h1 className="font-headline text-3xl font-bold tracking-tight text-card-foreground sm:text-4xl">
+            <h1 className="font-headline text-3xl font-bold tracking-tight text-primary uppercase sm:text-4xl">
               {isClienteFrecuente ? "Ingresar Orden de Examen (Frecuente)" : "Crear Nueva Cotización (Normal)"}
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">

@@ -163,7 +163,7 @@ export function AdminCatalogo() {
       <CardHeader>
         <div className="flex justify-between items-start gap-4">
             <div>
-                <CardTitle className="font-headline text-3xl flex items-center gap-3">
+                <CardTitle className="font-headline text-3xl flex items-center gap-3 text-primary uppercase font-bold">
                     <Tag className="h-8 w-8 text-primary"/>
                     Catálogo de Exámenes
                 </CardTitle>
