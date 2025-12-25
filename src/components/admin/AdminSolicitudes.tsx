@@ -137,8 +137,8 @@ export function AdminSolicitudes() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline text-3xl flex items-center gap-3 text-primary uppercase font-bold">
-            <Inbox className="h-8 w-8 text-primary"/>
+        <CardTitle className="font-headline text-2xl flex items-center gap-3 text-foreground uppercase font-bold">
+            <Inbox className="h-7 w-7"/>
             Solicitudes de Exámenes Recibidas
         </CardTitle>
         <CardDescription>
