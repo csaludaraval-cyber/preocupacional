@@ -15,6 +15,7 @@ interface UseCotizacionesResult {
   isLoading: boolean;
   error: Error | null;
   refetchQuotes: () => void;
+  statusMap: Record<string, StatusCotizacion>;
 }
 
 const toPlainObject = (timestamp: Timestamp) => {
@@ -24,13 +25,22 @@ const toPlainObject = (timestamp: Timestamp) => {
     };
 };
 
-// Define los estados que ya no deberían aparecer en la lista principal de cotizaciones.
 const hiddenStatuses: StatusCotizacion[] = [
-    'FACTURADO', 
-    'facturado_lioren',
-    // Si 'orden_examen_enviada' se gestiona exclusivamente en facturación consolidada,
-    // podríamos ocultarlo de aquí también. Por ahora lo dejamos visible.
+    // No ocultamos nada por ahora, la visibilidad la decide el componente
 ];
+
+// Mapa para compatibilidad con estados antiguos
+const statusMap: Record<string, StatusCotizacion> = {
+    'cotizacion_aceptada': 'CONFIRMADA',
+    'facturado_lioren': 'FACTURADO',
+    'orden_examen_enviada': 'orden_examen_enviada',
+    'PENDIENTE': 'PENDIENTE',
+    'CONFIRMADA': 'CONFIRMADA',
+    'CORREO_ENVIADO': 'CORREO_ENVIADO',
+    'PAGADO': 'PAGADO',
+    'FACTURADO': 'FACTURADO',
+    'RECHAZADA': 'RECHAZADA',
+};
 
 export function useCotizaciones(): UseCotizacionesResult {
   const cotizacionesQuery = useMemoFirebase(() => 
@@ -87,5 +97,7 @@ export function useCotizaciones(): UseCotizacionesResult {
   }, [rawQuotes]);
 
 
-  return { quotes, isLoading, error: firestoreError, refetchQuotes };
+  return { quotes, isLoading, error: firestoreError, refetchQuotes, statusMap };
 }
+
+    

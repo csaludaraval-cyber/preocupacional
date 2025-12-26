@@ -82,7 +82,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 
 
 export default function AdminCotizaciones() {
-  const { quotes, isLoading, error, refetchQuotes } = useCotizaciones();
+  const { quotes, isLoading, error, refetchQuotes, statusMap } = useCotizaciones();
   
   const [quoteToDelete, setQuoteToDelete] = useState<Cotizacion | null>(null);
   const [quoteToManage, setQuoteToManage] = useState<Cotizacion | null>(null);
@@ -135,7 +135,6 @@ export default function AdminCotizaciones() {
         title: 'Correo Enviado',
         description: `La cotización se ha enviado a ${recipientEmail}.`,
       });
-      // Optimistically update status in the modal
        setQuoteToManage(prev => prev ? ({ ...prev, status: 'CORREO_ENVIADO' }) : null);
 
     } catch (error: any) {
@@ -161,7 +160,6 @@ export default function AdminCotizaciones() {
         description: `La cotización ahora está en estado: ${newStatus}`,
       });
       refetchQuotes();
-      // Optimistically update status in the modal
       setQuoteToManage(prev => prev ? { ...prev, status: newStatus } : null);
 
     } catch (error: any) {
@@ -215,7 +213,6 @@ export default function AdminCotizaciones() {
           description: `DTE Folio ${result.folio} enviado a Lioren.`,
         });
         refetchQuotes();
-        // Cierra el dialogo si la facturación es exitosa
         setQuoteToManage(null);
       } else {
         throw new Error(result.error);
@@ -253,7 +250,7 @@ export default function AdminCotizaciones() {
         status: 'PAGADO',
       });
 
-      // Optimistically update local state to reflect the change
+      // CRITICAL FIX: Update local state to reflect the change immediately
       setQuoteToManage(prev => prev ? ({ ...prev, pagoVoucherUrl: downloadURL, status: 'PAGADO' }) : null);
 
       toast({
@@ -261,9 +258,8 @@ export default function AdminCotizaciones() {
         description: 'Estado actualizado a PAGADO.',
       });
 
-      refetchQuotes(); // Refrescar los datos para asegurar consistencia
-    } catch (error: any) {
-      console.error('Error uploading file:', error);
+      refetchQuotes(); // Refresh data to ensure consistency
+    } catch (error: any)      console.error('Error uploading file:', error);
       toast({
         variant: 'destructive',
         title: 'Error de Carga',
@@ -340,7 +336,8 @@ export default function AdminCotizaciones() {
                 </TableHeader>
                 <TableBody>
                   {sortedQuotes.map((quote) => {
-                    const isBilled = quote.status === 'FACTURADO' || quote.status === 'facturado_lioren';
+                    const displayStatus = statusMap[quote.status] || 'PENDIENTE';
+                    const isBilled = displayStatus === 'FACTURADO';
                     
                     return (
                     <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
@@ -367,12 +364,12 @@ export default function AdminCotizaciones() {
                         }).format(quote.total || 0)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={QuoteStatusMap[quote.status] || 'default'} className="uppercase">
-                          {quote.status === 'facturado_lioren' ? 'FACTURADO' : quote.status}
+                        <Badge variant={QuoteStatusMap[displayStatus] || 'default'} className="uppercase">
+                          {displayStatus}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center space-x-1">
-                          {isBilled && (
+                          {isBilled && quote.liorenPdfUrl && (
                             <Button asChild size="sm" variant="secondary" className='bg-green-600 hover:bg-green-700 text-white'>
                                 <a href={quote.liorenPdfUrl} target="_blank" rel="noopener noreferrer">
                                     <FileCheck className="mr-2 h-4 w-4"/> Ver Factura
@@ -413,20 +410,22 @@ export default function AdminCotizaciones() {
 
         <Dialog open={!!quoteToManage} onOpenChange={(open) => !open && setQuoteToManage(null)}>
           <DialogContent className="max-w-6xl w-[95%] h-[95%] flex flex-col p-6">
-            {quoteToManage && (
+            {quoteToManage && (() => {
+                const displayStatus = statusMap[quoteToManage.status] || 'PENDIENTE';
+                return (
               <>
                 <DialogHeader>
                   <DialogTitle className="text-2xl font-bold">
                     Gestión de Cotización ID: {quoteToManage?.id?.slice(-6)}
-                    <Badge variant={QuoteStatusMap[quoteToManage?.status] || 'default'} className="ml-3 text-lg uppercase">
-                      {quoteToManage?.status === 'facturado_lioren' ? 'FACTURADO' : quoteToManage.status}
+                    <Badge variant={QuoteStatusMap[displayStatus] || 'default'} className="ml-3 text-lg uppercase">
+                      {displayStatus}
                     </Badge>
                   </DialogTitle>
                 </DialogHeader>
 
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border mb-4 sticky top-0 z-10">
                    <div className="flex items-center gap-4">
-                     {['CONFIRMADA', 'CORREO_ENVIADO'].includes(quoteToManage.status) && !quoteToManage.pagoVoucherUrl && (
+                     {['CONFIRMADA', 'CORREO_ENVIADO'].includes(displayStatus) && (
                         <>
                          <Input id="voucherUpload" type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept=".pdf,.jpg,.jpeg,.png" />
                           <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
@@ -446,18 +445,18 @@ export default function AdminCotizaciones() {
                      )}
                    </div>
                    <div className="flex space-x-3">
-                     {['CONFIRMADA', 'CORREO_ENVIADO'].includes(quoteToManage.status) && (
+                     {['CONFIRMADA', 'CORREO_ENVIADO'].includes(displayStatus) && (
                         <Button variant="outline" onClick={() => handleSendEmail(quoteToManage)} disabled={isSending}>
                           {isSending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</> : <><Send className="mr-2 h-4 w-4" /> Enviar Correo</>}
                         </Button>
                      )}
-                     {quoteToManage.status === 'PAGADO' && (
-                        <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isInvoicing}>
-                            {isInvoicing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                            {isInvoicing ? 'Facturando...' : 'Facturar Ahora'}
+                     {displayStatus === 'PAGADO' && (
+                        <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isInvoicing === quoteToManage.id}>
+                            {isInvoicing === quoteToManage.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                            {isInvoicing === quoteToManage.id ? 'Facturando...' : 'Facturar Ahora'}
                         </Button>
                      )}
-                     {(quoteToManage.status === 'FACTURADO' || quoteToManage.status === 'facturado_lioren') && (
+                     {displayStatus === 'FACTURADO' && quoteToManage.liorenPdfUrl && (
                         <Button asChild variant="secondary" className='bg-green-600 hover:bg-green-700 text-white'>
                             <a href={quoteToManage.liorenPdfUrl} target="_blank" rel="noopener noreferrer">
                                 <FileCheck className="mr-2 h-4 w-4"/> Ver Factura Emitida
@@ -471,7 +470,7 @@ export default function AdminCotizaciones() {
                   <DetalleCotizacion quote={quoteToManage} />
                 </div>
               </>
-            )}
+            )})()}
           </DialogContent>
         </Dialog>
 
@@ -497,3 +496,5 @@ export default function AdminCotizaciones() {
       </>
   );
 }
+
+    
