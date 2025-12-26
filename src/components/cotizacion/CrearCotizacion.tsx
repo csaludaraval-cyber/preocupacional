@@ -251,7 +251,7 @@ export function CrearCotizacion() {
       empresaData: { ...empresa, rut: cleanRut(empresa.rut), modalidadFacturacion: isClienteFrecuente ? 'frecuente' : 'normal' },
       solicitanteData: solicitante,
       solicitudesData: solicitudes,
-      status: isClienteFrecuente ? 'orden_examen_enviada' : 'PENDIENTE',
+      status: isClienteFrecuente ? 'orden_examen_enviada' : 'CONFIRMADA',
       originalRequestId: originalRequestId || null,
     };
 

@@ -53,13 +53,15 @@ import { Input } from '../ui/input';
 
 const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'secondary' | 'success'> = {
   PENDIENTE: 'secondary',
-  ENVIADA: 'default',
-  ACEPTADA: 'success',
+  CONFIRMADA: 'default',
+  CORREO_ENVIADO: 'default',
+  PAGADO: 'success',
+  FACTURADO: 'success',
   RECHAZADA: 'destructive',
   orden_examen_enviada: 'secondary',
-  cotizacion_aceptada: 'success',
-  facturado_lioren: 'default',
+  facturado_lioren: 'success', 
 };
+
 
 const blobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -125,15 +127,16 @@ export default function AdminCotizaciones() {
         pdfBase64: pdfBase64,
       });
 
-      if (quote.status !== 'ENVIADA') {
-        await handleUpdateStatus(quote.id, 'ENVIADA');
+      if (quote.status !== 'CORREO_ENVIADO') {
+        await handleUpdateStatus(quote.id, 'CORREO_ENVIADO');
       }
 
       toast({
         title: 'Correo Enviado',
         description: `La cotización se ha enviado a ${recipientEmail}.`,
       });
-      setQuoteToManage(null);
+      // Optimistically update status in the modal
+       setQuoteToManage(prev => prev ? ({ ...prev, status: 'CORREO_ENVIADO' }) : null);
 
     } catch (error: any) {
       console.error('Error al enviar cotización:', error);
@@ -158,6 +161,9 @@ export default function AdminCotizaciones() {
         description: `La cotización ahora está en estado: ${newStatus}`,
       });
       refetchQuotes();
+      // Optimistically update status in the modal
+      setQuoteToManage(prev => prev ? { ...prev, status: newStatus } : null);
+
     } catch (error: any) {
       console.error('Error al actualizar estado:', error);
       toast({
@@ -210,12 +216,7 @@ export default function AdminCotizaciones() {
         });
         refetchQuotes();
         // Cierra el dialogo si la facturación es exitosa
-        const updatedQuote = quotes.find(q => q.id === quoteId);
-        if (updatedQuote) {
-            setQuoteToManage({ ...updatedQuote, status: 'facturado_lioren', liorenFolio: result.folio?.toString() });
-        } else {
-            setQuoteToManage(null);
-        }
+        setQuoteToManage(null);
       } else {
         throw new Error(result.error);
       }
@@ -230,7 +231,7 @@ export default function AdminCotizaciones() {
     }
   };
 
-    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0 || !quoteToManage) {
       return;
     }
@@ -240,23 +241,24 @@ export default function AdminCotizaciones() {
     setIsUploading(true);
     try {
       const storage = getStorage();
-      const filePath = `vouchers/${quoteId}_voucher.${file.name.split('.').pop()}`;
+      const filePath = `vouchers/${quoteId}_${file.name}`;
       const fileRef = storageRef(storage, filePath);
       
-      const uploadResult = await uploadBytes(fileRef, file);
-      const downloadURL = await getDownloadURL(uploadResult.ref);
+      await uploadBytes(fileRef, file);
+      const downloadURL = await getDownloadURL(fileRef);
       
       const quoteDocRef = doc(firestore, 'cotizaciones', quoteId);
       await updateDoc(quoteDocRef, {
         pagoVoucherUrl: downloadURL,
+        status: 'PAGADO',
       });
 
       // Optimistically update local state to reflect the change
-      setQuoteToManage(prev => prev ? ({ ...prev, pagoVoucherUrl: downloadURL }) : null);
+      setQuoteToManage(prev => prev ? ({ ...prev, pagoVoucherUrl: downloadURL, status: 'PAGADO' }) : null);
 
       toast({
-        title: 'Voucher Subido',
-        description: 'El comprobante de pago se ha asociado a la cotización.',
+        title: 'Voucher Subido Correctamente',
+        description: 'Estado actualizado a PAGADO.',
       });
 
       refetchQuotes(); // Refrescar los datos para asegurar consistencia
@@ -316,7 +318,7 @@ export default function AdminCotizaciones() {
   return (
       <>
         <div className="container mx-auto p-4 sm:p-6 bg-white rounded-lg shadow-xl">
-          <h1 className="text-3xl font-bold mb-6 text-gray-800">Administración de Cotizaciones</h1>
+          <h1 className="text-2xl font-bold mb-6 text-gray-800 uppercase font-headline">Administración de Cotizaciones</h1>
 
           {sortedQuotes.length === 0 ? (
             <div className="text-center p-10 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
@@ -338,9 +340,7 @@ export default function AdminCotizaciones() {
                 </TableHeader>
                 <TableBody>
                   {sortedQuotes.map((quote) => {
-                    const isInvoiceable = (quote.status === 'cotizacion_aceptada' || quote.status === 'ACEPTADA') && !!quote.pagoVoucherUrl;
-                    const isProcessing = isInvoicing === quote.id;
-                    const isBilled = quote.status === 'facturado_lioren';
+                    const isBilled = quote.status === 'FACTURADO' || quote.status === 'facturado_lioren';
                     
                     return (
                     <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
@@ -367,19 +367,17 @@ export default function AdminCotizaciones() {
                         }).format(quote.total || 0)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={QuoteStatusMap[quote.status] || 'default'}>
-                          {quote.status}
+                        <Badge variant={QuoteStatusMap[quote.status] || 'default'} className="uppercase">
+                          {quote.status === 'facturado_lioren' ? 'FACTURADO' : quote.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center space-x-1">
-                          {isBilled ? (
+                          {isBilled && (
                             <Button asChild size="sm" variant="secondary" className='bg-green-600 hover:bg-green-700 text-white'>
                                 <a href={quote.liorenPdfUrl} target="_blank" rel="noopener noreferrer">
                                     <FileCheck className="mr-2 h-4 w-4"/> Ver Factura
                                 </a>
                             </Button>
-                          ) : (
-                             <div className="h-9"></div>
                           )}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -390,8 +388,8 @@ export default function AdminCotizaciones() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                   <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
-                                        <Send className="mr-2 h-4 w-4" />
-                                        Gestionar y Facturar
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Gestionar Cotización
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleOpenDownloadPage(quote)}>
                                       <Download className="mr-2 h-4 w-4" />
@@ -420,24 +418,17 @@ export default function AdminCotizaciones() {
                 <DialogHeader>
                   <DialogTitle className="text-2xl font-bold">
                     Gestión de Cotización ID: {quoteToManage?.id?.slice(-6)}
-                    <Badge variant={QuoteStatusMap[quoteToManage?.status || 'PENDIENTE']} className="ml-3 text-lg">
-                      {quoteToManage?.status}
+                    <Badge variant={QuoteStatusMap[quoteToManage?.status] || 'default'} className="ml-3 text-lg uppercase">
+                      {quoteToManage?.status === 'facturado_lioren' ? 'FACTURADO' : quoteToManage.status}
                     </Badge>
                   </DialogTitle>
                 </DialogHeader>
 
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border mb-4 sticky top-0 z-10">
                    <div className="flex items-center gap-4">
-                     {quoteToManage.status === 'ACEPTADA' && !quoteToManage.pagoVoucherUrl && (
+                     {['CONFIRMADA', 'CORREO_ENVIADO'].includes(quoteToManage.status) && !quoteToManage.pagoVoucherUrl && (
                         <>
-                         <Input
-                            id="voucherUpload"
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleFileUpload}
-                            accept=".pdf,.jpg,.jpeg,.png"
-                          />
+                         <Input id="voucherUpload" type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept=".pdf,.jpg,.jpeg,.png" />
                           <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                             {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
                             Subir Voucher
@@ -453,39 +444,26 @@ export default function AdminCotizaciones() {
                             </a>
                         </div>
                      )}
-                     {quoteToManage.status === 'facturado_lioren' ? (
+                   </div>
+                   <div className="flex space-x-3">
+                     {['CONFIRMADA', 'CORREO_ENVIADO'].includes(quoteToManage.status) && (
+                        <Button variant="outline" onClick={() => handleSendEmail(quoteToManage)} disabled={isSending}>
+                          {isSending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</> : <><Send className="mr-2 h-4 w-4" /> Enviar Correo</>}
+                        </Button>
+                     )}
+                     {quoteToManage.status === 'PAGADO' && (
+                        <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isInvoicing}>
+                            {isInvoicing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                            {isInvoicing ? 'Facturando...' : 'Facturar Ahora'}
+                        </Button>
+                     )}
+                     {(quoteToManage.status === 'FACTURADO' || quoteToManage.status === 'facturado_lioren') && (
                         <Button asChild variant="secondary" className='bg-green-600 hover:bg-green-700 text-white'>
                             <a href={quoteToManage.liorenPdfUrl} target="_blank" rel="noopener noreferrer">
                                 <FileCheck className="mr-2 h-4 w-4"/> Ver Factura Emitida
                             </a>
                         </Button>
-                     ) : (
-                        <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isInvoicing || !quoteToManage.pagoVoucherUrl}>
-                            {isInvoicing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                            {isInvoicing ? 'Facturando...' : 'Facturar Ahora'}
-                        </Button>
                      )}
-                  </div>
-                   <div className="flex space-x-3">
-                     <Button
-                        variant="outline"
-                        onClick={() => handleSendEmail(quoteToManage)}
-                        disabled={isSending || isUpdatingStatus}
-                      >
-                        {isSending ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</>
-                        ) : (
-                          <><Send className="mr-2 h-4 w-4" /> Reenviar</>
-                        )}
-                      </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleUpdateStatus(quoteToManage.id, 'ACEPTADA')}
-                      disabled={isUpdatingStatus || quoteToManage?.status === 'ACEPTADA' || quoteToManage?.status === 'RECHAZADA'}
-                      className="text-green-600 border-green-600 hover:bg-green-50"
-                    >
-                      <Check className="mr-2 h-4 w-4" /> Aceptar
-                    </Button>
                   </div>
                 </div>
 

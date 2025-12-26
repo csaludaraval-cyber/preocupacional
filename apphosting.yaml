@@ -1,14 +1,13 @@
 kind: "AppHostingYaml"
 schemaVersion: "v1"
-
-# Configuración del motor de ejecución
 runConfig:
   minInstances: 0
   maxInstances: 10
   cpu: 1
   memoryMiB: 512
-
-# Mapeo de Secretos (Esto arregla el Error 500)
 env:
   - variable: LIOREN_TOKEN
     secret: LIOREN_TOKEN
+    availability:
+      - BUILD
+      - RUNTIME

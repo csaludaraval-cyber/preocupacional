@@ -94,7 +94,7 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
         cotizaciones.forEach(cotizacion => {
             const docRef = doc(db, 'cotizaciones', cotizacion.id);
             batch.update(docRef, { 
-                status: 'facturado_lioren',
+                status: 'FACTURADO',
                 liorenFolio: response.folio.toString(),
                 liorenId: response.id,
                 liorenFechaEmision: fechaEmision,
@@ -137,12 +137,12 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
 
         const cotizacion = cotizacionSnap.data() as CotizacionFirestore;
 
-        if (cotizacion.status === 'facturado_lioren') {
+        if (cotizacion.status === 'FACTURADO' || cotizacion.status === 'facturado_lioren') {
             return { success: false, error: `Esta cotización ya fue facturada (Folio: ${cotizacion.liorenFolio}).` };
         }
 
-        if (cotizacion.status !== 'cotizacion_aceptada' && cotizacion.status !== 'ACEPTADA') {
-            return { success: false, error: `La cotización no está en un estado aceptado para facturar, sino '${cotizacion.status}'.` };
+        if (cotizacion.status !== 'PAGADO') {
+            return { success: false, error: `La cotización debe estar en estado 'PAGADO' para facturar, pero está en '${cotizacion.status}'.` };
         }
         
         const empresaData = cotizacion.empresaData;
@@ -183,7 +183,7 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
         }
 
         await cotizacionRef.update({
-            status: 'facturado_lioren',
+            status: 'FACTURADO',
             liorenFolio: response.folio.toString(),
             liorenId: response.id,
             liorenFechaEmision: new Date().toISOString(),

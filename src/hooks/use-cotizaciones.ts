@@ -5,7 +5,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { collection, getDocs, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
-import type { CotizacionFirestore, Cotizacion, Empresa, Solicitante, SolicitudTrabajador } from '@/lib/types';
+import type { CotizacionFirestore, Cotizacion, Empresa, Solicitante, SolicitudTrabajador, StatusCotizacion } from '@/lib/types';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 
@@ -24,6 +24,14 @@ const toPlainObject = (timestamp: Timestamp) => {
     };
 };
 
+// Define los estados que ya no deberían aparecer en la lista principal de cotizaciones.
+const hiddenStatuses: StatusCotizacion[] = [
+    'FACTURADO', 
+    'facturado_lioren',
+    // Si 'orden_examen_enviada' se gestiona exclusivamente en facturación consolidada,
+    // podríamos ocultarlo de aquí también. Por ahora lo dejamos visible.
+];
+
 export function useCotizaciones(): UseCotizacionesResult {
   const cotizacionesQuery = useMemoFirebase(() => 
     query(
@@ -38,18 +46,15 @@ export function useCotizaciones(): UseCotizacionesResult {
   const quotes = useMemo(() => {
     if (!rawQuotes) return [];
 
-    // Remove quotes with statuses related to billing
-    const filtered = rawQuotes.filter(q => q.status !== 'facturado_consolidado');
+    const filtered = rawQuotes.filter(q => !hiddenStatuses.includes(q.status));
 
     const processed = filtered.map(q => {
-        // KEEP the original Timestamp object if it exists, otherwise use the serialized one.
         const fechaCreacionSerializable = q.fechaCreacion instanceof Timestamp ? { seconds: q.fechaCreacion.seconds, nanoseconds: q.fechaCreacion.nanoseconds } : q.fechaCreacion;
 
         const fecha = q.fechaCreacion instanceof Timestamp 
             ? q.fechaCreacion.toDate().toLocaleDateString('es-CL')
             : new Date().toLocaleDateString('es-CL');
 
-        // Aseguramos que los datos denormalizados existan
         const empresaData: Empresa = q.empresaData || { razonSocial: '', rut: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
         const solicitanteData: Solicitante = q.solicitanteData || { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
         const solicitudesData: SolicitudTrabajador[] = q.solicitudesData || [];
@@ -62,14 +67,14 @@ export function useCotizaciones(): UseCotizacionesResult {
             solicitudes: solicitudesData, 
             total: q.total,
             fecha,
-            fechaCreacion: fechaCreacionSerializable as { seconds: number; nanoseconds: number; }, // Assert type
+            fechaCreacion: fechaCreacionSerializable as { seconds: number; nanoseconds: number; },
             status: q.status || 'PENDIENTE',
-            // Datos denormalizados que realmente se usan
             empresaData: empresaData,
             solicitanteData: solicitanteData,
             solicitudesData: solicitudesData,
             pagoVoucherUrl: q.pagoVoucherUrl,
             liorenPdfUrl: q.liorenPdfUrl,
+            liorenFolio: q.liorenFolio,
         } as Cotizacion;
     });
 
