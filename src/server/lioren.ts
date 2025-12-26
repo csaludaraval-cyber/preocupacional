@@ -6,56 +6,19 @@
 
 import { LIOREN_CONFIG } from './config';
 
-const LIOREN_API_URL = 'https://api.lioren.io/api';
-
-interface LiorenToken {
-  token: string;
-  exp: number;
-}
-
-let tokenCache: LiorenToken | null = null;
-
-async function getAuthToken(): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-
-  if (tokenCache && tokenCache.exp > now + 60) {
-    return tokenCache.token;
-  }
-
-  if (!LIOREN_CONFIG.apiKey) {
-    throw new Error('Error Crítico: La API Key de Lioren (LIOREN_API_KEY) no está configurada en las variables de entorno.');
-  }
-
-  const response = await fetch(`${LIOREN_API_URL}/auth`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({ apikey: LIOREN_CONFIG.apiKey }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`Error de autenticación con Lioren: ${response.status}`, errorBody);
-    throw new Error(`Error al autenticar con Lioren: ${response.status}. Respuesta: ${errorBody}`);
-  }
-
-  const data = await response.json();
-  tokenCache = {
-    token: data.token,
-    exp: data.exp,
-  };
-
-  return tokenCache.token;
-}
+const LIOREN_API_URL = 'https://api.lioren.cl/v1/dtes';
 
 export async function createDTE(dteData: any): Promise<any> {
-  const token = await getAuthToken();
+  if (!LIOREN_CONFIG.token) {
+    throw new Error('Error Crítico: El Token de Acceso Personal de Lioren (LIOREN_TOKEN) no está configurado en las variables de entorno.');
+  }
 
-  const response = await fetch(`${LIOREN_API_URL}/dtes`, {
+  const response = await fetch(LIOREN_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${LIOREN_CONFIG.token}`,
     },
     body: JSON.stringify(dteData),
   });

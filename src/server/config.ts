@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Archivo de configuración centralizado para el lado del servidor.
  * ATENCIÓN: NO exponga este archivo al lado del cliente.
@@ -24,7 +25,7 @@ export const SMTP_CONFIG = {
 };
 
 export const LIOREN_CONFIG = {
-  apiKey: process.env.LIOREN_API_KEY,
+  token: process.env.LIOREN_TOKEN,
   // RUT del emisor para las facturas, debe estar en las variables de entorno
   emisorRut: process.env.EMISOR_RUT,
 };

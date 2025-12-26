@@ -50,9 +50,9 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
         const detalles = cotizaciones.flatMap(c => 
             c.solicitudesData.flatMap(s => 
                 s.examenes.map(e => ({
-                    nombre: `${e.nombre} - ${s.trabajador.nombre}`,
+                    nombre: `${e.nombre} - ${s.trabajador.nombre}`.substring(0, 80), // Truncar a 80 caracteres
                     cantidad: 1,
-                    precio: e.valor,
+                    precio: Math.round(e.valor),
                     exento: true,
                 }))
             )
@@ -71,10 +71,10 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
             },
             detalles: detalles,
             montos: {
-                neto: totalNeto,
-                exento: totalNeto,
+                neto: 0,
+                exento: Math.round(totalNeto),
                 iva: 0,
-                total: totalNeto,
+                total: Math.round(totalNeto),
             },
             referencias: cotizaciones.map(c => ({
                 tipo: 801, // Orden de Compra
@@ -98,7 +98,7 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
                 liorenFolio: response.folio.toString(),
                 liorenId: response.id,
                 liorenFechaEmision: fechaEmision,
-                liorenPdfUrl: response.uri,
+                liorenPdfUrl: response.url_pdf || response.pdf || response.uri,
             });
         });
 
@@ -150,9 +150,9 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
 
         const detalles = cotizacion.solicitudesData.flatMap(s => 
             s.examenes.map(e => ({
-                nombre: `${e.nombre} - ${s.trabajador.nombre}`,
+                nombre: `${e.nombre} - ${s.trabajador.nombre}`.substring(0, 80), // Truncar a 80 caracteres
                 cantidad: 1,
-                precio: e.valor,
+                precio: Math.round(e.valor),
                 exento: true,
             }))
         );
@@ -170,10 +170,10 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
             },
             detalles: detalles,
             montos: {
-                neto: totalNeto,
-                exento: totalNeto,
+                neto: 0,
+                exento: Math.round(totalNeto),
                 iva: 0,
-                total: totalNeto,
+                total: Math.round(totalNeto),
             },
         };
 
@@ -187,7 +187,7 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
             liorenFolio: response.folio.toString(),
             liorenId: response.id,
             liorenFechaEmision: new Date().toISOString(),
-            liorenPdfUrl: response.uri,
+            liorenPdfUrl: response.url_pdf || response.pdf || response.uri,
         });
 
         return { success: true, folio: response.folio };
