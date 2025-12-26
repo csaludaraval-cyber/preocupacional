@@ -188,7 +188,7 @@ export function AdminFacturacionConsolidada() {
                             <TableRow key={cleanRutEmpresa} className="font-medium">
                             <TableCell><p className='font-semibold text-foreground'>{group.empresa.razonSocial}</p><p className='text-sm text-muted-foreground'>RUT: {group.empresa.rut}</p></TableCell>
                             <TableCell className="text-center">{group.quotes.length}</TableCell>
-                            <TableCell className="text-right font-semibold text-primary">{formatCurrency(group.totalAmount)}</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(group.totalAmount)}</TableCell>
                             <TableCell className="text-center">
                                 <Button size="sm" onClick={() => handleProcessGroup(group)} disabled={isProcessing === cleanRutEmpresa}>
                                 {isProcessing === cleanRutEmpresa ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileText className="mr-2 h-4 w-4"/>}

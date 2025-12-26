@@ -51,9 +51,10 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
         const detalles = cotizaciones.flatMap(c => 
             c.solicitudesData.flatMap(s => 
                 s.examenes.map(e => ({
-                    nombre: e.nombre,
+                    nombre: `${e.nombre} - ${s.trabajador.nombre}`,
                     cantidad: 1,
                     precio: e.valor,
+                    exento: true,
                 }))
             )
         );
@@ -149,9 +150,10 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
 
         const detalles = cotizacion.solicitudesData.flatMap(s => 
             s.examenes.map(e => ({
-                nombre: e.nombre,
+                nombre: `${e.nombre} - ${s.trabajador.nombre}`,
                 cantidad: 1,
                 precio: e.valor,
+                exento: true,
             }))
         );
 
