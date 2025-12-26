@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { useCotizaciones } from '@/hooks/use-cotizaciones';
 import {
   Table,
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FlaskConical, MoreVertical, FileText } from 'lucide-react';
+import { Loader2, Send, Download, Check, X, ClipboardCopy, Trash2, FlaskConical, MoreVertical, FileText, UploadCloud, FileCheck, ExternalLink } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,8 +46,10 @@ import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
 import { emitirDTEInmediato } from '@/server/actions/facturacionActions';
+import { Input } from '../ui/input';
 
 const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'secondary' | 'success'> = {
   PENDIENTE: 'secondary',
@@ -87,6 +89,9 @@ export default function AdminCotizaciones() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isInvoicing, setIsInvoicing] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -204,6 +209,13 @@ export default function AdminCotizaciones() {
           description: `DTE Folio ${result.folio} enviado a Lioren.`,
         });
         refetchQuotes();
+        // Cierra el dialogo si la facturación es exitosa
+        const updatedQuote = quotes.find(q => q.id === quoteId);
+        if (updatedQuote) {
+            setQuoteToManage({ ...updatedQuote, status: 'facturado_lioren', liorenFolio: result.folio?.toString() });
+        } else {
+            setQuoteToManage(null);
+        }
       } else {
         throw new Error(result.error);
       }
@@ -215,6 +227,48 @@ export default function AdminCotizaciones() {
       });
     } finally {
       setIsInvoicing(null);
+    }
+  };
+
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0 || !quoteToManage) {
+      return;
+    }
+    const file = event.target.files[0];
+    const quoteId = quoteToManage.id;
+    
+    setIsUploading(true);
+    try {
+      const storage = getStorage();
+      const filePath = `vouchers/${quoteId}_voucher.${file.name.split('.').pop()}`;
+      const fileRef = storageRef(storage, filePath);
+      
+      const uploadResult = await uploadBytes(fileRef, file);
+      const downloadURL = await getDownloadURL(uploadResult.ref);
+      
+      const quoteDocRef = doc(firestore, 'cotizaciones', quoteId);
+      await updateDoc(quoteDocRef, {
+        pagoVoucherUrl: downloadURL,
+      });
+
+      // Optimistically update local state to reflect the change
+      setQuoteToManage(prev => prev ? ({ ...prev, pagoVoucherUrl: downloadURL }) : null);
+
+      toast({
+        title: 'Voucher Subido',
+        description: 'El comprobante de pago se ha asociado a la cotización.',
+      });
+
+      refetchQuotes(); // Refrescar los datos para asegurar consistencia
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error de Carga',
+        description: error.message || 'No se pudo subir el archivo.',
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -284,8 +338,10 @@ export default function AdminCotizaciones() {
                 </TableHeader>
                 <TableBody>
                   {sortedQuotes.map((quote) => {
-                    const isInvoiceable = (quote.status === 'cotizacion_aceptada' || quote.status === 'ACEPTADA') && quote.status !== 'facturado_lioren';
+                    const isInvoiceable = (quote.status === 'cotizacion_aceptada' || quote.status === 'ACEPTADA') && !!quote.pagoVoucherUrl;
                     const isProcessing = isInvoicing === quote.id;
+                    const isBilled = quote.status === 'facturado_lioren';
+                    
                     return (
                     <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
                       <TableCell className="font-medium flex items-center space-x-2">
@@ -316,13 +372,14 @@ export default function AdminCotizaciones() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center space-x-1">
-                          {isInvoiceable ? (
-                            <Button size="sm" onClick={() => handleInvoiceNow(quote.id)} disabled={isProcessing || !!isInvoicing}>
-                                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileText className="mr-2 h-4 w-4"/>}
-                                {isProcessing ? 'Facturando...' : 'Facturar Ahora'}
+                          {isBilled ? (
+                            <Button asChild size="sm" variant="secondary" className='bg-green-600 hover:bg-green-700 text-white'>
+                                <a href={quote.liorenPdfUrl} target="_blank" rel="noopener noreferrer">
+                                    <FileCheck className="mr-2 h-4 w-4"/> Ver Factura
+                                </a>
                             </Button>
                           ) : (
-                            <div className="h-9"></div>
+                             <div className="h-9"></div>
                           )}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -334,18 +391,12 @@ export default function AdminCotizaciones() {
                               <DropdownMenuContent align="end">
                                   <DropdownMenuItem onClick={() => setQuoteToManage(quote)}>
                                         <Send className="mr-2 h-4 w-4" />
-                                        Gestionar y Enviar
+                                        Gestionar y Facturar
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleOpenDownloadPage(quote)}>
                                       <Download className="mr-2 h-4 w-4" />
                                       Ver / Descargar PDF
                                   </DropdownMenuItem>
-                                  {(quote.status !== 'ACEPTADA' && quote.status !== 'cotizacion_aceptada' && quote.status !== 'facturado_lioren') && (
-                                   <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, 'ACEPTADA')}>
-                                      <Check className="mr-2 h-4 w-4" />
-                                      Marcar como ACEPTADA
-                                  </DropdownMenuItem>
-                                  )}
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => setQuoteToDelete(quote)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                                       <Trash2 className="mr-2 h-4 w-4" />
@@ -376,47 +427,65 @@ export default function AdminCotizaciones() {
                 </DialogHeader>
 
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border mb-4 sticky top-0 z-10">
-                  <div className="flex space-x-3">
-                     <Button
-                        onClick={() => handleSendEmail(quoteToManage)}
-                        disabled={isSending || isUpdatingStatus}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        {isSending ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando a {quoteToManage.solicitanteData?.mail}...</>
-                        ) : (
-                          <><Send className="mr-2 h-4 w-4" /> Confirmar Envío / Reenviar</>
-                        )}
-                      </Button>
+                   <div className="flex items-center gap-4">
+                     {quoteToManage.status === 'ACEPTADA' && !quoteToManage.pagoVoucherUrl && (
+                        <>
+                         <Input
+                            id="voucherUpload"
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            onChange={handleFileUpload}
+                            accept=".pdf,.jpg,.jpeg,.png"
+                          />
+                          <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                            Subir Voucher
+                          </Button>
+                        </>
+                     )}
+                     {quoteToManage.pagoVoucherUrl && (
+                        <div className='flex items-center gap-2 text-sm text-green-600'>
+                            <FileCheck className="h-5 w-5" />
+                            <span>Voucher Cargado</span>
+                             <a href={quoteToManage.pagoVoucherUrl} target="_blank" rel="noopener noreferrer" className="ml-2 hover:underline">
+                                <ExternalLink className='h-4 w-4'/>
+                            </a>
+                        </div>
+                     )}
+                     {quoteToManage.status === 'facturado_lioren' ? (
+                        <Button asChild variant="secondary" className='bg-green-600 hover:bg-green-700 text-white'>
+                            <a href={quoteToManage.liorenPdfUrl} target="_blank" rel="noopener noreferrer">
+                                <FileCheck className="mr-2 h-4 w-4"/> Ver Factura Emitida
+                            </a>
+                        </Button>
+                     ) : (
+                        <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isInvoicing || !quoteToManage.pagoVoucherUrl}>
+                            {isInvoicing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                            {isInvoicing ? 'Facturando...' : 'Facturar Ahora'}
+                        </Button>
+                     )}
                   </div>
                    <div className="flex space-x-3">
+                     <Button
+                        variant="outline"
+                        onClick={() => handleSendEmail(quoteToManage)}
+                        disabled={isSending || isUpdatingStatus}
+                      >
+                        {isSending ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</>
+                        ) : (
+                          <><Send className="mr-2 h-4 w-4" /> Reenviar</>
+                        )}
+                      </Button>
                     <Button
                       variant="outline"
                       onClick={() => handleUpdateStatus(quoteToManage.id, 'ACEPTADA')}
                       disabled={isUpdatingStatus || quoteToManage?.status === 'ACEPTADA' || quoteToManage?.status === 'RECHAZADA'}
                       className="text-green-600 border-green-600 hover:bg-green-50"
                     >
-                      {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                      Marcar como ACEPTADA
+                      <Check className="mr-2 h-4 w-4" /> Aceptar
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleUpdateStatus(quoteToManage.id, 'RECHAZADA')}
-                      disabled={isUpdatingStatus || quoteToManage?.status === 'ACEPTADA' || quoteToManage?.status === 'RECHAZADA'}
-                      className="text-red-600 border-red-600 hover:bg-red-50"
-                    >
-                      {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-                      Marcar como RECHAZADA
-                    </Button>
-                    {(quoteToManage.status === 'ENVIADA' || quoteToManage.status === 'PENDIENTE') && (
-                      <Button
-                          variant="secondary"
-                          onClick={() => handleUpdateStatus(quoteToManage.id, 'cotizacion_aceptada')}
-                          disabled={isUpdatingStatus}
-                      >
-                          <FlaskConical className="mr-2 h-4 w-4" /> Forzar Aceptación (Prueba)
-                      </Button>
-                    )}
                   </div>
                 </div>
 

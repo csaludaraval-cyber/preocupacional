@@ -27,6 +27,8 @@ export type Cotizacion = {
   liorenId?: string;
   liorenFechaEmision?: string;
   liorenPdfUrl?: string;
+  // Payment confirmation
+  pagoVoucherUrl?: string;
 };
 
 
@@ -47,6 +49,8 @@ export type CotizacionFirestore = {
   liorenId?: string;
   liorenFechaEmision?: string;
   liorenPdfUrl?: string;
+  // Payment confirmation
+  pagoVoucherUrl?: string;
 }
 
 // Type for the entire public submission, as it will be stored in Firestore

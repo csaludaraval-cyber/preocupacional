@@ -68,6 +68,8 @@ export function useCotizaciones(): UseCotizacionesResult {
             empresaData: empresaData,
             solicitanteData: solicitanteData,
             solicitudesData: solicitudesData,
+            pagoVoucherUrl: q.pagoVoucherUrl,
+            liorenPdfUrl: q.liorenPdfUrl,
         } as Cotizacion;
     });
 
