@@ -259,7 +259,8 @@ export default function AdminCotizaciones() {
       });
 
       refetchQuotes(); // Refresh data to ensure consistency
-    } catch (error: any)      console.error('Error uploading file:', error);
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
       toast({
         variant: 'destructive',
         title: 'Error de Carga',
