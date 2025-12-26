@@ -47,7 +47,6 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
         const empresaData = primeraCotizacion.empresaData;
         const totalNeto = cotizaciones.reduce((acc, curr) => acc + curr.total, 0);
 
-        // CORRECCIÓN: Usar flatMap para asegurar un array plano de detalles
         const detalles = cotizaciones.flatMap(c => 
             c.solicitudesData.flatMap(s => 
                 s.examenes.map(e => ({
@@ -89,7 +88,6 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
             throw new Error('La API de Lioren no devolvió un folio.');
         }
 
-        // Actualizar el estado de todas las cotizaciones en un batch
         const batch = db.batch();
         const fechaEmision = new Date().toISOString();
         
@@ -122,8 +120,6 @@ export async function emitirDTEConsolidado(rutCliente: string): Promise<{ succes
  */
 export async function emitirDTEInmediato(cotizacionId: string): Promise<{ success: boolean; folio?: number; error?: string }> {
     try {
-        console.log(`[SERVER ACTION] ==> Iniciando 'emitirDTEInmediato' para cotizacionId: ${cotizacionId}`);
-        
         if (!cotizacionId) {
             return { success: false, error: 'ID de cotización no proporcionado.' };
         }
@@ -140,6 +136,10 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
         }
 
         const cotizacion = cotizacionSnap.data() as CotizacionFirestore;
+
+        if (cotizacion.status === 'facturado_lioren') {
+            return { success: false, error: `Esta cotización ya fue facturada (Folio: ${cotizacion.liorenFolio}).` };
+        }
 
         if (cotizacion.status !== 'cotizacion_aceptada' && cotizacion.status !== 'ACEPTADA') {
             return { success: false, error: `La cotización no está en un estado aceptado para facturar, sino '${cotizacion.status}'.` };
@@ -182,7 +182,6 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
             throw new Error('La API de Lioren no devolvió un folio.');
         }
 
-        // Actualizar el estado de la cotización
         await cotizacionRef.update({
             status: 'facturado_lioren',
             liorenFolio: response.folio.toString(),
@@ -194,15 +193,12 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
         return { success: true, folio: response.folio };
 
     } catch (error: any) {
-        // ¡ESTO ES LO CRÍTICO! Capturar el error completo
         console.error('ERROR CRÍTICO EN LA LÓGICA DE FACTURACIÓN (Lioren):', error);
-        // Imprimir el stack para ver la línea de código exacta
         console.error('Stack Trace:', error.stack);
         
-        // Devolver el error al frontend
         return { 
             success: false,
-            error: `Fallo interno al procesar la facturación: ${error.message}` 
+            error: `Fallo al procesar la facturación: ${error.message}` 
         };
     }
 }

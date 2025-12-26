@@ -13,17 +13,12 @@ interface LiorenToken {
   exp: number;
 }
 
-// Caché simple para el token de autenticación
 let tokenCache: LiorenToken | null = null;
 
-/**
- * Obtiene un token de autenticación de Lioren, utilizando caché.
- * @returns El token de autenticación.
- */
 async function getAuthToken(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
 
-  if (tokenCache && tokenCache.exp > now + 60) { // Reutilizar si expira en más de 60s
+  if (tokenCache && tokenCache.exp > now + 60) {
     return tokenCache.token;
   }
 
@@ -52,17 +47,8 @@ async function getAuthToken(): Promise<string> {
   return tokenCache.token;
 }
 
-/**
- * Crea un Documento Tributario Electrónico (DTE) en Lioren.
- * @param dteData - Los datos del DTE a emitir.
- * @returns La respuesta de la API de Lioren.
- */
 export async function createDTE(dteData: any): Promise<any> {
   const token = await getAuthToken();
-
-  console.log('--- ENVIANDO A LIOREN ---');
-  console.log(JSON.stringify(dteData, null, 2));
-  console.log('-------------------------');
 
   const response = await fetch(`${LIOREN_API_URL}/dtes`, {
     method: 'POST',
@@ -76,15 +62,18 @@ export async function createDTE(dteData: any): Promise<any> {
 
   const responseData = await response.json();
 
-  console.log('--- RESPUESTA DE LIOREN ---');
-  console.log(JSON.stringify(responseData, null, 2));
-  console.log('---------------------------');
-
-
   if (!response.ok) {
     console.error('Error de Lioren al crear DTE:', responseData);
-    const errorMessage = responseData.message || 'Error desconocido al crear el DTE.';
-    throw new Error(`Error al crear DTE en Lioren: ${errorMessage}`);
+    let errorMessage = responseData.message || 'Error desconocido al crear el DTE.';
+    
+    // Mapeo de errores conocidos de Lioren a mensajes amigables
+    if (responseData.message?.includes('caf_exhausted')) {
+      errorMessage = 'No quedan folios disponibles para emitir este tipo de documento. Por favor, solicite más folios en el SII.';
+    } else if (responseData.message?.includes('not_allowed_to_issue_dtes')) {
+      errorMessage = 'El RUT del emisor no está autorizado para emitir DTEs. Verifique la configuración en Lioren y el SII.';
+    }
+
+    throw new Error(errorMessage);
   }
 
   return responseData;

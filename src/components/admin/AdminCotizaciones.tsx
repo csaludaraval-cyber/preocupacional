@@ -108,23 +108,18 @@ export default function AdminCotizaciones() {
 
     setIsSending(true);
     try {
-      // 1. Create a clean quote object for PDF generation, removing the problematic field
       const { fechaCreacion, ...quoteForPdf } = quote;
 
-      // 2. Generate PDF blob on the client with the clean object
       const pdfBlob = await GeneradorPDF.generar(quoteForPdf as Cotizacion, true);
       
-      // 3. Convert blob to Base64
       const pdfBase64 = await blobToBase64(pdfBlob);
 
-      // 4. Call server action with only primitive, serializable data
       await enviarCotizacion({
         clienteEmail: recipientEmail,
         cotizacionId: quote.id?.slice(-6) || 'S/N',
         pdfBase64: pdfBase64,
       });
 
-      // 5. Update status if necessary
       if (quote.status !== 'ENVIADA') {
         await handleUpdateStatus(quote.id, 'ENVIADA');
       }
@@ -289,7 +284,8 @@ export default function AdminCotizaciones() {
                 </TableHeader>
                 <TableBody>
                   {sortedQuotes.map((quote) => {
-                    const isInvoiceable = quote.status === 'cotizacion_aceptada' || quote.status === 'ACEPTADA';
+                    const isInvoiceable = (quote.status === 'cotizacion_aceptada' || quote.status === 'ACEPTADA') && quote.status !== 'facturado_lioren';
+                    const isProcessing = isInvoicing === quote.id;
                     return (
                     <TableRow key={quote.id} className="hover:bg-gray-50 transition-colors">
                       <TableCell className="font-medium flex items-center space-x-2">
@@ -321,12 +317,12 @@ export default function AdminCotizaciones() {
                       </TableCell>
                       <TableCell className="text-center space-x-1">
                           {isInvoiceable ? (
-                            <Button size="sm" onClick={() => handleInvoiceNow(quote.id)} disabled={isInvoicing === quote.id}>
-                                {isInvoicing === quote.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileText className="mr-2 h-4 w-4"/>}
-                                Facturar Ahora
+                            <Button size="sm" onClick={() => handleInvoiceNow(quote.id)} disabled={isProcessing || !!isInvoicing}>
+                                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileText className="mr-2 h-4 w-4"/>}
+                                {isProcessing ? 'Facturando...' : 'Facturar Ahora'}
                             </Button>
                           ) : (
-                            <div className="h-9"></div> // Placeholder for alignment
+                            <div className="h-9"></div>
                           )}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>

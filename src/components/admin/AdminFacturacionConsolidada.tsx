@@ -44,7 +44,6 @@ export function AdminFacturacionConsolidada() {
   
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
-  // Query for quotes pending billing
   const pendingQuery = useMemoFirebase(() => 
     query(
       collection(firestore, 'cotizaciones'), 
@@ -54,7 +53,6 @@ export function AdminFacturacionConsolidada() {
   );
   const { data: quotesToBill, isLoading: isLoadingPending, error: errorPending, refetch } = useCollection<CotizacionFirestore>(pendingQuery);
 
-  // Query for already billed quotes
   const billedQuery = useMemoFirebase(() =>
     query(
       collection(firestore, 'cotizaciones'),
@@ -120,7 +118,7 @@ export function AdminFacturacionConsolidada() {
           title: "Facturación Exitosa",
           description: `Se emitió la factura consolidada para ${group.empresa.razonSocial} con folio ${result.folio}.`
         });
-        refetch(); // Refresca las listas de pendientes y facturados
+        refetch();
       } else {
         throw new Error(result.error);
       }
@@ -128,7 +126,7 @@ export function AdminFacturacionConsolidada() {
       toast({
         variant: "destructive",
         title: "Error de Facturación",
-        description: `No se pudo procesar la facturación para ${group.empresa.razonSocial}. ${error.message}`
+        description: `${error.message}`
       });
     } finally {
       setIsProcessing(null);
@@ -184,15 +182,16 @@ export function AdminFacturacionConsolidada() {
                     <TableBody>
                     {groupedData.length > 0 ? groupedData.map((group) => {
                         const cleanRutEmpresa = cleanRut(group.empresa.rut);
+                        const isCurrentGroupProcessing = isProcessing === cleanRutEmpresa;
                         return (
                             <TableRow key={cleanRutEmpresa} className="font-medium">
                             <TableCell><p className='font-semibold text-foreground'>{group.empresa.razonSocial}</p><p className='text-sm text-muted-foreground'>RUT: {group.empresa.rut}</p></TableCell>
                             <TableCell className="text-center">{group.quotes.length}</TableCell>
                             <TableCell className="text-right font-semibold">{formatCurrency(group.totalAmount)}</TableCell>
                             <TableCell className="text-center">
-                                <Button size="sm" onClick={() => handleProcessGroup(group)} disabled={isProcessing === cleanRutEmpresa}>
-                                {isProcessing === cleanRutEmpresa ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileText className="mr-2 h-4 w-4"/>}
-                                Facturar Grupo
+                                <Button size="sm" onClick={() => handleProcessGroup(group)} disabled={isCurrentGroupProcessing || isProcessing !== null}>
+                                {isCurrentGroupProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileText className="mr-2 h-4 w-4"/>}
+                                {isCurrentGroupProcessing ? 'Facturando...' : 'Facturar Grupo'}
                                 </Button>
                             </TableCell>
                             </TableRow>
