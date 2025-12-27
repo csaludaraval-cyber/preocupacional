@@ -47,7 +47,8 @@ import { useRouter } from 'next/navigation';
 import { deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import type { Cotizacion, CotizacionFirestore, WithId, StatusCotizacion } from '@/lib/types';
+import type { Cotizacion, CotizacionFirestore, WithId } from '@/lib/types';
+import { mapLegacyStatus, type StatusCotizacion } from '@/lib/status-mapper';
 import { emitirDTEInmediato } from '@/server/actions/facturacionActions';
 import { Input } from '../ui/input';
 
@@ -82,7 +83,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 
 
 export default function AdminCotizaciones() {
-  const { quotes, isLoading, error, refetchQuotes, statusMap } = useCotizaciones();
+  const { quotes, isLoading, error, refetchQuotes } = useCotizaciones();
   
   const [quoteToDelete, setQuoteToDelete] = useState<Cotizacion | null>(null);
   const [quoteToManage, setQuoteToManage] = useState<Cotizacion | null>(null);
@@ -127,7 +128,7 @@ export default function AdminCotizaciones() {
         pdfBase64: pdfBase64,
       });
 
-      if (quote.status !== 'CORREO_ENVIADO') {
+      if (mapLegacyStatus(quote.status) !== 'CORREO_ENVIADO') {
         await handleUpdateStatus(quote.id, 'CORREO_ENVIADO');
       }
 
@@ -264,7 +265,7 @@ export default function AdminCotizaciones() {
       toast({
         variant: 'destructive',
         title: 'Error de Carga',
-        description: error.message || 'No se pudo subir el archivo.',
+        description: 'No se pudo subir el voucher. Reintente.',
       });
     } finally {
       setIsUploading(false);
@@ -337,7 +338,7 @@ export default function AdminCotizaciones() {
                 </TableHeader>
                 <TableBody>
                   {sortedQuotes.map((quote) => {
-                    const displayStatus = statusMap[quote.status] || 'PENDIENTE';
+                    const displayStatus = mapLegacyStatus(quote.status);
                     const isBilled = displayStatus === 'FACTURADO';
                     
                     return (
@@ -412,7 +413,7 @@ export default function AdminCotizaciones() {
         <Dialog open={!!quoteToManage} onOpenChange={(open) => !open && setQuoteToManage(null)}>
           <DialogContent className="max-w-6xl w-[95%] h-[95%] flex flex-col p-6">
             {quoteToManage && (() => {
-                const displayStatus = statusMap[quoteToManage.status] || 'PENDIENTE';
+                const displayStatus = mapLegacyStatus(quoteToManage.status);
                 return (
               <>
                 <DialogHeader>
@@ -497,5 +498,3 @@ export default function AdminCotizaciones() {
       </>
   );
 }
-
-    
