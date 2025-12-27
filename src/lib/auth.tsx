@@ -14,10 +14,9 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase'; 
 import { Loader2 } from 'lucide-react';
 
-// TIPOS DE ROL: Definidos localmente para asegurar que AuthProvider funcione
-export type AppUserRole = 'admin' | 'medico' | 'standard';
+// 1. DEFINICIÓN DE ROLES (Auditado)
+export type AppUserRole = 'admin' | 'medico' | 'standard' | 'superadmin';
 
-// Definición del usuario de la aplicación, extendiendo al usuario de Firebase
 export interface AppUser extends FirebaseUser {
     uid: string;
     role: AppUserRole;
@@ -43,55 +42,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const { user: firebaseUser, auth, firestore, isUserLoading } = useFirebase();
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => { setIsClient(true); }, []);
 
   useEffect(() => {
-    if (isUserLoading || !isClient) {
-      return; 
-    }
+    if (isUserLoading || !isClient) return;
 
     const processUser = async (fbUser: FirebaseUser | null) => {
-      setLoading(true);
       if (fbUser) {
         try {
-          if (!firestore) throw new Error("Firestore service is not available.");
+          if (!firestore) throw new Error("Firestore not available");
           
-          const roleDocRef = doc(firestore, 'roles_admin', fbUser.uid); 
-          const roleDoc = await getDoc(roleDocRef);
+          // CONSULTA QUIRÚRGICA AL ROL
+          const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
+          const adminRoleDoc = await getDoc(adminRoleRef);
           
-          let userRole: AppUserRole = 'standard';
-          if (roleDoc.exists()) {
-              // Leer explícitamente el campo 'role' del documento
-              const data = roleDoc.data();
-              if (data && (data.role === 'admin' || data.role === 'medico')) {
-                userRole = data.role;
-              } else if (data && data.admin === true) { // Fallback para la lógica antigua
-                userRole = 'admin';
-              }
+          let userRole: AppUserRole = 'standard'; 
+
+          if (adminRoleDoc.exists()) {
+              const data = adminRoleDoc.data();
+              // ESTA ES LA LÍNEA CRÍTICA: Lee el rol real ('medico' o 'admin')
+              userRole = (data.role as AppUserRole) || 'admin'; 
           }
           
-          const userDetails: AppUser = { ...fbUser, uid: fbUser.uid, role: userRole } as AppUser;
-          setUserWithRole(userDetails);
+          setUserWithRole({ ...fbUser, uid: fbUser.uid, role: userRole } as AppUser);
 
         } catch (error) {
-          console.error("Error fetching user role:", error);
-          const userDetails: AppUser = { ...fbUser, uid: fbUser.uid, role: 'standard' } as AppUser;
-          setUserWithRole(userDetails);
+          console.error("Error en Auth:", error);
+          setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' } as AppUser);
+        } finally {
+          setLoading(false);
         }
       } else {
         setUserWithRole(null);
-        const isProtectedRoute = !publicRoutes.includes(pathname) && !pathname.startsWith(quoteRoute);
-        if (isProtectedRoute) {
+        if (!publicRoutes.includes(pathname) && !pathname.startsWith(quoteRoute)) {
           router.push('/login');
         }
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     processUser(firebaseUser);
-
   }, [firebaseUser, isUserLoading, isClient, firestore, pathname, router]);
 
   const logout = async () => {
@@ -103,11 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   };
   
-  const value = useMemo(() => ({
-    user: userWithRole,
-    loading: loading,
-    logout,
-  }), [userWithRole, loading, logout]);
+  const value = useMemo(() => ({ user: userWithRole, loading, logout }), [userWithRole, loading]);
 
   if (loading && isClient) {
      return (
@@ -117,17 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
