@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Home, FileText, Settings, FileClock, Inbox, History, Shield, Activity, Users, Stethoscope } from 'lucide-react'; // Importar iconos
+import { FileText, Inbox, History, FileClock, Shield, Users, Activity, Stethoscope } from 'lucide-react'; // Importar iconos
 import { useAuth } from '@/lib/auth';
 
 

@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Download, ClipboardCopy, Trash2, MoreVertical, FileText, UploadCloud, FileCheck, ExternalLink } from 'lucide-react';
+import { Loader2, Trash2, MoreVertical, FileText, UploadCloud, FileCheck, AlertTriangle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,9 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { GeneradorPDF } from '@/components/cotizacion/GeneradorPDF';
 import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
-import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { useRouter } from 'next/navigation';
 import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
@@ -48,8 +46,9 @@ import type { Cotizacion, StatusCotizacion } from '@/lib/types';
 import { mapLegacyStatus } from '@/lib/status-mapper';
 import { emitirDTEInmediato } from '@/server/actions/facturacionActions';
 import { Input } from '../ui/input';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { XCircle } from 'lucide-react';
 
-// --- CONFIGURACIÓN DE UI SEGURA ---
 const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'secondary'> = {
   PENDIENTE: 'secondary',
   CONFIRMADA: 'outline',
@@ -57,27 +56,14 @@ const QuoteStatusMap: Record<string, 'default' | 'outline' | 'destructive' | 'se
   PAGADO: 'default',
   FACTURADO: 'default',
   RECHAZADA: 'destructive',
-  orden_examen_enviada: 'secondary',
-  facturado_lioren: 'default', 
+  orden_examen_enviada: 'secondary', 
 };
 
-const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64data = reader.result;
-        if (typeof base64data !== 'string') return reject(new Error('Error en Base64'));
-        resolve(base64data.split(',')[1]);
-      };
-      reader.readAsDataURL(blob);
-    });
-};
 
 export default function AdminCotizaciones() {
   const { quotes, isLoading, error, refetchQuotes } = useCotizaciones();
   const [quoteToDelete, setQuoteToDelete] = useState<Cotizacion | null>(null);
   const [quoteToManage, setQuoteToManage] = useState<Cotizacion | null>(null);
-  const [isSending, setIsSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isInvoicing, setIsInvoicing] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -85,7 +71,7 @@ export default function AdminCotizaciones() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // --- UTILIDADES DE TIEMPO SEGURAS ---
+  // --- UTILIDADES DE TIEMPO SEGURAS (BLINDAJE) ---
   const getMs = (ts: any): number => {
     if (!ts) return 0;
     if (typeof ts.toMillis === 'function') return ts.toMillis();
@@ -103,31 +89,6 @@ export default function AdminCotizaciones() {
     if (!quotes) return [];
     return [...quotes].sort((a, b) => getMs(b.fechaCreacion) - getMs(a.fechaCreacion));
   }, [quotes]);
-
-  // --- MANEJADORES DE EVENTOS ---
-  const handleSendEmail = async (quote: Cotizacion | null) => {
-    if (!quote) return;
-    const recipientEmail = quote.solicitanteData?.mail;
-    if (!recipientEmail) {
-      toast({ title: 'Error', description: 'Sin email de destino', variant: 'destructive' });
-      return;
-    }
-    setIsSending(true);
-    try {
-      const pdfBlob = await GeneradorPDF.generar(quote as Cotizacion, true);
-      const pdfBase64 = await blobToBase64(pdfBlob);
-      await enviarCotizacion({
-        clienteEmail: recipientEmail,
-        cotizacionId: quote.id?.slice(-6) || 'S/N',
-        pdfBase64: pdfBase64,
-      });
-      await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO' });
-      toast({ title: 'Enviado', description: `Correo enviado a ${recipientEmail}` });
-      refetchQuotes();
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    } finally { setIsSending(false); }
-  };
 
   const handleInvoiceNow = async (quoteId: string) => {
     setIsInvoicing(quoteId);
@@ -152,13 +113,34 @@ export default function AdminCotizaciones() {
       const fileRef = storageRef(storage, `vouchers/${quoteToManage.id}_${Date.now()}`);
       await uploadBytes(fileRef, file);
       const url = await getDownloadURL(fileRef);
-      await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
-      toast({ title: 'Voucher Subido', description: 'Estado: PAGADO' });
+      
+      const docRef = doc(firestore, 'cotizaciones', quoteToManage.id);
+      await updateDoc(docRef, { pagoVoucherUrl: url, status: 'PAGADO' });
+
+      // Actualizar el estado local para reflejar el cambio en la UI inmediatamente
+      setQuoteToManage(prev => prev ? { ...prev, pagoVoucherUrl: url, status: 'PAGADO' } : null);
+
+      toast({ title: 'Voucher Subido', description: 'Estado actualizado a: PAGADO' });
       refetchQuotes();
-      setQuoteToManage(null);
     } catch (err: any) {
+      console.error('Error uploading file:', err);
       toast({ variant: 'destructive', title: 'Error', description: 'Fallo al subir archivo' });
     } finally { setIsUploading(false); }
+  };
+
+   const handleDelete = async () => {
+    if (!quoteToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteDoc(doc(firestore, 'cotizaciones', quoteToDelete.id));
+      toast({ title: 'Eliminada', description: `Cotización ${quoteToDelete.id.slice(-6)} eliminada.` });
+      refetchQuotes();
+      setQuoteToDelete(null);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.message });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin h-8 w-8" /></div>;
@@ -202,7 +184,6 @@ export default function AdminCotizaciones() {
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setQuoteToManage(quote)}><FileText className="mr-2 h-4 w-4"/> Gestionar</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push(`/cotizacion?data=${encodeURIComponent(JSON.stringify(quote))}`)}><Download className="mr-2 h-4 w-4"/> Ver PDF</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setQuoteToDelete(quote)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/> Eliminar</DropdownMenuItem>
                       </DropdownMenuContent>
@@ -215,30 +196,37 @@ export default function AdminCotizaciones() {
         </Table>
       </div>
 
-      <Dialog open={!!quoteToManage} onOpenChange={() => setQuoteToManage(null)}>
+      <Dialog open={!!quoteToManage} onOpenChange={(isOpen) => !isOpen && setQuoteToManage(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           {quoteToManage && (
             <>
               <DialogHeader>
                 <DialogTitle>Gestión ID: {quoteToManage.id?.slice(-6)} - <Badge>{mapLegacyStatus(quoteToManage.status)}</Badge></DialogTitle>
               </DialogHeader>
-              <div className="flex gap-4 mb-4 p-4 bg-secondary/20 rounded-lg">
-                {['CONFIRMADA', 'CORREO_ENVIADO'].includes(mapLegacyStatus(quoteToManage.status)) && (
-                  <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                    <UploadCloud className="mr-2 h-4 w-4"/> {isUploading ? 'Subiendo...' : 'Subir Voucher'}
-                  </Button>
+              <div className="flex gap-4 mb-4 p-4 bg-secondary/20 rounded-lg items-center">
+                 {mapLegacyStatus(quoteToManage.status) === 'CONFIRMADA' && (
+                    <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                        <UploadCloud className="mr-2 h-4 w-4"/> {isUploading ? 'Subiendo...' : 'Subir Voucher'}
+                    </Button>
                 )}
                 {mapLegacyStatus(quoteToManage.status) === 'PAGADO' && (
                   <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={!!isInvoicing}>
                     <FileText className="mr-2 h-4 w-4"/> {isInvoicing ? 'Facturando...' : 'Facturar Ahora'}
                   </Button>
                 )}
-                {quoteToManage.liorenPdfUrl && (
+                 {quoteToManage.pagoVoucherUrl && mapLegacyStatus(quoteToManage.status) !== 'FACTURADO' && (
+                  <Alert className="border-yellow-500 text-yellow-700 w-full">
+                    <AlertTriangle className="h-4 w-4 !text-yellow-700"/>
+                    <AlertTitle className="font-semibold">Pago pendiente de facturación</AlertTitle>
+                     <a href={quoteToManage.pagoVoucherUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline">Ver voucher</a>
+                  </Alert>
+                )}
+                {mapLegacyStatus(quoteToManage.status) === 'FACTURADO' && quoteToManage.liorenPdfUrl && (
                   <Button asChild className="bg-green-600 hover:bg-green-700">
                     <a href={quoteToManage.liorenPdfUrl} target="_blank" rel="noopener noreferrer"><FileCheck className="mr-2 h-4 w-4"/> Ver Factura</a>
                   </Button>
                 )}
-                <Input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+                <Input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf" />
               </div>
               <DetalleCotizacion quote={quoteToManage} />
             </>
@@ -246,7 +234,22 @@ export default function AdminCotizaciones() {
         </DialogContent>
       </Dialog>
       
-      {/* Diálogo de eliminación omitido por brevedad, se mantiene igual */}
+      <AlertDialog open={!!quoteToDelete} onOpenChange={() => setQuoteToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Confirmar eliminación?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción es irreversible. La cotización se eliminará permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

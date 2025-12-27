@@ -8,10 +8,10 @@ export const mapLegacyStatus = (status: string | undefined | null): StatusCotiza
   const map: Record<string, StatusCotizacion> = {
     'ACEPTADA': 'CONFIRMADA',
     'COTIZACION_ACEPTADA': 'CONFIRMADA',
-    'ORDEN_EXAMEN_ENVIADA': 'orden_examen_enviada',
     'ENVIADA': 'CORREO_ENVIADO',
     'FACTURADO_LIOREN': 'FACTURADO',
-    'PAGADA': 'PAGADO'
+    'PAGADA': 'PAGADO',
+    'ORDEN_EXAMEN_ENVIADA': 'orden_examen_enviada',
   };
 
   const newStatuses: StatusCotizacion[] = ['PENDIENTE', 'CONFIRMADA', 'CORREO_ENVIADO', 'PAGADO', 'FACTURADO', 'RECHAZADA', 'orden_examen_enviada'];

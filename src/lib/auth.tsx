@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { 
@@ -13,11 +12,19 @@ import { usePathname, useRouter } from 'next/navigation';
 import { signOut, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase'; 
-import type { User } from './types';
 import { Loader2 } from 'lucide-react';
 
+// TIPOS DE ROL: Definidos localmente para asegurar que AuthProvider funcione
+export type AppUserRole = 'admin' | 'medico' | 'standard';
+
+// Definición del usuario de la aplicación, extendiendo al usuario de Firebase
+export interface AppUser extends FirebaseUser {
+    uid: string;
+    role: AppUserRole;
+}
+
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   loading: boolean;
   logout: () => Promise<void>;
 }
@@ -25,11 +32,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const publicRoutes = ['/login', '/crear-primer-admin', '/solicitud'];
-const adminOnlyInitialRoute = '/admin';
 const quoteRoute = '/cotizacion';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [userWithRole, setUserWithRole] = useState<User | null>(null);
+  const [userWithRole, setUserWithRole] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
@@ -47,21 +53,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const processUser = async (fbUser: FirebaseUser | null) => {
+      setLoading(true);
       if (fbUser) {
         try {
           if (!firestore) throw new Error("Firestore service is not available.");
-          const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
-          const adminRoleDoc = await getDoc(adminRoleRef);
-          const role = adminRoleDoc.exists() ? 'admin' : 'standard';
           
-          const user: User = { ...fbUser, uid: fbUser.uid, role: role };
-          setUserWithRole(user);
+          const roleDocRef = doc(firestore, 'roles_admin', fbUser.uid); 
+          const roleDoc = await getDoc(roleDocRef);
+          
+          let userRole: AppUserRole = 'standard';
+          if (roleDoc.exists()) {
+              // Leer explícitamente el campo 'role' del documento
+              const data = roleDoc.data();
+              if (data && (data.role === 'admin' || data.role === 'medico')) {
+                userRole = data.role;
+              } else if (data && data.admin === true) { // Fallback para la lógica antigua
+                userRole = 'admin';
+              }
+          }
+          
+          const userDetails: AppUser = { ...fbUser, uid: fbUser.uid, role: userRole } as AppUser;
+          setUserWithRole(userDetails);
 
         } catch (error) {
           console.error("Error fetching user role:", error);
-          setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' });
-        } finally {
-          setLoading(false);
+          const userDetails: AppUser = { ...fbUser, uid: fbUser.uid, role: 'standard' } as AppUser;
+          setUserWithRole(userDetails);
         }
       } else {
         setUserWithRole(null);
@@ -69,8 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isProtectedRoute) {
           router.push('/login');
         }
-        setLoading(false);
       }
+      setLoading(false);
     };
 
     processUser(firebaseUser);
@@ -90,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: userWithRole,
     loading: loading,
     logout,
-  }), [userWithRole, loading, auth]);
+  }), [userWithRole, loading, logout]);
 
   if (loading && isClient) {
      return (
