@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Home, FileText, Settings, FileClock, Inbox, History, Shield, Activity, Users } from 'lucide-react'; // Importar iconos
+import { Home, FileText, Settings, FileClock, Inbox, History, Shield, Activity, Users, Stethoscope } from 'lucide-react'; // Importar iconos
 import { useAuth } from '@/lib/auth';
 
 
@@ -12,17 +12,31 @@ export const Sidebar = () => {
     const pathname = usePathname();
     const { user } = useAuth();
 
-    const navLinks = user?.role === 'admin' ? [
-        { href: '/', label: 'Crear Cotización', icon: FileText },
-        { href: '/solicitudes-recibidas', label: 'Solicitudes', icon: Inbox },
-        { href: '/cotizaciones-guardadas', label: 'Cotizaciones', icon: History },
-        { href: '/admin/facturacion-consolidada', label: 'Facturación', icon: FileClock },
-        { href: '/admin', label: 'Catálogo', icon: Shield },
-        { href: '/admin/clientes', label: 'Clientes', icon: Users },
-        { href: '/admin/status', label: 'Sistema', icon: Activity },
-    ] : [
-        { href: '/solicitud', label: 'Solicitar Examen', icon: FileText },
-    ];
+    const getNavLinks = () => {
+        switch (user?.role) {
+            case 'admin':
+                return [
+                    { href: '/', label: 'Crear Cotización', icon: FileText },
+                    { href: '/solicitudes-recibidas', label: 'Solicitudes', icon: Inbox },
+                    { href: '/cotizaciones-guardadas', label: 'Cotizaciones', icon: History },
+                    { href: '/admin/facturacion-consolidada', label: 'Facturación', icon: FileClock },
+                    { href: '/admin', label: 'Catálogo', icon: Shield },
+                    { href: '/admin/clientes', label: 'Clientes', icon: Users },
+                    { href: '/admin/status', label: 'Sistema', icon: Activity },
+                ];
+            case 'medico':
+                return [
+                    { href: '/medico', label: 'Órdenes Pendientes', icon: Stethoscope },
+                ];
+            default:
+                // Para usuarios 'standard' o no autenticados
+                return [
+                    { href: '/solicitud', label: 'Solicitar Examen', icon: FileText },
+                ];
+        }
+    };
+    
+    const navLinks = getNavLinks();
 
 
     return (
