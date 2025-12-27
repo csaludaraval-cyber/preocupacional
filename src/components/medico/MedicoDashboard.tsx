@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
+import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
 import type { CotizacionFirestore } from '@/lib/types';
 import { Loader2, Calendar, Search, XCircle, ChevronRight } from 'lucide-react';
@@ -14,61 +15,114 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DetalleClinicoModal } from './DetalleClinicoModal';
-import { useMemoFirebase } from '@/firebase/provider';
 
-// --- UTILIDADES DE FECHA SEGURA ---
+// --- UTILIDADES DE FECHA SEGURA (Anti-Error 500) ---
 const getMs = (ts: any): number => {
   if (!ts) return 0;
   if (typeof ts.toMillis === 'function') return ts.toMillis();
   if (ts.seconds) return ts.seconds * 1000;
-  return new Date(ts).getTime() || 0;
+  const parsed = new Date(ts).getTime();
+  return isNaN(parsed) ? 0 : parsed;
 };
 
-const formatDate = (ts: any) => {
-    const ms = getMs(ts);
-    return ms === 0 ? 'N/A' : new Date(ms).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
+const getStartOfDay = (timestamp: number): number => {
+  const d = new Date(timestamp);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
 };
-
-
-// --- QUERY DE DATOS OPTIMIZADA ---
-const PagadasQuery = () => useMemoFirebase(() => query(
-  collection(firestore, 'cotizaciones'),
-  where('status', 'in', ['PAGADO', 'FACTURADO', 'facturado_lioren']),
-  orderBy('fechaCreacion', 'desc')
-), []);
 
 export function MedicoDashboard() {
-  const { data: cotizaciones, isLoading, error } = useCollection<CotizacionFirestore>(PagadasQuery());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedQuote, setSelectedQuote] = useState<CotizacionFirestore | null>(null);
 
-  // --- LÓGICA DE FILTRADO EN CLIENTE ---
-  const filteredOrders = useMemo(() => {
+  // --- 1. CONSULTA ESTABLE (Soluciona el error ca9 / Assertion Failed) ---
+  const pagadasQuery = useMemoFirebase(() => 
+    query(
+      collection(firestore, 'cotizaciones'),
+      where('status', 'in', ['PAGADO', 'FACTURADO', 'facturado_lioren'])
+      // ELIMINAMOS EL ORDERBY PARA EVITAR ERRORES TÉCNICOS
+    ), 
+    []
+  );
+
+  const { data: cotizaciones, isLoading, error } = useCollection<CotizacionFirestore>(pagadasQuery);
+
+  // --- 2. LÓGICA DE PRIORIDAD Y FILTRADO (Smart-Sorting) ---
+  const processedOrders = useMemo(() => {
     if (!cotizaciones) return [];
 
-    if (!searchTerm) return cotizaciones;
+    const nowMs = getStartOfDay(Date.now());
 
-    const lowerSearch = searchTerm.toLowerCase();
-    return cotizaciones.filter(q => {
-      const empresa = q.empresaData?.razonSocial?.toLowerCase() || '';
-      const rut = q.empresaData?.rut?.toLowerCase() || '';
+    // Mapear y Categorizar
+    const enriched = cotizaciones.map(q => {
+      const dateMs = getStartOfDay(getMs(q.fechaCreacion)); // Usamos fechaCreacion como referencia
+      const diff = dateMs - nowMs;
       
-      return empresa.includes(lowerSearch) || rut.includes(lowerSearch);
+      let category: 'HOY' | 'FUTURO' | 'PASADO' = 'PASADO';
+      if (diff === 0) category = 'HOY';
+      else if (diff > 0) category = 'FUTURO';
+
+      return { ...q, dateMs, category };
+    });
+
+    // Filtrar por término de búsqueda
+    const filtered = enriched.filter(q => {
+      const lower = searchTerm.toLowerCase();
+      const empresa = (q.empresaData?.razonSocial || '').toLowerCase();
+      const rut = (q.empresaData?.rut || '').toLowerCase();
+      return empresa.includes(lower) || rut.includes(lower);
+    });
+
+    // Ordenar por Semáforo: HOY -> FUTURO -> PASADO
+    return filtered.sort((a, b) => {
+      const priority = { HOY: 1, FUTURO: 2, PASADO: 3 };
+      if (priority[a.category] !== priority[b.category]) {
+        return priority[a.category] - priority[b.category];
+      }
+      // Dentro de la misma categoría, el más reciente primero
+      return b.dateMs - a.dateMs;
     });
   }, [cotizaciones, searchTerm]);
 
-  // --- RENDERIZADO DE SEGURIDAD ---
-  if (isLoading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-  if (error) return <Alert variant="destructive"><XCircle /><AlertTitle>Error</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>;
+  // --- 3. GESTIÓN DE UI ---
+  if (isLoading) return (
+    <div className="flex flex-col items-center justify-center p-20 gap-4">
+      <Loader2 className="animate-spin h-10 w-10 text-primary" />
+      <p className="text-muted-foreground">Cargando hoja de ruta médica...</p>
+    </div>
+  );
+
+  if (error) return (
+    <Alert variant="destructive" className="max-w-2xl mx-auto">
+      <XCircle className="h-4 w-4" />
+      <AlertTitle>Fallo de Conexión</AlertTitle>
+      <AlertDescription>
+        {error.message.includes('index') 
+          ? "Falta crear un índice en Firestore para esta consulta. Haga clic en el link de la consola."
+          : "No se pudieron cargar las órdenes. Verifique su conexión."}
+      </AlertDescription>
+    </Alert>
+  );
+
+  const getCategoryBadge = (cat: 'HOY' | 'FUTURO' | 'PASADO') => {
+    switch (cat) {
+      case 'HOY': return <Badge className="bg-green-600 hover:bg-green-700 animate-pulse">ATENDER HOY</Badge>;
+      case 'FUTURO': return <Badge variant="outline" className="text-blue-600 border-blue-600">PRÓXIMO</Badge>;
+      case 'PASADO': return <Badge variant="secondary" className="text-gray-500 opacity-70">PASADO</Badge>;
+    }
+  };
 
   return (
     <>
-      <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <Calendar className="w-5 h-5"/> Órdenes de Laboratorio ({filteredOrders.length})
-          </CardTitle>
-          <div className="relative w-1/3">
+      <Card className="shadow-xl border-t-4 border-t-primary">
+        <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-2xl font-bold flex items-center gap-2">
+              <Calendar className="w-6 h-6 text-primary"/> Hoja de Ruta Médica
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Órdenes confirmadas listas para toma de muestras.</p>
+          </div>
+          <div className="relative w-full md:w-1/3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               placeholder="Buscar por Empresa o RUT..."
@@ -79,44 +133,57 @@ export function MedicoDashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Prioridad</TableHead>
-                <TableHead>ID Orden</TableHead>
-                <TableHead>Empresa Solicitante</TableHead>
-                <TableHead>Fecha de Creación</TableHead>
-                <TableHead>N° Trabajadores</TableHead>
-                <TableHead className="text-center">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.length > 0 ? filteredOrders.map((q) => (
-                <TableRow key={q.id}>
-                  <TableCell><Badge variant="default">Pendiente</Badge></TableCell>
-                  <TableCell className="font-mono text-xs">{q.id?.slice(-6)}</TableCell>
-                  <TableCell className="font-medium">{q.empresaData?.razonSocial || 'N/A'}</TableCell>
-                  <TableCell>{formatDate(q.fechaCreacion)}</TableCell>
-                  <TableCell className="text-center">{q.solicitudesData?.length || 0}</TableCell>
-                  <TableCell className="text-center">
-                    <Button size="sm" onClick={() => setSelectedQuote(q)}>
-                      Ver Nómina <ChevronRight className="ml-2 h-4 w-4"/>
-                    </Button>
-                  </TableCell>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead className="w-[150px]">Prioridad</TableHead>
+                  <TableHead>ID Orden</TableHead>
+                  <TableHead>Empresa</TableHead>
+                  <TableHead>Fecha Orden</TableHead>
+                  <TableHead className="text-center">Pacientes</TableHead>
+                  <TableHead className="text-right">Acción</TableHead>
                 </TableRow>
-              )) : (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay órdenes de examen Pagadas/Facturadas pendientes.</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {processedOrders.length > 0 ? processedOrders.map((q) => (
+                  <TableRow key={q.id} className={q.category === 'HOY' ? 'bg-green-50/30' : ''}>
+                    <TableCell>{getCategoryBadge(q.category)}</TableCell>
+                    <TableCell className="font-mono text-xs font-bold">{q.id?.slice(-6)}</TableCell>
+                    <TableCell>
+                      <div className="font-medium text-sm">{q.empresaData?.razonSocial || 'N/A'}</div>
+                      <div className="text-[10px] text-muted-foreground">{q.empresaData?.rut}</div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {new Date(getMs(q.fechaCreacion)).toLocaleDateString('es-CL')}
+                    </TableCell>
+                    <TableCell className="text-center font-bold">
+                      {q.solicitudesData?.length || 0}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="ghost" className="hover:text-primary" onClick={() => setSelectedQuote(q)}>
+                        Ver Nómina <ChevronRight className="ml-1 h-4 w-4"/>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">
+                      No se encontraron órdenes de examen pendientes de atención.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
       
-      {/* Modal de Detalle Clínico */}
+      {/* Modal de Detalle Clínico (Blindado sin precios) */}
       <Dialog open={!!selectedQuote} onOpenChange={() => setSelectedQuote(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Orden de Examen: {selectedQuote?.empresaData?.razonSocial}</DialogTitle>
+            <DialogTitle className="text-xl">Detalle de Orden Clínica</DialogTitle>
           </DialogHeader>
           {selectedQuote && <DetalleClinicoModal quote={selectedQuote} />}
         </DialogContent>

@@ -146,6 +146,10 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
         }
         
         const empresaData = cotizacion.empresaData;
+        if (!empresaData.giro) {
+            return { success: false, error: 'El Giro de la empresa es obligatorio para el SII.' };
+        }
+        
         const totalNeto = cotizacion.total;
 
         const detalles = cotizacion.solicitudesData.flatMap(s => 
@@ -193,12 +197,8 @@ export async function emitirDTEInmediato(cotizacionId: string): Promise<{ succes
         return { success: true, folio: response.folio };
 
     } catch (error: any) {
-        console.error('ERROR CRÍTICO EN LA LÓGICA DE FACTURACIÓN (Lioren):', error);
-        console.error('Stack Trace:', error.stack);
-        
-        return { 
-            success: false,
-            error: `Fallo al procesar la facturación: ${error.message}` 
-        };
+        const detailedError = error.message;
+        console.error('DETALLE LIOREN:', detailedError);
+        return { success: false, error: `Error Lioren: ${detailedError}` };
     }
 }

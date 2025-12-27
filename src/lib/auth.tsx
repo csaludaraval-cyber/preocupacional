@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { 
   createContext, 
@@ -14,7 +14,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase'; 
 import { Loader2 } from 'lucide-react';
 
-// 1. DEFINICIÓN DE ROLES (Auditado)
+// 1. DEFINICIÓN LOCAL DE TIPOS (Para evitar errores de importación)
 export type AppUserRole = 'admin' | 'medico' | 'standard' | 'superadmin';
 
 export interface AppUser extends FirebaseUser {
@@ -52,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           if (!firestore) throw new Error("Firestore not available");
           
-          // CONSULTA QUIRÚRGICA AL ROL
           const adminRoleRef = doc(firestore, 'roles_admin', fbUser.uid);
           const adminRoleDoc = await getDoc(adminRoleRef);
           
@@ -60,21 +59,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (adminRoleDoc.exists()) {
               const data = adminRoleDoc.data();
-              // ESTA ES LA LÍNEA CRÍTICA: Lee el rol real ('medico' o 'admin')
               userRole = (data.role as AppUserRole) || 'admin'; 
           }
           
-          setUserWithRole({ ...fbUser, uid: fbUser.uid, role: userRole } as AppUser);
+          const finalUser = { ...fbUser, uid: fbUser.uid, role: userRole } as AppUser;
+          setUserWithRole(finalUser);
+
+          // 🚀 REDIRECCIÓN INTELIGENTE POST-LOGIN
+          if (pathname === '/login') {
+              if (userRole === 'medico') {
+                  router.push('/medico');
+              } else if (userRole === 'admin' || userRole === 'superadmin') {
+                  router.push('/');
+              }
+          }
 
         } catch (error) {
-          console.error("Error en Auth:", error);
+          console.error("Error AuthProvider:", error);
           setUserWithRole({ ...fbUser, uid: fbUser.uid, role: 'standard' } as AppUser);
         } finally {
           setLoading(false);
         }
       } else {
         setUserWithRole(null);
-        if (!publicRoutes.includes(pathname) && !pathname.startsWith(quoteRoute)) {
+        const isProtectedRoute = !publicRoutes.includes(pathname) && !pathname.startsWith(quoteRoute);
+        if (isProtectedRoute) {
           router.push('/login');
         }
         setLoading(false);
@@ -97,8 +106,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   if (loading && isClient) {
      return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <div className="flex h-screen w-full items-center justify-center bg-background text-center">
+        <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Sincronizando sesión segura...</p>
+        </div>
       </div>
     );
   }

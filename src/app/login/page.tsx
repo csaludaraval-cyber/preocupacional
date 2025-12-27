@@ -1,97 +1,74 @@
-
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useFirebase } from '@/firebase'; // Use the central hook
+import { useFirebase } from '@/firebase'; 
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn } from 'lucide-react';
+import { LogIn, Activity } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const { toast } = useToast();
-  const { auth } = useFirebase(); // Get auth from our provider
+  const { auth } = useFirebase();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Use the auth instance from the context
+      // 1. Autenticar con Firebase
       await signInWithEmailAndPassword(auth, email, password);
-      // The AuthProvider will handle redirection based on role
-      // We can optimistically push to a default page
-      router.push('/'); 
+      
+      // NOTA: No hacemos router.push aquí. 
+      // Dejamos que el AuthProvider detecte el cambio de estado 
+      // y redirija según el ROL (médico o admin).
+      
+      toast({ title: 'Ingresando...', description: 'Verificando perfil de usuario.' });
+
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Error de inicio de sesión',
-        description:
-          'Credenciales incorrectas. Por favor, verifique su email y contraseña.',
+        title: 'Error de acceso',
+        description: 'Email o contraseña incorrectos.',
       });
-      console.error('Login error:', error);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      <Card className="w-full max-w-sm shadow-2xl border-t-4 border-t-primary">
         <form onSubmit={handleLogin}>
           <CardHeader className="text-center">
-            <CardTitle className="font-headline text-2xl">
-              Acceso Administrador
-            </CardTitle>
-            <CardDescription>
-              Ingrese sus credenciales para continuar
-            </CardDescription>
+            <div className="flex justify-center mb-2">
+                <div className="bg-primary/10 p-3 rounded-full">
+                    <Activity className="h-6 w-6 text-primary" />
+                </div>
+            </div>
+            <CardTitle className="font-headline text-2xl">Portal Araval Salud</CardTitle>
+            <CardDescription>Ingrese sus credenciales de acceso</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@araval.cl"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              <Label htmlFor="email">Correo Electrónico</Label>
+              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
           </CardContent>
-          <CardFooter className="flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Ingresando...' : <> <LogIn className="mr-2 h-4 w-4"/> Ingresar </>}
+          <CardFooter>
+            <Button type="submit" className="w-full h-11 text-base font-bold" disabled={loading}>
+              {loading ? 'Procesando...' : <><LogIn className="mr-2 h-5 w-5"/> Entrar al Sistema</>}
             </Button>
-             <Link href="/crear-primer-admin" className="text-sm text-muted-foreground hover:text-primary">
-                Crear primer administrador
-            </Link>
           </CardFooter>
         </form>
       </Card>
