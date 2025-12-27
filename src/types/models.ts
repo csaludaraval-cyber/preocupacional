@@ -85,6 +85,24 @@ export type StatusCotizacion =
   | 'cotizacion_aceptada'
   | 'facturado_lioren';
 
+/**
+ * Define los roles de usuario en el sistema.
+ * - `admin`: Acceso total.
+ * - `standard`: Usuario normal.
+ * - `medico`: Rol para profesionales de la salud.
+ */
+export type UserRole = 'admin' | 'standard' | 'medico';
+
+/**
+ * Representa el objeto de usuario enriquecido con el rol.
+ */
+export interface User {
+    uid: string;
+    email?: string | null;
+    displayName?: string | null;
+    role: UserRole;
+}
+
 
 /**
  * Representa el objeto de cotización que se guarda en Firestore y se utiliza

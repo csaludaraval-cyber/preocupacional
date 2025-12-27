@@ -1,9 +1,8 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc } from 'firebase/firestore';
 import { Eye, Inbox, Loader2, Search, Shield, Trash2, XCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
@@ -33,7 +32,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/ui/tooltip";
 
 export function AdminSolicitudes() {
   const { user, loading: authLoading } = useAuth();
@@ -42,59 +41,65 @@ export function AdminSolicitudes() {
   const [itemToDelete, setItemToDelete] = useState<WithId<SolicitudPublica> | null>(null);
 
   const solicitudesQuery = useMemoFirebase(() => collection(firestore, 'solicitudes_publicas'), []);
-
   const { data: solicitudes, isLoading, error } = useCollection<SolicitudPublica>(solicitudesQuery);
   
+  // --- UTILIDADES DE SEGURIDAD (Blindaje contra Error 500) ---
+  const getMs = (ts: any): number => {
+    if (!ts) return 0;
+    if (typeof ts.toMillis === 'function') return ts.toMillis();
+    if (ts.seconds) return ts.seconds * 1000;
+    if (ts instanceof Date) return ts.getTime();
+    const parsed = new Date(ts).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const formatDate = (ts: any) => {
+    const ms = getMs(ts);
+    if (ms === 0) return 'N/A';
+    return new Date(ms).toLocaleDateString('es-CL');
+  };
+
   const filteredSolicitudes = useMemo(() => {
     if (!solicitudes) return [];
-    // Filter out processed requests and sort by most recent first
-    const pendingOnly = solicitudes.filter(s => s.estado === 'pendiente');
-    const sorted = [...pendingOnly].sort((a, b) => b.fechaCreacion.toMillis() - a.fechaCreacion.toMillis());
+    
+    // Filtrar solo pendientes y ordenar de forma segura
+    const pendingOnly = solicitudes.filter(s => (s.estado || 'pendiente') === 'pendiente');
+    const sorted = [...pendingOnly].sort((a, b) => getMs(b.fechaCreacion) - getMs(a.fechaCreacion));
 
     if (!searchTerm) return sorted;
 
-    const lowercasedFilter = searchTerm.toLowerCase();
+    const lower = searchTerm.toLowerCase();
     return sorted.filter(req => {
-        const empresaMatch = req.empresa?.razonSocial?.toLowerCase().includes(lowercasedFilter);
-        const solicitanteNombreMatch = req.solicitante?.nombre?.toLowerCase().includes(lowercasedFilter);
-        const solicitanteMailMatch = req.solicitante?.mail?.toLowerCase().includes(lowercasedFilter);
-        const trabajadorMatch = req.solicitudes?.some(s => s.trabajador?.nombre?.toLowerCase().includes(lowercasedFilter));
-        const idMatch = req.id?.toLowerCase().includes(lowercasedFilter);
+        const empresaMatch = req.empresa?.razonSocial?.toLowerCase().includes(lower);
+        const solicitanteNombreMatch = req.solicitante?.nombre?.toLowerCase().includes(lower);
+        const idMatch = req.id?.toLowerCase().includes(lower);
+        const trabajadorMatch = req.solicitudes?.some(s => s.trabajador?.nombre?.toLowerCase().includes(lower));
 
-        return empresaMatch || solicitanteNombreMatch || solicitanteMailMatch || trabajadorMatch || idMatch;
+        return empresaMatch || solicitanteNombreMatch || idMatch || trabajadorMatch;
     });
   }, [solicitudes, searchTerm]);
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
-
     try {
         await deleteDoc(doc(firestore, 'solicitudes_publicas', itemToDelete.id));
         toast({
             title: 'Solicitud Eliminada',
-            description: `La solicitud N° ${itemToDelete.id.slice(-6)} ha sido eliminada.`,
+            description: `La solicitud ha sido eliminada correctamente.`,
         });
     } catch (e) {
-        console.error("Error deleting document: ", e);
         toast({
             variant: "destructive",
             title: "Error al eliminar",
-            description: "No se pudo eliminar la solicitud.",
+            description: "No se pudo completar la operación.",
         });
     } finally {
         setItemToDelete(null);
     }
   };
   
-  const formatDate = (timestamp: any) => {
-      if (!timestamp) return 'N/A';
-      return new Date(timestamp.seconds * 1000).toLocaleDateString('es-CL');
-  }
-
   const prepareQuoteForProcessing = (request: WithId<SolicitudPublica>): string => {
     if (!request.solicitudes || request.solicitudes.length === 0) return '';
-  
-    // Pass the whole structure including the original request ID
     const requestDataForQuote = {
       originalRequestId: request.id,
       empresa: request.empresa,
@@ -104,7 +109,7 @@ export function AdminSolicitudes() {
     return encodeURIComponent(JSON.stringify(requestDataForQuote));
   };
 
-
+  // --- RENDERIZADO DE SEGURIDAD ---
   if (authLoading || isLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -114,9 +119,7 @@ export function AdminSolicitudes() {
         <Alert variant="destructive" className="max-w-2xl mx-auto">
             <Shield className="h-4 w-4" />
             <AlertTitle>Acceso Denegado</AlertTitle>
-            <AlertDescription>
-                No tienes permisos para acceder a esta sección.
-            </AlertDescription>
+            <AlertDescription>No tienes permisos de administrador.</AlertDescription>
         </Alert>
     );
   }
@@ -125,29 +128,23 @@ export function AdminSolicitudes() {
       return (
           <Alert variant="destructive" className="max-w-2xl mx-auto">
               <XCircle className="h-4 w-4" />
-              <AlertTitle>Error al Cargar Datos</AlertTitle>
-              <AlertDescription>
-                  No se pudieron cargar las solicitudes. {error.message}
-              </AlertDescription>
+              <AlertTitle>Error de Conexión</AlertTitle>
+              <AlertDescription>{error.message}</AlertDescription>
           </Alert>
-      )
+      );
   }
-
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="font-headline text-2xl flex items-center gap-3 text-foreground uppercase font-bold">
-            <Inbox className="h-7 w-7"/>
-            Solicitudes de Exámenes Recibidas
+            <Inbox className="h-7 w-7"/> Solicitudes Recibidas
         </CardTitle>
-        <CardDescription>
-          Revise las solicitudes pendientes enviadas por clientes y procéselas para generar una cotización formal. Las solicitudes procesadas desaparecerán de esta lista.
-        </CardDescription>
+        <CardDescription>Revise y procese solicitudes de exámenes. Las procesadas saldrán de esta lista.</CardDescription>
         <div className="relative pt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
-                placeholder="Buscar por empresa, trabajador o N° de solicitud..."
+                placeholder="Buscar por empresa, trabajador o ID..."
                 className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -164,86 +161,59 @@ export function AdminSolicitudes() {
                         <TableHead>Fecha</TableHead>
                         <TableHead>Empresa</TableHead>
                         <TableHead>Solicitante</TableHead>
-                        <TableHead>Trabajadores</TableHead>
+                        <TableHead className="text-center">Trabajadores</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead className="text-center">Acciones</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredSolicitudes.length > 0 ? filteredSolicitudes.map((req) => {
-                      const quoteQuery = prepareQuoteForProcessing(req);
-                      return(
-                        <React.Fragment key={req.id}>
-                          <TableRow className="hover:bg-accent/50">
-                              <TableCell className="font-mono text-xs font-bold">
-                                  <Badge variant="secondary">{req.id.slice(-6)}</Badge>
-                              </TableCell>
-                              <TableCell>{formatDate(req.fechaCreacion)}</TableCell>
-                              <TableCell className="font-medium">{req.empresa?.razonSocial || 'N/A'}</TableCell>
-                              <TableCell className='text-sm'>
+                    {filteredSolicitudes.length > 0 ? filteredSolicitudes.map((req) => (
+                        <TableRow key={req.id} className="hover:bg-accent/50">
+                            <TableCell className="font-mono text-xs font-bold">
+                                <Badge variant="secondary">{req.id.slice(-6)}</Badge>
+                            </TableCell>
+                            <TableCell>{formatDate(req.fechaCreacion)}</TableCell>
+                            <TableCell className="font-medium">{req.empresa?.razonSocial || 'N/A'}</TableCell>
+                            <TableCell className='text-sm'>
                                 {req.solicitante?.nombre ? (
                                   <div className='flex flex-col'>
                                     <span className='font-medium'>{req.solicitante.nombre}</span>
-                                    <span className='text-muted-foreground'>{req.solicitante.mail}</span>
+                                    <span className='text-muted-foreground text-xs'>{req.solicitante.mail}</span>
                                   </div>
-                                ) : (
-                                  <span className='text-muted-foreground italic'>N/A</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-center">{req.solicitudes?.length || 0}</TableCell>
-                              <TableCell><Badge variant={req.estado === 'pendiente' ? 'default' : 'secondary'}>{req.estado}</Badge></TableCell>
-                              <TableCell className="text-center space-x-2">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button asChild variant="outline" size="sm">
-                                        <Link href={`/?solicitud=${quoteQuery}`}>
-                                          Procesar Solicitud <ArrowRight className="ml-2 h-4 w-4"/>
-                                        </Link>
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Convertir la solicitud completa en una cotización</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                  <Tooltip>
-                                      <TooltipTrigger asChild>
-                                         <AlertDialog>
-                                              <AlertDialogTrigger asChild>
-                                                  <Button variant="ghost" size="icon" onClick={() => setItemToDelete(req)}>
-                                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                                  </Button>
-                                              </AlertDialogTrigger>
-                                              <AlertDialogContent>
-                                                  <AlertDialogHeader>
-                                                      <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                                                      <AlertDialogDescription>
-                                                          Esta acción no se puede deshacer. Esto eliminará permanentemente la solicitud
-                                                          <span className='font-bold'> N° {req.id.slice(-6)} </span>
-                                                          de los servidores.
-                                                      </AlertDialogDescription>
-                                                  </AlertDialogHeader>
-                                                  <AlertDialogFooter>
-                                                      <AlertDialogCancel onClick={() => setItemToDelete(null)}>Cancelar</AlertDialogCancel>
-                                                      <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                                                          Eliminar
-                                                      </AlertDialogAction>
-                                                  </AlertDialogFooter>
-                                              </AlertDialogContent>
-                                          </AlertDialog>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                          <p>Eliminar Solicitud Completa</p>
-                                      </TooltipContent>
-                                  </Tooltip>
-                              </TableCell>
-                          </TableRow>
-                        </React.Fragment>
-                      )
-                    }) : (
-                        <TableRow>
-                            <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
-                                No se encontraron solicitudes pendientes.
+                                ) : 'N/A'}
                             </TableCell>
+                            <TableCell className="text-center">{req.solicitudes?.length || 0}</TableCell>
+                            <TableCell><Badge variant="outline" className="capitalize">{req.estado || 'pendiente'}</Badge></TableCell>
+                            <TableCell className="text-center space-x-2">
+                                <Button asChild variant="outline" size="sm">
+                                  <Link href={`/?solicitud=${prepareQuoteForProcessing(req)}`}>
+                                    Procesar <ArrowRight className="ml-2 h-4 w-4"/>
+                                  </Link>
+                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Eliminar solicitud?</AlertDialogTitle>
+                                            <AlertDialogDescription>Esta acción es permanente.</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => { setItemToDelete(req); handleDelete(); }} className="bg-destructive text-white hover:bg-destructive/90">
+                                                Eliminar
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </TableCell>
+                        </TableRow>
+                    )) : (
+                        <TableRow>
+                            <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">No hay solicitudes pendientes.</TableCell>
                         </TableRow>
                     )}
                 </TableBody>
