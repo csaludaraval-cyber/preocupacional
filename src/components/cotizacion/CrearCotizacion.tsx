@@ -248,7 +248,11 @@ export function CrearCotizacion() {
       solicitanteId: user.uid,
       fechaCreacion: serverTimestamp(),
       total: total,
-      empresaData: { ...empresa, rut: cleanRut(empresa.rut), modalidadFacturacion: isClienteFrecuente ? 'frecuente' : 'normal' },
+      empresaData: { 
+          ...empresa, 
+          rut: cleanRut(empresa.rut), // Guardar RUT limpio
+          modalidadFacturacion: isClienteFrecuente ? 'frecuente' : 'normal' 
+      },
       solicitanteData: solicitante,
       solicitudesData: solicitudes,
       status: isClienteFrecuente ? 'orden_examen_enviada' : 'CONFIRMADA',
@@ -284,6 +288,7 @@ export function CrearCotizacion() {
                 solicitante: solicitante,
                 solicitudes: solicitudes,
                 total,
+                // `fecha` is deprecated, but we keep it for potential legacy components
                 fecha: format(now, 'dd/MM/yyyy', { locale: es }),
                 fechaCreacion: { seconds: now.getTime() / 1000, nanoseconds: 0 },
                 status: newQuoteFirestore.status,

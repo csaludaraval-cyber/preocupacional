@@ -1,43 +1,45 @@
 
 'use server';
-/**
- * @fileoverview Lógica de negocio para interactuar con la API de Lioren.
- */
 
-import { LIOREN_CONFIG } from './config';
+/**
+ * @fileoverview Lógica de negocio blindada para API Lioren v1.
+ */
 
 const LIOREN_API_URL = 'https://api.lioren.cl/v1/dtes';
 
 export async function createDTE(dteData: any): Promise<any> {
-  if (!LIOREN_CONFIG.token) {
-    throw new Error('Error Crítico: El Token de Acceso Personal de Lioren (LIOREN_TOKEN) no está configurado en las variables de entorno.');
+  // Acceso directo a variable de entorno para evitar fallos de importación
+  const token = process.env.LIOREN_TOKEN;
+
+  if (!token) {
+    throw new Error('LIOREN_TOKEN no configurado en el servidor.');
   }
 
-  const response = await fetch(LIOREN_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${LIOREN_CONFIG.token}`,
-    },
-    body: JSON.stringify(dteData),
-  });
+  try {
+    const response = await fetch(LIOREN_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(dteData),
+    });
 
-  const responseData = await response.json();
+    const responseData = await response.json();
 
-  if (!response.ok) {
-    console.error('Error de Lioren al crear DTE:', responseData);
-    let errorMessage = responseData.message || 'Error desconocido al crear el DTE.';
-    
-    // Mapeo de errores conocidos de Lioren a mensajes amigables
-    if (responseData.message?.includes('caf_exhausted')) {
-      errorMessage = 'No quedan folios disponibles para emitir este tipo de documento. Por favor, solicite más folios en el SII.';
-    } else if (responseData.message?.includes('not_allowed_to_issue_dtes')) {
-      errorMessage = 'El RUT del emisor no está autorizado para emitir DTEs. Verifique la configuración en Lioren y el SII.';
+    if (!response.ok) {
+      console.error('ERROR SII/LIOREN:', responseData);
+      // Si Lioren devuelve errores específicos de validación, los mostramos
+      const detail = responseData.errors 
+        ? Object.values(responseData.errors).flat().join(', ') 
+        : (responseData.message || 'Error desconocido en el SII');
+      throw new Error(detail);
     }
 
-    throw new Error(errorMessage);
+    return responseData;
+  } catch (error: any) {
+    console.error('FALLO DE COMUNICACIÓN LIOREN:', error.message);
+    throw error;
   }
-
-  return responseData;
 }

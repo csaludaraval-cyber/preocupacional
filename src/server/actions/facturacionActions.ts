@@ -1,204 +1,181 @@
 
 'use server';
 
-import { doc, getDoc, getDocs, collection, query, where, writeBatch } from 'firebase-admin/firestore';
 import { db } from '@/lib/firestore-admin';
 import { createDTE } from '@/server/lioren';
-import { cleanRut } from '@/lib/utils';
-import type { CotizacionFirestore, Empresa } from '@/lib/types';
 import { LIOREN_CONFIG } from '@/server/config';
+import type { CotizacionFirestore, Empresa } from '@/lib/types';
 
-// Tipos de DTE según Lioren
-const DTE_TIPO = {
-    FACTURA_EXENTA: 34,
-    FACTURA_NORMAL: 33,
+// Limpieza de RUT para cumplir estándar Lioren
+const cleanRut = (rut: string | undefined): string => {
+  if (!rut) return '';
+  // Elimina puntos y asegura el guion antes del dígito verificador
+  const cleaned = rut.replace(/\./g, '').toUpperCase();
+  if (cleaned.includes('-')) {
+    return cleaned;
+  }
+  const index = cleaned.length - 1;
+  return cleaned.slice(0, index) + '-' + cleaned.charAt(index);
 };
 
-/**
- * Emite un DTE consolidado para un cliente frecuente.
- * Agrupa todas las cotizaciones en estado 'orden_examen_enviada' para un RUT de cliente.
- * @param rutCliente - El RUT limpio del cliente a facturar.
- * @returns Un objeto con el resultado de la operación.
- */
-export async function emitirDTEConsolidado(rutCliente: string): Promise<{ success: boolean; folio?: number; error?: string }> {
-    if (!rutCliente) {
-        return { success: false, error: 'RUT del cliente no proporcionado.' };
+
+// --- ACCIÓN PARA FACTURACIÓN INMEDIATA (DTE 34) ---
+export async function emitirDTEInmediato(cotizacionId: string) {
+  try {
+    const cotRef = db.collection('cotizaciones').doc(cotizacionId);
+    const snap = await cotRef.get();
+
+    if (!snap.exists) throw new Error('Cotización no encontrada en la base de datos.');
+    const data = snap.data() as CotizacionFirestore;
+
+    // 1. VALIDACIONES PRE-VUELO (SII)
+    const empresa = data.empresaData;
+    if (!empresa?.giro) throw new Error('El GIRO de la empresa es obligatorio para el SII.');
+    if (!empresa?.comuna) throw new Error('La COMUNA es obligatoria para el SII.');
+    if (!empresa?.rut) throw new Error('El RUT del receptor es obligatorio.');
+
+    // 2. PREPARAR DETALLES (Aplanamiento de exámenes y blindaje de strings)
+    const detalles = (data.solicitudesData || []).flatMap((sol) => 
+      (sol.examenes || []).map((ex) => ({
+        nombre: `${String(ex.nombre).substring(0, 40)} - ${String(sol.trabajador.nombre).substring(0, 30)}`,
+        cantidad: 1,
+        precio: Math.round(Number(ex.valor)), // Aseguramos que sea un número entero
+        exento: true 
+      }))
+    );
+
+    if (detalles.length === 0) {
+        throw new Error('La cotización no contiene exámenes para facturar.');
     }
-    
-    if (!LIOREN_CONFIG.emisorRut) {
-        return { success: false, error: 'El RUT del emisor no está configurado en las variables de entorno (EMISOR_RUT).' };
-    }
 
-    try {
-        const q = query(
-            collection(db, 'cotizaciones'),
-            where('empresaId', '==', rutCliente),
-            where('status', '==', 'orden_examen_enviada')
-        );
+    const montoTotal = Math.round(Number(data.total));
 
-        const querySnapshot = await getDocs(q);
+    // 3. PAYLOAD QUIRÚRGICO PARA DTE 34 (EXENTO)
+    const payload = {
+      tipodoc: "34", // Factura Exenta
+      receptor: {
+        rut: cleanRut(empresa.rut),
+        rs: String(empresa.razonSocial).substring(0, 100),
+        giro: String(empresa.giro).substring(0, 80),
+        comuna: empresa.comuna,
+        ciudad: empresa.ciudad || empresa.comuna, // Usamos Comuna como fallback si Ciudad falta
+        dir: empresa.direccion || 'Sin dirección',
+        email: empresa.email
+      },
+      detalles: detalles,
+      montos: {
+        neto: 0, // CRÍTICO: En DTE 34 el neto DEBE ser 0
+        exento: montoTotal,
+        iva: 0,
+        total: montoTotal
+      },
+      expect_all: true
+    };
 
-        if (querySnapshot.empty) {
-            return { success: false, error: 'No hay órdenes de examen pendientes para facturar para este cliente.' };
-        }
+    // 4. LLAMADA A LIOREN
+    const result = await createDTE(payload);
 
-        const cotizaciones = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CotizacionFirestore));
-        const primeraCotizacion = cotizaciones[0];
-        const empresaData = primeraCotizacion.empresaData;
-        const totalNeto = cotizaciones.reduce((acc, curr) => acc + curr.total, 0);
+    // 5. ACTUALIZAR FIRESTORE CON ÉXITO
+    await cotRef.update({
+      status: 'FACTURADO',
+      liorenFolio: result.folio.toString(),
+      liorenPdfUrl: result.url_pdf_cedible,
+      liorenFechaEmision: new Date().toISOString()
+    });
 
-        const detalles = cotizaciones.flatMap(c => 
-            c.solicitudesData.flatMap(s => 
-                s.examenes.map(e => ({
-                    nombre: `${e.nombre} - ${s.trabajador.nombre}`.substring(0, 80), // Truncar a 80 caracteres
-                    cantidad: 1,
-                    precio: Math.round(e.valor),
-                    exento: true,
-                }))
-            )
-        );
+    return { success: true, folio: result.folio };
 
-        const dteData = {
-            tipo: DTE_TIPO.FACTURA_EXENTA,
-            emisor: { rut: cleanRut(LIOREN_CONFIG.emisorRut) },
-            receptor: {
-                rut: cleanRut(empresaData.rut),
-                razonSocial: empresaData.razonSocial,
-                giro: empresaData.giro,
-                direccion: empresaData.direccion,
-                comuna: empresaData.comuna,
-                ciudad: empresaData.ciudad,
-            },
-            detalles: detalles,
-            montos: {
-                neto: 0,
-                exento: Math.round(totalNeto),
-                iva: 0,
-                total: Math.round(totalNeto),
-            },
-            referencias: cotizaciones.map(c => ({
-                tipo: 801, // Orden de Compra
-                folio: c.id.slice(-10), // Folio de referencia (ID de cotización)
-                fecha: c.fechaCreacion.toDate().toISOString().split('T')[0],
-            })),
-        };
-
-        const response = await createDTE(dteData);
-        if (!response || !response.folio) {
-            throw new Error('La API de Lioren no devolvió un folio.');
-        }
-
-        const batch = db.batch();
-        const fechaEmision = new Date().toISOString();
-        
-        cotizaciones.forEach(cotizacion => {
-            const docRef = doc(db, 'cotizaciones', cotizacion.id);
-            batch.update(docRef, { 
-                status: 'FACTURADO',
-                liorenFolio: response.folio.toString(),
-                liorenId: response.id,
-                liorenFechaEmision: fechaEmision,
-                liorenPdfUrl: response.url_pdf || response.pdf || response.uri,
-            });
-        });
-
-        await batch.commit();
-
-        return { success: true, folio: response.folio };
-
-    } catch (error: any) {
-        console.error('Error al emitir DTE consolidado:', error);
-        return { success: false, error: error.message };
-    }
+  } catch (error: any) {
+    // Este es el error que llegará al toast en la pantalla
+    const errorMessage = error.message || 'Error desconocido en la facturación.';
+    console.error('ERROR en emitirDTEInmediato:', errorMessage);
+    return { success: false, error: errorMessage };
+  }
 }
 
-
-/**
- * Emite un DTE inmediato para una cotización única.
- * @param cotizacionId - El ID de la cotización a facturar.
- * @returns Un objeto con el resultado de la operación.
- */
-export async function emitirDTEInmediato(cotizacionId: string): Promise<{ success: boolean; folio?: number; error?: string }> {
+// --- ACCIÓN PARA FACTURACIÓN CONSOLIDADA (DTE 34) ---
+export async function emitirDTEConsolidado(rutCliente: string) {
     try {
-        if (!cotizacionId) {
-            return { success: false, error: 'ID de cotización no proporcionado.' };
-        }
+        const cleanedRut = cleanRut(rutCliente);
         
-        if (!LIOREN_CONFIG.emisorRut) {
-            return { success: false, error: 'El RUT del emisor no está configurado en las variables de entorno (EMISOR_RUT).' };
-        }
-
-        const cotizacionRef = doc(db, 'cotizaciones', cotizacionId);
-        const cotizacionSnap = await getDoc(cotizacionRef);
-
-        if (!cotizacionSnap.exists()) {
-             return { success: false, error: 'La cotización no existe.' };
-        }
-
-        const cotizacion = cotizacionSnap.data() as CotizacionFirestore;
-
-        if (cotizacion.status === 'FACTURADO' || cotizacion.status === 'facturado_lioren') {
-            return { success: false, error: `Esta cotización ya fue facturada (Folio: ${cotizacion.liorenFolio}).` };
-        }
-
-        if (cotizacion.status !== 'PAGADO') {
-            return { success: false, error: `La cotización debe estar en estado 'PAGADO' para facturar, pero está en '${cotizacion.status}'.` };
-        }
+        // Obtenemos todas las órdenes pendientes para este RUT
+        const q = db.collection('cotizaciones')
+            .where('empresaId', '==', cleanedRut)
+            .where('status', '==', 'orden_examen_enviada');
         
-        const empresaData = cotizacion.empresaData;
-        if (!empresaData.giro) {
-            return { success: false, error: 'El Giro de la empresa es obligatorio para el SII.' };
-        }
+        const snapshot = await q.get();
+        if (snapshot.empty) throw new Error('No hay órdenes pendientes para este cliente.');
+
+        const quotesToBill = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CotizacionFirestore));
         
-        const totalNeto = cotizacion.total;
+        const primeraCotizacion = quotesToBill[0];
+        const empresa = primeraCotizacion.empresaData;
 
-        const detalles = cotizacion.solicitudesData.flatMap(s => 
-            s.examenes.map(e => ({
-                nombre: `${e.nombre} - ${s.trabajador.nombre}`.substring(0, 80), // Truncar a 80 caracteres
-                cantidad: 1,
-                precio: Math.round(e.valor),
-                exento: true,
-            }))
-        );
+        // 1. VALIDACIONES (igual que en DTE inmediato)
+        if (!empresa?.giro) throw new Error('El GIRO de la empresa es obligatorio para el SII.');
+        if (!empresa?.comuna) throw new Error('La COMUNA es obligatoria para el SII.');
 
-         const dteData = {
-            tipo: DTE_TIPO.FACTURA_EXENTA,
-            emisor: { rut: cleanRut(LIOREN_CONFIG.emisorRut) },
-            receptor: {
-                rut: cleanRut(empresaData.rut),
-                razonSocial: empresaData.razonSocial,
-                giro: empresaData.giro,
-                direccion: empresaData.direccion,
-                comuna: empresaData.comuna,
-                ciudad: empresaData.ciudad,
-            },
-            detalles: detalles,
-            montos: {
-                neto: 0,
-                exento: Math.round(totalNeto),
-                iva: 0,
-                total: Math.round(totalNeto),
-            },
-        };
-
-        const response = await createDTE(dteData);
-        if (!response || !response.folio) {
-            throw new Error('La API de Lioren no devolvió un folio.');
-        }
-
-        await cotizacionRef.update({
-            status: 'FACTURADO',
-            liorenFolio: response.folio.toString(),
-            liorenId: response.id,
-            liorenFechaEmision: new Date().toISOString(),
-            liorenPdfUrl: response.url_pdf || response.pdf || response.uri,
+        // 2. CONSOLIDAR DETALLES Y TOTALES
+        let detallesConsolidados: any[] = [];
+        let montoTotalConsolidado = 0;
+        
+        quotesToBill.forEach(quote => {
+            montoTotalConsolidado += Math.round(Number(quote.total));
+            const detallesQuote = (quote.solicitudesData || []).flatMap((sol) =>
+                (sol.examenes || []).map((ex) => ({
+                    nombre: `${String(ex.nombre).substring(0, 35)} - ID ${quote.id.slice(-4)}`,
+                    cantidad: 1,
+                    precio: Math.round(Number(ex.valor)),
+                    exento: true,
+                }))
+            );
+            detallesConsolidados.push(...detallesQuote);
         });
 
-        return { success: true, folio: response.folio };
+        // 3. PAYLOAD PARA DTE 34 CONSOLIDADO
+        const payload = {
+            tipodoc: "34",
+            receptor: {
+                rut: cleanedRut,
+                rs: String(empresa.razonSocial).substring(0, 100),
+                giro: String(empresa.giro).substring(0, 80),
+                comuna: empresa.comuna,
+                ciudad: empresa.ciudad || empresa.comuna,
+                dir: empresa.direccion || 'Sin dirección',
+                email: empresa.email
+            },
+            detalles: detallesConsolidados,
+            montos: {
+                neto: 0,
+                exento: montoTotalConsolidado,
+                iva: 0,
+                total: montoTotalConsolidado
+            },
+            expect_all: true
+        };
+        
+        // 4. LLAMADA A LIOREN
+        const result = await createDTE(payload);
+
+        // 5. ACTUALIZAR TODAS LAS COTIZACIONES INVOLUCRADAS
+        const batch = db.batch();
+        const updateData = {
+            status: 'facturado_lioren', // Estado legado para compatibilidad
+            liorenFolio: result.folio.toString(),
+            liorenPdfUrl: result.url_pdf_cedible,
+            liorenFechaEmision: new Date().toISOString()
+        };
+
+        snapshot.docs.forEach(doc => {
+            batch.update(doc.ref, updateData);
+        });
+        await batch.commit();
+
+        return { success: true, folio: result.folio };
 
     } catch (error: any) {
-        const detailedError = error.message;
-        console.error('DETALLE LIOREN:', detailedError);
-        return { success: false, error: `Error Lioren: ${detailedError}` };
+        const errorMessage = error.message || 'Error desconocido en facturación consolidada.';
+        console.error('ERROR en emitirDTEConsolidado:', errorMessage);
+        return { success: false, error: errorMessage };
     }
 }
