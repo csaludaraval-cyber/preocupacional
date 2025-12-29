@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * Llama a la API de Lioren para crear un Documento Tributario Electrónico (DTE).
  * @param dteData El payload con los datos del DTE.

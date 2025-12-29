@@ -44,7 +44,7 @@ import { firestore } from '@/lib/firebase';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Cotizacion, StatusCotizacion } from '@/lib/types';
 import { mapLegacyStatus } from '@/lib/status-mapper';
-import { ejecutarFacturacionSiiV2 } from '@/server/actions/facturacionActions';
+import { ejecutarFacturacionSiiV2, probarConexionLioren } from '@/server/actions/facturacionActions';
 import { Input } from '../ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { XCircle } from 'lucide-react';
@@ -89,6 +89,27 @@ export default function AdminCotizaciones() {
     if (!quotes) return [];
     return [...quotes].sort((a, b) => getMs(b.fechaCreacion) - getMs(a.fechaCreacion));
   }, [quotes]);
+  
+  const handleTestLioren = async () => {
+    toast({ title: 'Probando conexión con Lioren...' });
+    try {
+      const result = await probarConexionLioren();
+      if (result.success && result.data) {
+        toast({
+          title: 'Conexión Exitosa',
+          description: `Empresa: ${result.data.razonSocial} (RUT: ${result.data.rut})`,
+        });
+      } else {
+        throw new Error(result.error || 'Respuesta inesperada del servidor.');
+      }
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de Conexión',
+        description: err.message,
+      });
+    }
+  };
 
   const handleInvoiceNow = async (quoteId: string) => {
     setIsInvoicing(quoteId);
@@ -176,7 +197,10 @@ export default function AdminCotizaciones() {
 
   return (
     <div className="container mx-auto p-4 bg-white rounded-lg shadow">
-      <h1 className="text-2xl font-bold mb-6 uppercase font-headline">Administración de Cotizaciones</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold uppercase font-headline">Administración de Cotizaciones</h1>
+        <Button onClick={handleTestLioren} variant="outline">Test Lioren</Button>
+      </div>
       
       <div className="overflow-x-auto">
         <Table>
