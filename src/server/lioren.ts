@@ -1,45 +1,66 @@
-
 'use server';
 
 /**
- * @fileoverview Lógica de negocio blindada para API Lioren v1.
+ * Llama a la API de Lioren para crear un Documento Tributario Electrónico (DTE).
+ * @param dteData El payload con los datos del DTE.
+ * @returns La respuesta de la API de Lioren.
  */
-
-const LIOREN_API_URL = 'https://api.lioren.cl/v1/dtes';
-
 export async function createDTE(dteData: any): Promise<any> {
-  // Acceso directo a variable de entorno para evitar fallos de importación
   const token = process.env.LIOREN_TOKEN;
+  if (!token) throw new Error('LIOREN_TOKEN no configurado en el entorno del servidor.');
 
-  if (!token) {
-    throw new Error('LIOREN_TOKEN no configurado en el servidor.');
+  const response = await fetch('https://www.lioren.cl/api/dtes', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${token.trim()}`,
+    },
+    body: JSON.stringify(dteData),
+    cache: 'no-store',
+  });
+
+  const responseData = await response.json();
+
+  if (!response.ok) {
+    // Para errores, lanzamos el objeto completo de la respuesta de Lioren.
+    // El 'message' suele contener el detalle del campo que falló.
+    throw new Error(responseData.message || JSON.stringify(responseData));
   }
 
-  try {
-    const response = await fetch(LIOREN_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(dteData),
-    });
+  return responseData;
+}
 
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error('ERROR SII/LIOREN:', responseData);
-      // Si Lioren devuelve errores específicos de validación, los mostramos
-      const detail = responseData.errors 
-        ? Object.values(responseData.errors).flat().join(', ') 
-        : (responseData.message || 'Error desconocido en el SII');
-      throw new Error(detail);
+/**
+ * Llama al endpoint "whoami" de Lioren para verificar las credenciales del token.
+ * @returns La información de la empresa asociada al token.
+ */
+export async function whoami(): Promise<any> {
+    const token = process.env.LIOREN_TOKEN;
+    if (!token) {
+        throw new Error('LIOREN_TOKEN no está configurado en el servidor.');
     }
 
-    return responseData;
-  } catch (error: any) {
-    console.error('FALLO DE COMUNICACIÓN LIOREN:', error.message);
-    throw error;
-  }
+    try {
+        const response = await fetch('https://www.lioren.cl/api/whoami', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${token.trim()}`,
+            },
+            cache: 'no-store',
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Respuesta no válida de Lioren al verificar credenciales.');
+        }
+
+        return data;
+
+    } catch (error: any) {
+        console.error("Error al conectar con Lioren (whoami):", error);
+        throw new Error(`Fallo de conexión con Lioren: ${error.message}`);
+    }
 }

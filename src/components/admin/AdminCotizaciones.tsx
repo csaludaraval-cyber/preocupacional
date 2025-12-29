@@ -44,7 +44,7 @@ import { firestore } from '@/lib/firebase';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Cotizacion, StatusCotizacion } from '@/lib/types';
 import { mapLegacyStatus } from '@/lib/status-mapper';
-import { emitirDTEInmediato } from '@/server/actions/facturacionActions';
+import { ejecutarFacturacionSiiV2 } from '@/server/actions/facturacionActions';
 import { Input } from '../ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { XCircle } from 'lucide-react';
@@ -92,16 +92,44 @@ export default function AdminCotizaciones() {
 
   const handleInvoiceNow = async (quoteId: string) => {
     setIsInvoicing(quoteId);
+    
+    // Toast inicial de proceso
+    toast({
+      title: "Iniciando Facturación",
+      description: "Conectando con el servidor legal...",
+    });
+
     try {
-      const result = await emitirDTEInmediato(quoteId);
+      const result = await ejecutarFacturacionSiiV2(quoteId);
+      
       if (result.success) {
-        toast({ title: 'Éxito', description: `Folio ${result.folio} emitido.` });
+        toast({ 
+          title: 'Éxito Total', 
+          description: `Factura emitida: Folio ${result.folio}`,
+          variant: 'default' // O 'success' si tu tema lo soporta
+        });
         refetchQuotes();
         setQuoteToManage(null);
-      } else throw new Error(result.error);
+      } else {
+        // AQUÍ RECIBIMOS EL RASTRO (TRACE) DE LA MEDIDA NUCLEAR
+        console.error("Fallo reportado por el servidor:", result.error);
+        toast({ 
+          variant: 'destructive', 
+          title: 'FALLO EN EL PASO TÉCNICO', 
+          description: result.error, // Mostrará: "ERROR EN [PASO X]: ..."
+        });
+      }
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error', description: err.message });
-    } finally { setIsInvoicing(null); }
+      // Este catch captura errores de red o colapsos críticos
+      console.error('Error de comunicación:', err);
+      toast({ 
+        variant: 'destructive', 
+        title: 'ERROR DE SISTEMA', 
+        description: err.message || 'El servidor no respondió a la solicitud.' 
+      });
+    } finally {
+      setIsInvoicing(null);
+    }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
