@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { collection, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, deleteDoc } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
@@ -52,6 +52,7 @@ export function AdminCatalogo() {
   const [isDeletingCatalog, setIsDeletingCatalog] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Examen | null>(null);
+  const [examToDelete, setExamToDelete] = useState<Examen | null>(null);
   
   const handleSuccess = () => {
     setIsFormOpen(false);
@@ -69,6 +70,20 @@ export function AdminCatalogo() {
           setPinValue('');
       }
   };
+
+  const handleDeleteExam = async () => {
+    if (!examToDelete) return;
+    try {
+        await deleteDoc(doc(firestore, 'examenes', examToDelete.id));
+        toast({ title: 'Examen Eliminado', description: `Se eliminó "${examToDelete.nombre}" del catálogo.`});
+        refetchExams();
+    } catch(err: any) {
+        toast({ variant: 'destructive', title: 'Error al Eliminar', description: err.message });
+    } finally {
+        setExamToDelete(null);
+    }
+  };
+
 
   const handleDeleteCatalog = async () => {
       setIsDeletingCatalog(true);
@@ -189,6 +204,9 @@ export function AdminCatalogo() {
                     <Button size="icon" variant="ghost" onClick={() => { setEditingExam(exam); setIsFormOpen(true); }}>
                        <Pencil className="h-4 w-4" />
                     </Button>
+                     <Button size="icon" variant="ghost" onClick={() => setExamToDelete(exam)}>
+                       <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               )) : (
@@ -239,6 +257,25 @@ export function AdminCatalogo() {
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!examToDelete} onOpenChange={() => setExamToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este examen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará <span className='font-bold'>{examToDelete?.nombre}</span>. Esta acción es permanente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteExam} className="bg-destructive hover:bg-destructive/90">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
+
+    
