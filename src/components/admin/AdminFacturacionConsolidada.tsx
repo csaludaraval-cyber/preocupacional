@@ -10,10 +10,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, XCircle, FileClock, History, ChevronDown, Download, FileText } from 'lucide-react';
+import { 
+  Loader2, 
+  Shield, 
+  XCircle, 
+  FileClock, 
+  History, 
+  ChevronDown, 
+  Download, 
+  FileText,
+  Building
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { emitirDTEConsolidado } from '@/server/actions/facturacionActions';
 
 export function AdminFacturacionConsolidada() {
@@ -31,21 +41,23 @@ export function AdminFacturacionConsolidada() {
   const pendingQuery = useMemoFirebase(() => 
     query(collection(firestore, 'cotizaciones'), where('status', 'in', ['orden_examen_enviada', 'CORREO_ENVIADO'])), []);
   
-  const { data: quotesToBill, isLoading: isLoadingPending, error: errorPending, refetch } = useCollection<any>(pendingQuery);
+  const { data: quotesToBill, isLoading: isLoadingPending } = useCollection<any>(pendingQuery);
 
   const billedQuery = useMemoFirebase(() =>
     query(collection(firestore, 'cotizaciones'), where('status', 'in', ['facturado_lioren', 'FACTURADO'])), []);
 
-  const { data: billedQuotes, isLoading: isLoadingBilled, error: errorBilled } = useCollection<any>(billedQuery);
+  const { data: billedQuotes, isLoading: isLoadingBilled } = useCollection<any>(billedQuery);
 
   const groupedData = useMemo(() => {
     if (!quotesToBill) return [];
     const groups: Record<string, any> = {};
     quotesToBill.forEach(quote => {
       const rut = quote.empresaData?.rut || 'S-RUT';
-      if (!groups[rut]) groups[rut] = { empresa: quote.empresaData, quotes: [], totalAmount: 0 };
-      groups[rut].quotes.push(quote);
-      groups[rut].totalAmount += (quote.total || 0);
+      if (quote.empresaData?.modalidadFacturacion === 'frecuente' || quote.status === 'orden_examen_enviada') {
+        if (!groups[rut]) groups[rut] = { empresa: quote.empresaData, quotes: [], totalAmount: 0 };
+        groups[rut].quotes.push(quote);
+        groups[rut].totalAmount += (quote.total || 0);
+      }
     });
     return Object.values(groups);
   }, [quotesToBill]);
@@ -62,26 +74,64 @@ export function AdminFacturacionConsolidada() {
       return Object.values(history);
   }, [billedQuotes]);
 
-  if (authLoading || isLoadingPending) return <div className="flex justify-center p-10"><Loader2 className="animate-spin h-8 w-8" /></div>;
+  if (authLoading || isLoadingPending || isLoadingBilled) {
+    return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+  }
 
   return (
-    <div className='space-y-8'>
-        <Card>
-            <CardHeader><CardTitle>Facturación Consolidada</CardTitle></CardHeader>
+    <div className='space-y-8 container mx-auto p-4'>
+        <Card className="border-t-4 border-t-primary">
+            <CardHeader>
+                <CardTitle className="text-2xl font-bold flex items-center gap-2">
+                    <FileClock className="h-6 w-6"/> Facturación Consolidada Pendiente
+                </CardTitle>
+                <CardDescription>Clientes con facturación acumulada.</CardDescription>
+            </CardHeader>
             <CardContent>
                 <Table>
+                    <TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead className="text-right">Monto Acumulado</TableHead><TableHead className="text-center">Acción</TableHead></TableRow></TableHeader>
                     <TableBody>
                     {groupedData.map((group: any) => (
                         <TableRow key={group.empresa?.rut}>
-                            <TableCell>{group.empresa?.razonSocial}</TableCell>
-                            <TableCell className="text-right font-bold">${group.totalAmount}</TableCell>
+                            <TableCell>
+                                <div className="font-bold">{group.empresa?.razonSocial}</div>
+                                <div className="text-xs text-muted-foreground">{group.empresa?.rut}</div>
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-primary">
+                                {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(group.totalAmount)}
+                            </TableCell>
                             <TableCell className="text-center">
-                                <Button size="sm" onClick={() => {}}>Facturar Grupo</Button>
+                                <Button size="sm" variant="outline" onClick={() => {}}>
+                                    Facturar Grupo ({group.quotes.length})
+                                </Button>
                             </TableCell>
                         </TableRow>
                     ))}
                     </TableBody>
                 </Table>
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                    <History className="h-5 w-5"/> Historial de Facturas
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {billedHistory.map((invoice: any) => (
+                    <div key={invoice.folio} className="p-4 border rounded-lg flex justify-between items-center bg-slate-50">
+                        <div>
+                            <p className="text-xs text-muted-foreground uppercase font-bold">Folio SII: {invoice.folio}</p>
+                            <p className="font-medium">{invoice.empresa?.razonSocial}</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button asChild size="sm" variant="outline">
+                                <a href={invoice.pdfUrl} target="_blank" rel="noopener noreferrer">Ver PDF</a>
+                            </Button>
+                        </div>
+                    </div>
+                ))}
             </CardContent>
         </Card>
     </div>
