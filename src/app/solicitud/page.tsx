@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Send, PlusCircle, Trash2, Users, FileText, Loader2, ShieldCheck, Building } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
-import type { Empresa, Examen, Solicitante } from '@/lib/types';
+import type { Empresa, Examen, Solicitante, Trabajador } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -30,12 +29,10 @@ const BATERIA_HEFAISTOS_MOCK: Examen = {
 const initialEmpresa: Empresa = { rut: '', razonSocial: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
 const initialSolicitante: Solicitante = { nombre: '', rut: '', cargo: '', centroDeCostos: '', mail: '' };
 
-// Define el tipo sin el ID para la inicialización
 const initialSolicitudTemplate: Omit<SolicitudTrabajador, 'id'> = { 
     trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' },
     examenes: [] 
 };
-
 
 export default function SolicitudPage() {
   const [step, setStep] = useState(1);
@@ -54,16 +51,13 @@ export default function SolicitudPage() {
   const [isClienteFrecuente, setIsClienteFrecuente] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   
-  // Garantiza que la inicialización con IDs aleatorios solo ocurra en el cliente
   useEffect(() => {
-    setSolicitudes([{ ...initialSolicitudTemplate, id: crypto.randomUUID() }]);
+    setSolicitudes([{ ...initialSolicitudTemplate, id: crypto.randomUUID() } as SolicitudTrabajador]);
   }, []);
 
   const totalExams = useMemo(() => solicitudes.reduce((acc, s) => acc + s.examenes.length, 0), [solicitudes]);
   const currentSolicitud = solicitudes[currentSolicitudIndex];
 
-
-  // Auto-fill company data when validation finds a frequent client
   const handleValidateRut = async () => {
     if (!rutEmpresa) return;
     setIsValidating(true);
@@ -76,29 +70,23 @@ export default function SolicitudPage() {
             if (data.modalidadFacturacion === 'frecuente') {
                 setEmpresa(data);
                 setIsClienteFrecuente(true);
-                // Auto-select mock exam for all workers
                 setSolicitudes(prev => prev.map(s => ({ ...s, examenes: [BATERIA_HEFAISTOS_MOCK] })));
-                toast({
-                    title: 'Cliente Frecuente Detectado',
-                    description: `Se han cargado los datos de ${data.razonSocial} y la batería de exámenes predeterminada.`,
-                });
+                toast({ title: 'Cliente Frecuente Detectado', description: `Se han cargado los datos de ${data.razonSocial}.` });
             } else {
-                 toast({ title: 'Cliente Estándar', description: 'Este cliente no opera bajo la modalidad frecuente. Continúe con la solicitud normal.' });
+                 toast({ title: 'Cliente Estándar', description: 'Continúe con la solicitud normal.' });
                  setIsClienteFrecuente(false);
                  setEmpresa(data);
             }
         } else {
-             toast({ variant: 'destructive', title: 'Empresa no encontrada', description: 'El RUT no corresponde a un cliente frecuente registrado. Continúe como cliente normal.' });
+             toast({ variant: 'destructive', title: 'Empresa no encontrada', description: 'El RUT no corresponde a un cliente frecuente registrado.' });
              setIsClienteFrecuente(false);
         }
     } catch (error) {
-        console.error("Error validating RUT:", error);
         toast({ variant: 'destructive', title: 'Error de Validación', description: 'No se pudo verificar el RUT.' });
     } finally {
         setIsValidating(false);
     }
   };
-
 
   const totalSteps = 2;
   const progress = (step / totalSteps) * 100;
@@ -107,9 +95,11 @@ export default function SolicitudPage() {
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   const updateCurrentSolicitud = (newSolicitud: Partial<SolicitudTrabajador>) => {
-    const newSolicitudes = [...solicitudes];
-    newSolicitudes[currentSolicitudIndex] = { ...newSolicitudes[currentSolicitudIndex], ...newSolicitud };
-    setSolicitudes(newSolicitudes);
+    setSolicitudes(prev => {
+        const newSolicitudes = [...prev];
+        newSolicitudes[currentSolicitudIndex] = { ...newSolicitudes[currentSolicitudIndex], ...newSolicitud };
+        return newSolicitudes;
+    });
   };
   
   const handleExamToggle = (exam: Examen, checked: boolean) => {
@@ -126,106 +116,73 @@ export default function SolicitudPage() {
 
   const addTrabajador = () => {
     setStep(1); 
-    const newId = crypto.randomUUID();
-    const newExams = isClienteFrecuente ? [BATERIA_HEFAISTOS_MOCK] : [];
     const newSolicitud: SolicitudTrabajador = { 
-        id: newId, 
+        id: crypto.randomUUID(), 
         trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' }, 
-        examenes: newExams 
+        examenes: isClienteFrecuente ? [BATERIA_HEFAISTOS_MOCK] : [] 
     };
     setSolicitudes(prev => [...prev, newSolicitud]);
     setCurrentSolicitudIndex(solicitudes.length);
   };
 
   const removeTrabajador = (indexToRemove: number) => {
-    if (solicitudes.length <= 1) {
-        toast({ title: "Acción no permitida", description: "Debe haber al menos un trabajador.", variant: "destructive" });
-        return;
-    }
+    if (solicitudes.length <= 1) return;
     setSolicitudes(prev => prev.filter((_, index) => index !== indexToRemove));
     if (currentSolicitudIndex >= indexToRemove && currentSolicitudIndex > 0) {
       setCurrentSolicitudIndex(prev => prev - 1);
     }
   };
 
-  const selectTrabajador = (index: number) => {
-    setCurrentSolicitudIndex(index);
-    setStep(1);
-  }
-
   const handleSendRequest = async () => {
      setIsSubmitting(true);
-     
-     if (!empresa.razonSocial || !empresa.rut) {
-        toast({ title: "Datos incompletos", description: "La Razón Social y el RUT de la empresa son obligatorios.", variant: "destructive"});
+     if (!empresa.razonSocial || !empresa.rut || !solicitante.nombre || !solicitante.mail) {
+        toast({ title: "Datos incompletos", variant: "destructive"});
         setIsSubmitting(false);
         setStep(1);
-        return;
-     }
-     
-     if (!solicitante.nombre || !solicitante.mail) {
-        toast({ title: "Datos incompletos", description: "El nombre y el email del solicitante son obligatorios.", variant: "destructive"});
-        setIsSubmitting(false);
-        setStep(1);
-        return;
-     }
-
-     if (solicitudes.some(s => !s.trabajador.nombre || !s.trabajador.rut)) {
-        toast({ title: "Datos incompletos", description: "El nombre y RUT de cada trabajador son obligatorios.", variant: "destructive"});
-        setIsSubmitting(false);
-        setStep(1);
-        return;
-     }
-
-     if (solicitudes.every(s => s.examenes.length === 0)) {
-        toast({ title: "Sin exámenes", description: "Debe seleccionar al menos un examen para un trabajador.", variant: "destructive"});
-        setIsSubmitting(false);
-        setStep(2);
         return;
      }
 
     const submissionData = {
       empresa: { ...empresa, rut: cleanRut(empresa.rut) },
-      solicitante: solicitante,
-      solicitudes: solicitudes.map(s => ({
-          ...s,
-          trabajador: {
-              ...s.trabajador,
-              // Sanitize date fields before submission
-              fechaAtencion: s.trabajador.fechaAtencion || null,
-          }
-      })),
+      solicitante,
+      solicitudes: solicitudes.map(s => ({ ...s, trabajador: { ...s.trabajador, fechaAtencion: s.trabajador.fechaAtencion || null } })),
       fechaCreacion: serverTimestamp(),
       estado: isClienteFrecuente ? 'orden_examen_enviada' : 'pendiente',
     };
 
     try {
-      const collectionRef = collection(firestore, 'solicitudes_publicas');
-      await addDoc(collectionRef, submissionData);
+      await addDoc(collection(firestore, 'solicitudes_publicas'), submissionData);
       setFormSubmitted(true);
     } catch (error) {
-      console.error("Error submitting request:", error);
-      toast({
-        title: "Error en el envío",
-        description: "No se pudo enviar su solicitud. Por favor, inténtelo de nuevo más tarde.",
-        variant: "destructive",
-      });
+      toast({ title: "Error en el envío", variant: "destructive" });
     } finally {
         setIsSubmitting(false);
     }
   };
   
+  // FIX QUIRÚRGICO PARA EL ERROR DE TYPESCRIPT:
+  // Se crea un manejador que acepta tanto el objeto Trabajador como una función de actualización
+  const handleSetTrabajador = (value: React.SetStateAction<Trabajador>) => {
+    const nextTrabajador = typeof value === 'function' 
+      ? (value as (prev: Trabajador) => Trabajador)(currentSolicitud.trabajador) 
+      : value;
+    updateCurrentSolicitud({ trabajador: nextTrabajador });
+  };
+
   const steps = [
     {
       id: 1,
       name: "Datos Empresa y Trabajador",
-      component: currentSolicitud ? <Paso1DatosGenerales 
-        empresa={empresa} 
-        setEmpresa={setEmpresa} 
-        solicitante={solicitante} 
-        setSolicitante={setSolicitante} 
-        trabajador={currentSolicitud.trabajador} 
-        setTrabajador={(trabajador) => updateCurrentSolicitud({ trabajador })} /> : null,
+      component: currentSolicitud ? (
+        <Paso1DatosGenerales 
+          empresa={empresa} 
+          setEmpresa={setEmpresa} 
+          solicitante={solicitante} 
+          setSolicitante={setSolicitante} 
+          trabajador={currentSolicitud.trabajador} 
+          setTrabajador={handleSetTrabajador} 
+        />
+      ) : null,
     },
     {
       id: 2,
@@ -236,152 +193,73 @@ export default function SolicitudPage() {
 
   const currentStepData = steps.find(s => s.id === step);
 
-  if (solicitudes.length === 0) {
-    return (
-        <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-    );
-  }
+  if (solicitudes.length === 0) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   if (formSubmitted) {
     return (
         <Alert className="max-w-2xl mx-auto border-accent">
-            <Send className="h-5 w-5 text-accent-foreground" />
-            <AlertTitle className="text-xl font-headline text-accent-foreground">¡Solicitud Enviada!</AlertTitle>
-            <AlertDescription className="text-muted-foreground">
-                {isClienteFrecuente 
-                    ? "Su orden de examen ha sido registrada para la facturación consolidada."
-                    : "Gracias por su solicitud. Nuestro equipo la revisará y se pondrá en contacto con usted a la brevedad para enviar la cotización formal."
-                }
-            </AlertDescription>
+            <Send className="h-5 w-5" />
+            <AlertTitle className="text-xl font-headline">¡Solicitud Enviada!</AlertTitle>
+            <AlertDescription>Gracias por su solicitud. Nuestro equipo la revisará a la brevedad.</AlertDescription>
         </Alert>
-    )
+    );
   }
 
   return (
     <div className="space-y-8">
         <div className="text-center">
-            <h1 className="font-headline text-3xl font-bold tracking-tight text-primary uppercase sm:text-4xl">
-              Solicitud de Exámenes
-            </h1>
-            <p className="mt-4 text-lg text-muted-foreground">
-              {isClienteFrecuente ? "Modo Cliente Frecuente: Ingrese los datos para generar una orden de examen acumulable." : "Complete los datos para generar una solicitud. Nuestro equipo la convertirá en una cotización formal."}
-            </p>
+            <h1 className="font-headline text-3xl font-bold text-primary uppercase">Solicitud de Exámenes</h1>
         </div>
 
       <Card className="border-2 border-primary/20 shadow-lg">
         <CardHeader>
              <CardTitle className='font-headline uppercase text-primary font-bold'>Validación de Cliente Frecuente</CardTitle>
-             <CardDescription>Si su empresa está registrada como cliente frecuente, ingrese su RUT para autocompletar los datos y acceder a la carga rápida.</CardDescription>
         </CardHeader>
         <CardContent>
             <div className="flex w-full max-w-sm items-center space-x-2">
-                <Input 
-                    type="text" 
-                    placeholder="RUT de la empresa" 
-                    value={rutEmpresa}
-                    onChange={(e) => setRutEmpresa(formatRut(e.target.value))}
-                    disabled={isValidating || isClienteFrecuente}
-                />
+                <Input placeholder="RUT de la empresa" value={rutEmpresa} onChange={(e) => setRutEmpresa(formatRut(e.target.value))} disabled={isValidating || isClienteFrecuente} />
                 <Button onClick={handleValidateRut} disabled={isValidating || isClienteFrecuente}>
-                    {isValidating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ShieldCheck className="mr-2 h-4 w-4" />}
-                    Validar
+                    {isValidating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ShieldCheck className="mr-2 h-4 w-4" />} Validar
                 </Button>
             </div>
-            {isClienteFrecuente && (
-                <Alert className="mt-4 border-green-500 text-green-700">
-                    <Building className="h-4 w-4 !text-green-700" />
-                    <AlertTitle className="font-semibold">Modo Cliente Frecuente Activado</AlertTitle>
-                    <AlertDescription>Los exámenes se han pre-seleccionado automáticamente. Complete los datos de los trabajadores.</AlertDescription>
-                </Alert>
-            )}
         </CardContent>
       </Card>
 
-
       <Card className="border-2 border-primary/20 shadow-lg">
         <CardContent className="p-6">
-          <div className="mb-6 space-y-4">
-            <Progress value={progress} className="h-2" />
-            <div className="flex justify-between font-medium text-sm text-muted-foreground">
-                <span>Paso {step} de {totalSteps}</span>
-                <span className="font-bold text-foreground">{currentStepData?.name} para el trabajador {currentSolicitudIndex + 1}</span>
-            </div>
-          </div>
-
+          <Progress value={progress} className="h-2 mb-6" />
           <div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
             <div className="md:col-span-2">
               <AnimatePresence mode="wait">
-                <motion.div
-                  key={`${step}-${currentSolicitudIndex}`}
-                  initial={{ opacity: 0, x: 50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -50 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <motion.div key={`${step}-${currentSolicitudIndex}`} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                   {currentStepData?.component}
                 </motion.div>
               </AnimatePresence>
             </div>
-
             <div className="md:col-span-1 space-y-4">
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-headline flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Trabajadores ({solicitudes.length})</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle className="text-lg font-headline flex items-center gap-2"><Users className="h-5 w-5"/> Trabajadores ({solicitudes.length})</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
                   {solicitudes.map((s, index) => (
-                    <div key={s.id} className="flex items-center justify-between gap-2">
-                      <Button variant={index === currentSolicitudIndex ? 'secondary' : 'ghost'} size="sm" className="flex-grow justify-start" onClick={() => selectTrabajador(index)}>
+                    <div key={s.id} className="flex items-center gap-2">
+                      <Button variant={index === currentSolicitudIndex ? 'secondary' : 'ghost'} size="sm" className="flex-grow justify-start" onClick={() => { setCurrentSolicitudIndex(index); setStep(1); }}>
                           {s.trabajador.nombre || `Trabajador ${index + 1}`}
                       </Button>
-                      {solicitudes.length > 1 && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeTrabajador(index)}>
-                          <Trash2 className="h-4 w-4 text-destructive"/>
-                        </Button>
-                      )}
+                      <Button variant="ghost" size="icon" onClick={() => removeTrabajador(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
                     </div>
                   ))}
-                  <Button variant="outline" size="sm" className="w-full mt-2" onClick={addTrabajador}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir Trabajador
-                  </Button>
+                  <Button variant="outline" size="sm" className="w-full" onClick={addTrabajador}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Trabajador</Button>
                 </CardContent>
               </Card>
-
-               <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg font-headline flex items-center gap-2"><FileText className="h-5 w-5 text-primary"/> Resumen Solicitud</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                      <p className="text-sm text-muted-foreground">
-                        Ha añadido <span className="font-bold text-foreground">{solicitudes.length}</span> trabajador(es) con un total de <span className="font-bold text-foreground">{totalExams}</span> exámenes.
-                      </p>
-                  </CardContent>
-                </Card>
             </div>
           </div>
-
           <div className="mt-8 flex justify-between">
-            <Button variant="outline" onClick={prevStep} disabled={step === 1}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
-            </Button>
-            
+            <Button variant="outline" onClick={prevStep} disabled={step === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Anterior</Button>
             <div className="flex gap-2">
-                {step === 1 && (
-                    <Button onClick={nextStep} className="bg-primary hover:bg-primary/90">
-                        Seleccionar Exámenes <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                )}
-                 {step > 1 && (
-                     <Button onClick={addTrabajador} variant="outline">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Añadir Otro Trabajador
-                    </Button>
-                )}
-              
-              <Button onClick={handleSendRequest} disabled={isSubmitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                {isSubmitting ? 'Enviando...' : <><Send className="mr-2 h-4 w-4" /> {isClienteFrecuente ? 'Enviar Solicitud Acumulable' : 'Enviar Solicitud Completa'}</>}
-              </Button>
+                {step === 1 && <Button onClick={nextStep}>Seleccionar Exámenes <ArrowRight className="ml-2 h-4 w-4" /></Button>}
+                <Button onClick={handleSendRequest} disabled={isSubmitting} className="bg-accent text-accent-foreground">
+                    {isSubmitting ? 'Enviando...' : <><Send className="mr-2 h-4 w-4" /> Enviar Solicitud</>}
+                </Button>
             </div>
           </div>
         </CardContent>

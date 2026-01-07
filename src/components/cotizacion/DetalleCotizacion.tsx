@@ -1,193 +1,96 @@
-
 "use client";
 
 import React from 'react';
-import { Building, User, Users } from 'lucide-react';
-import type { Cotizacion, Examen } from '@/lib/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Separator } from '@/components/ui/separator';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Cotizacion } from '@/lib/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Timestamp } from 'firebase/firestore';
 
-
-interface DetalleCotizacionProps {
+interface Props {
   quote: Cotizacion;
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
-};
+export function DetalleCotizacion({ quote }: Props) {
+  const formatDate = (date: any) => {
+    if (!date) return 'N/A';
+    const d = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
+    return format(d, "dd/MM/yyyy", { locale: es });
+  };
 
-const getDisplayDate = (fecha: string | undefined, fechaCreacion: any): string => {
-    if (fechaCreacion) {
-        // Handle Firestore Timestamp (server-side or direct from hook)
-        if (fechaCreacion instanceof Timestamp) {
-            return format(fechaCreacion.toDate(), 'dd/MM/yyyy', { locale: es });
-        }
-        // Handle serialized object { seconds, nanoseconds } (client-side after JSON stringify/parse)
-        if (typeof fechaCreacion.seconds === 'number') {
-            return format(new Date(fechaCreacion.seconds * 1000), 'dd/MM/yyyy', { locale: es });
-        }
-        // Handle a date that might have been passed through another serialization
-        if (fechaCreacion.toDate instanceof Function) {
-            return format(fechaCreacion.toDate(), 'dd/MM/yyyy', { locale: es });
-        }
-    }
-    // Fallback for older data structure or if fechaCreacion is just a string
-    return fecha || 'N/A';
-};
-
-
-export function DetalleCotizacion({ quote }: DetalleCotizacionProps) {
-
-    const allExams = React.useMemo(() => {
-        const source = quote.solicitudesData || quote.solicitudes;
-        if (!source) return [];
-        return source.flatMap(s => s.examenes);
-    }, [quote]);
-
-    const examsByMainCategory = React.useMemo(() => {
-        if (!allExams) return {};
-        const uniqueExams = new Map<string, Examen>();
-        allExams.forEach(exam => {
-            if (!uniqueExams.has(exam.id)) {
-                uniqueExams.set(exam.id, exam);
-            }
-        });
-
-        return Array.from(uniqueExams.values()).reduce((acc, exam) => {
-        const { categoria } = exam;
-        if (!acc[categoria]) {
-            acc[categoria] = [];
-        }
-        acc[categoria].push(exam);
-        return acc;
-        }, {} as Record<string, Examen[]>);
-    }, [allExams]);
-
-    const subtotal = quote.total;
-    const iva = 0; // Valor exento
-    const totalFinal = subtotal;
-
-    const displayDate = getDisplayDate(quote.fecha, quote.fechaCreacion);
-    const empresa = quote.empresaData || quote.empresa;
-    const solicitante = quote.solicitanteData || quote.solicitante;
-    const solicitudes = quote.solicitudesData || quote.solicitudes;
-
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val);
 
   return (
-    <div id="printable-quote" className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:border-none print:rounded-none px-12 py-8">
-        <header className="flex justify-between items-start pb-6 bg-primary text-primary-foreground -m-12 mb-8 p-12 -mx-12">
-            <div>
-                <h2 className="text-3xl font-bold font-headline">COTIZACIÓN</h2>
-                <p className="mt-1 text-sm">Nº: {quote.id ? quote.id.slice(-6) : 'N/A'}</p>
-                <p className="mt-1 text-sm">Fecha: {displayDate}</p>
-            </div>
-            <div className="text-2xl font-bold font-headline">
-                Araval
-            </div>
-        </header>
+    <div className="bg-white w-full max-w-4xl mx-auto print:border-none">
+      {/* HEADER FORMAL */}
+      <div className="bg-[#000080] text-white p-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold uppercase tracking-wide">Cotización de Servicios</h1>
+          <p className="text-blue-100 text-xs mt-1">ID: {quote.id?.slice(-6).toUpperCase()} | Fecha: {formatDate(quote.fechaCreacion)}</p>
+        </div>
+        <img src="/images/logo2.png" alt="Araval" className="h-12 w-auto" />
+      </div>
 
-        <main className="py-8">
-        <section className="grid grid-cols-2 gap-8 mb-8">
-            <div className="space-y-2">
-            <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><Building className="h-5 w-5 text-gray-500" />Datos Empresa</h3>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Razón Social:</strong> {empresa.razonSocial}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {empresa.rut}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Dirección:</strong> {empresa.direccion}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {empresa.email}</p>
+      <div className="p-10 space-y-10 border-x border-b print:border-none">
+        <div className="grid grid-cols-2 gap-12 text-sm">
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Empresa Cliente</p>
+            <div className="text-slate-800 space-y-0.5">
+              <p className="font-bold text-sm uppercase">{quote.empresaData?.razonSocial}</p>
+              <p>RUT: {quote.empresaData?.rut}</p>
+              <p>Giro: {quote.empresaData?.giro}</p>
+              <p>Dirección: {quote.empresaData?.direccion}</p>
+              <p>{quote.empresaData?.comuna}, {quote.empresaData?.ciudad}</p>
             </div>
-            <div className="space-y-2">
-            <h3 className="font-headline text-lg font-semibold text-gray-700 border-b pb-2 flex items-center gap-2"><User className="h-5 w-5 text-gray-500" />Datos Solicitante</h3>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Nombre:</strong> {solicitante.nombre}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">RUT:</strong> {solicitante.rut}</p>
-            <p className="text-sm"><strong className="font-medium text-gray-600">Email:</strong> {solicitante.mail}</p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Contacto Solicitante</p>
+            <div className="text-slate-800 space-y-0.5">
+              <p className="font-bold">{quote.solicitanteData?.nombre}</p>
+              <p>Email: {quote.solicitanteData?.mail}</p>
+              <p>Cargo: {quote.solicitanteData?.cargo}</p>
             </div>
-        </section>
+          </div>
+        </div>
 
-        {solicitudes && solicitudes.length > 0 && (
-            <section className="mb-8">
-            <Card className="shadow-sm border-gray-200">
-                <CardHeader className="p-3 bg-primary text-primary-foreground rounded-t-lg">
-                <CardTitle className="font-headline text-base flex items-center gap-2"><Users className="h-5 w-5" />Trabajadores Incluidos ({solicitudes.length})</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 text-sm">
-                    <ul className="space-y-1 list-disc list-inside text-muted-foreground columns-2 md:columns-3">
-                    {solicitudes.map((s, i) => (
-                        <li key={s.id || i}><span className="text-foreground font-medium">{s.trabajador.nombre}</span></li>
-                    ))}
-                </ul>
-                </CardContent>
-            </Card>
-            </section>
-        )}
+        <div className="space-y-4">
+          <p className="text-[10px] font-bold text-slate-400 uppercase">Detalle de Prestaciones</p>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-900 text-slate-900 font-bold uppercase">
+                <th className="py-2 text-left">Descripción Servicio / Trabajador</th>
+                <th className="py-2 text-right">Monto Exento</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {quote.solicitudesData?.map((sol: any, idx: number) => (
+                <React.Fragment key={idx}>
+                  <tr className="bg-slate-50/50">
+                    <td colSpan={2} className="py-2 px-2 font-bold text-slate-700 uppercase">Trabajador: {sol.trabajador.nombre} ({sol.trabajador.rut})</td>
+                  </tr>
+                  {sol.examenes.map((ex: any, eIdx: number) => (
+                    <tr key={eIdx}>
+                      <td className="py-2 px-6 text-slate-500 italic">{ex.nombre}</td>
+                      <td className="py-2 text-right font-medium">{formatCurrency(ex.valor)}</td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td className="py-6 text-right font-bold text-slate-400 uppercase">Total Neto Exento</td>
+                <td className="py-6 text-right text-xl font-bold text-slate-900">{formatCurrency(quote.total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
 
-        <section>
-            <h3 className="font-headline text-lg font-semibold mb-2 text-gray-700">Detalle de Servicios Consolidados</h3>
-            <div className="border rounded-lg overflow-hidden">
-            <Table>
-                <TableHeader>
-                <TableRow className="bg-primary hover:bg-primary">
-                    <TableHead className="w-[70%] font-semibold text-primary-foreground text-sm py-2 px-4">Examen</TableHead>
-                    <TableHead className="text-right font-semibold text-primary-foreground text-sm py-2 px-4">Valor Unitario (Exento)</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {Object.keys(examsByMainCategory).length > 0 ? (
-                    Object.entries(examsByMainCategory).map(([category, exams]) => (
-                    <React.Fragment key={category}>
-                        <TableRow className="bg-gray-100">
-                        <TableCell colSpan={2} className="font-headline font-semibold text-gray-800 text-sm py-2 px-4">
-                            {category}
-                        </TableCell>
-                        </TableRow>
-                        {exams.map((exam) => (
-                        <TableRow key={exam.id} className="border-b-0 text-sm">
-                            <TableCell className="font-medium text-gray-800 pl-8 py-2 px-4">{exam.nombre}</TableCell>
-                            <TableCell className="text-right font-medium text-gray-700 py-2 px-4">{formatCurrency(exam.valor)}</TableCell>
-                        </TableRow>
-                        ))}
-                    </React.Fragment>
-                    ))
-                ) : (
-                    <TableRow>
-                    <TableCell colSpan={2} className="text-center text-gray-500 py-8 text-sm">
-                        No hay exámenes seleccionados.
-                    </TableCell>
-                    </TableRow>
-                )}
-                </TableBody>
-            </Table>
-            </div>
-        </section>
-
-        <section className="mt-8 flex justify-end">
-            <div className="w-full max-w-sm space-y-2 text-sm">
-            <div className="flex justify-between">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="font-semibold text-gray-800">{formatCurrency(subtotal)}</span>
-            </div>
-            <div className="flex justify-between">
-                <span className="text-gray-600">IVA (19%)</span>
-                <span className="font-semibold text-gray-800">{formatCurrency(iva)}</span>
-            </div>
-            <Separator className="my-2" />
-            <div className="flex justify-between items-center text-lg font-bold bg-primary text-primary-foreground p-3 rounded-lg">
-                <span>TOTAL</span>
-                <span>{formatCurrency(totalFinal)}</span>
-            </div>
-            </div>
-        </section>
-        </main>
-
-        <footer className="mt-8 pt-6 text-center text-xs text-gray-500 border-t">
-        <p>Cotización válida por 30 días. Para agendar, por favor contacte a nuestro equipo.</p>
-        <p className="font-semibold mt-1">contacto@araval.cl | +56 9 7541 1515</p>
-        </footer>
+        <div className="pt-8 border-t">
+          <p className="text-[9px] text-slate-400 uppercase text-center font-bold tracking-widest">
+            Araval Fisioterapia y Medicina Spa • Juan Martínez Nº 235, Taltal • www.aravalcsalud.cl
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
-
-    

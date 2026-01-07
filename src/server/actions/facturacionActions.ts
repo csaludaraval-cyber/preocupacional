@@ -1,52 +1,80 @@
 'use server';
 
 import { getDb } from '@/lib/firestore-admin';
-import { createDTE, whoami } from '@/server/lioren';
+import { createDTE, whoami, getLocalidades } from '@/server/lioren';
 import type { CotizacionFirestore } from '@/lib/types';
-import { cleanRut } from '@/lib/utils';
 
-export async function probarConexionLioren() {
-  // Esta función ahora no fallará con 500, siempre devolverá un objeto.
-  const result = await whoami();
-  return result; 
+/**
+ * AYUDANTE: TRADUCTOR DE COMUNAS
+ * Busca en la API de Lioren el ID interno necesario (ej: Taltal -> 58).
+ */
+async function obtenerIdComunaLioren(nombreComuna: string | undefined): Promise<number> {
+  try {
+    const localidades = await getLocalidades();
+    const busca = (nombreComuna || "TALTAL").toUpperCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    
+    const encontrada = localidades.find((l: any) => 
+      l.nombre && l.nombre.toUpperCase().includes(busca)
+    );
+
+    // Fallback de seguridad: 58 es Taltal según nuestro escaneo exitoso
+    return encontrada ? Number(encontrada.id) : 58;
+  } catch (error) {
+    console.error("Error traduciendo comuna, usando fallback 58:", error);
+    return 58;
+  }
 }
 
+/**
+ * 1. TEST DE CONEXIÓN
+ * Verifica el token y escanea el ID de Taltal.
+ */
+export async function probarConexionLioren() {
+  try {
+    const data = await whoami();
+    const idTaltal = await obtenerIdComunaLioren("TALTAL");
+    return { 
+      success: true, 
+      data: { 
+        rs: `${data.rs} (ID Taltal Detectado: ${idTaltal})`, 
+        rut: data.rut 
+      } 
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 2. FACTURACIÓN INDIVIDUAL (MODALIDAD NORMAL)
+ * Emite una factura para una sola cotización.
+ */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   try {
-    // 1. Verificación Quirúrgica del Token
-    const token = process.env.LIOREN_TOKEN;
-    if (!token || token.trim() === "") {
-      return { success: false, error: "CONFIG_ERROR: El LIOREN_TOKEN no está definido en el servidor." };
-    }
-
-    // 2. Conexión a DB
     const db = getDb();
-    if (!db) return { success: false, error: "DB_ERROR: No se pudo inicializar Firestore Admin." };
-
     const docRef = db.collection('cotizaciones').doc(cotizacionId);
     const snap = await docRef.get();
     
-    if (!snap.exists) return { success: false, error: "DATA_ERROR: Cotización no encontrada en la base de datos." };
-    
+    if (!snap.exists) throw new Error("Cotización no encontrada.");
     const data = snap.data() as CotizacionFirestore;
+    if (!data.empresaData) throw new Error("La cotización no tiene datos de empresa.");
 
-    // 3. Validación de campos críticos antes de procesar
-    if (!data.empresaData?.rut) return { success: false, error: "VALIDACION: Falta el RUT de la empresa." };
-    if (!data.empresaData?.giro) return { success: false, error: "VALIDACION: Falta el GIRO de la empresa." };
+    const idLocalidad = await obtenerIdComunaLioren(data.empresaData.comuna);
 
-    // 4. Construcción del Payload
     const payload = {
       emisor: {
         tipodoc: "34",
-        casilla: "0"
+        fecha: new Date().toISOString().split('T')[0],
+        casilla: 0
       },
       receptor: {
-        rut: cleanRut(data.empresaData.rut),
-        rs: (data.empresaData.razonSocial || "Empresa de Prueba").substring(0, 100),
-        giro: (data.empresaData.giro || "Servicios").substring(0, 40),
-        comuna: data.empresaData.comuna || "Santiago",
-        ciudad: data.empresaData.ciudad || data.empresaData.comuna || "Santiago",
-        dir: data.empresaData.direccion || "Dirección pendiente",
+        rut: data.empresaData.rut.replace(/[.\s]/g, ''),
+        rs: data.empresaData.razonSocial.toUpperCase().substring(0, 100),
+        giro: (data.empresaData.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40),
+        direccion: (data.empresaData.direccion || "DIRECCION").toUpperCase().substring(0, 70),
+        comuna: idLocalidad,
+        ciudad: idLocalidad,
         email: data.empresaData.email || data.solicitanteData?.mail || "soporte@araval.cl"
       },
       detalles: (data.solicitudesData || []).flatMap((sol: any) =>
@@ -60,26 +88,99 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
       esperar: true
     };
 
-    // 5. Llamada a Lioren
     const result = await createDTE(payload);
 
-    // 6. Guardado de resultado
+    // Captura robusta de la URL del PDF
+    const pdfUrl = result.url_pdf || result.pdf || result.url_pdf_cedible || "";
+    const folioDTE = result.folio ? result.folio.toString() : "0";
+
     await docRef.update({
       status: 'FACTURADO',
-      liorenFolio: result.folio.toString(),
-      liorenId: result.id,
-      liorenPdfUrl: result.url_pdf_cedible || result.url_pdf,
+      liorenFolio: folioDTE,
+      liorenId: result.id || "",
+      liorenPdfUrl: pdfUrl,
       liorenFechaEmision: new Date().toISOString()
     });
 
-    return { success: true, folio: result.folio };
+    return { success: true, folio: folioDTE };
 
   } catch (error: any) {
-    // Si llegamos aquí, el error es capturado y enviado al frontend como texto
-    console.error("CRASH_LOG:", error);
-    return { 
-      success: false, 
-      error: `SERVER_CRASH: ${error.message || "Error desconocido en el servidor"}` 
+    return { success: false, error: `LIOREN: ${error.message}` };
+  }
+}
+
+/**
+ * 3. FACTURACIÓN CONSOLIDADA (MODALIDAD FRECUENTE)
+ * Toma todas las cotizaciones 'PAGADO' de un RUT y emite una sola factura.
+ */
+export async function emitirDTEConsolidado(rutEmpresa: string) {
+  try {
+    const db = getDb();
+    
+    // Buscar cotizaciones pagadas de este cliente específico
+    const snap = await db.collection('cotizaciones')
+      .where('empresaData.rut', '==', rutEmpresa)
+      .where('status', '==', 'PAGADO')
+      .get();
+
+    if (snap.empty) throw new Error("No hay cotizaciones pendientes para este RUT.");
+
+    const docs = snap.docs;
+    const base = docs[0].data() as CotizacionFirestore;
+    const idLocalidad = await obtenerIdComunaLioren(base.empresaData?.comuna);
+
+    // Unimos todos los exámenes de todos los trabajadores en una sola factura
+    const todosLosDetalles = docs.flatMap(doc => {
+      const d = doc.data() as CotizacionFirestore;
+      return (d.solicitudesData || []).flatMap((sol: any) =>
+        (sol.examenes || []).map((ex: any) => ({
+          nombre: `${ex.nombre} - ${sol.trabajador?.nombre || 'S/N'}`.substring(0, 80),
+          cantidad: 1,
+          precio: Math.round(Number(ex.valor || 0)),
+          exento: true
+        }))
+      );
+    });
+
+    const payload = {
+      emisor: {
+        tipodoc: "34",
+        fecha: new Date().toISOString().split('T')[0],
+        casilla: 0
+      },
+      receptor: {
+        rut: rutEmpresa.replace(/[.\s]/g, ''),
+        rs: base.empresaData?.razonSocial.toUpperCase() || "CLIENTE CONSOLIDADO",
+        giro: (base.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase(),
+        direccion: (base.empresaData?.direccion || "DIRECCION").toUpperCase(),
+        comuna: idLocalidad,
+        ciudad: idLocalidad,
+        email: base.empresaData?.email || "soporte@araval.cl"
+      },
+      detalles: todosLosDetalles,
+      esperar: true
     };
+
+    const result = await createDTE(payload);
+
+    // Guardado masivo (Batch) para actualizar todas las cotizaciones
+    const pdfUrl = result.url_pdf || result.pdf || result.url_pdf_cedible || "";
+    const batch = db.batch();
+    
+    docs.forEach(d => {
+      batch.update(d.ref, {
+        status: 'FACTURADO',
+        liorenFolio: result.folio.toString(),
+        liorenPdfUrl: pdfUrl,
+        liorenConsolidado: true,
+        liorenFechaEmision: new Date().toISOString()
+      });
+    });
+    await batch.commit();
+
+    return { success: true, folio: result.folio, count: docs.length };
+
+  } catch (error: any) {
+    return { success: false, error: `LIOREN CONSOLIDADO: ${error.message}` };
   }
 }

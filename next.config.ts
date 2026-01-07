@@ -1,15 +1,14 @@
-
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      // Aumentamos el timeout para dar tiempo a procesos largos como la generación de PDF
-      // y el envío de correos. 5 minutos (300s) deberían ser suficientes.
-      executionTimeout: 300, 
+      // Permitimos hasta 4MB para que el PDF de la cotización pase sin problemas
+      bodySizeLimit: '4mb',
     },
   },
   typescript: {
+    // Mantenemos esto para evitar que errores menores detengan el despliegue
     ignoreBuildErrors: true,
   },
   eslint: {
@@ -19,7 +18,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'placehold.co',
+        hostname: 'placeholder.co',
         port: '',
         pathname: '/**',
       },

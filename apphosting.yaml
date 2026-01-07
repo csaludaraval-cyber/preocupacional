@@ -6,8 +6,27 @@ runConfig:
   cpu: 1
   memoryMiB: 512
 env:
+  # --- TOKEN DE LIOREN ---
   - variable: LIOREN_TOKEN
     secret: LIOREN_TOKEN
     availability:
       - BUILD
+      - RUNTIME
+
+  # --- CONFIGURACIÓN DE CORREO (SMTP) ---
+  - variable: SMTP_HOST
+    value: "mail.aravalcsalud.cl"
+  - variable: SMTP_PORT
+    value: "465"
+  - variable: SMTP_FROM
+    value: '"Araval Salud" <preocupacional@aravalcsalud.cl>'
+  
+  # --- SECRETOS PARA EL CORREO ---
+  - variable: SMTP_USER
+    secret: SMTP_USER
+    availability:
+      - RUNTIME
+  - variable: SMTP_PASS
+    secret: SMTP_PASS
+    availability:
       - RUNTIME
