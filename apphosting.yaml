@@ -13,7 +13,7 @@ env:
       - BUILD
       - RUNTIME
 
-  # --- CONFIGURACIÓN DE CORREO (SMTP) ---
+  # --- CONFIGURACIÓN DE CORREO ---
   - variable: SMTP_HOST
     value: "mail.aravalcsalud.cl"
   - variable: SMTP_PORT
@@ -21,12 +21,14 @@ env:
   - variable: SMTP_FROM
     value: '"Araval Salud" <preocupacional@aravalcsalud.cl>'
   
-  # --- SECRETOS PARA EL CORREO ---
+  # --- SECRETOS ---
   - variable: SMTP_USER
     secret: SMTP_USER
     availability:
+      - BUILD
       - RUNTIME
   - variable: SMTP_PASS
     secret: SMTP_PASS
     availability:
+      - BUILD
       - RUNTIME
