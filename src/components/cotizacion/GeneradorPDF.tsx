@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -10,161 +9,131 @@ import { DetalleCotizacion } from './DetalleCotizacion';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-export const OrdenDeExamen = ({ solicitud, empresa, fechaCotizacion }: { solicitud: SolicitudTrabajador, empresa: Empresa, fechaCotizacion: string }) => (
-    <div className="order-page-container bg-white text-black p-8 print-container">
+// Componente para las Órdenes de Examen (Anexos)
+export const OrdenDeExamen = ({ solicitud, empresa, fechaCotizacion }: { solicitud: any, empresa: any, fechaCotizacion: string }) => (
+    <div className="order-page-container bg-white text-black p-8" style={{ width: '800px' }}>
         <div className="max-w-4xl mx-auto text-sm space-y-4 font-sans">
-            <header className="flex justify-between items-center mb-10">
-                 <div className="bg-primary text-primary-foreground py-2 px-4 rounded-md">
-                    <h2 className="font-semibold text-base tracking-wide">Orden de Examen Ocupacionales</h2>
+            <header className="flex justify-between items-center mb-10 border-b-2 border-slate-900 pb-4">
+                 <div className="bg-slate-900 text-white py-2 px-4 rounded-sm">
+                    <h2 className="font-bold text-lg uppercase tracking-tight">Orden de Examen</h2>
                 </div>
                  <div className="text-right">
-                     <p className="text-2xl font-bold font-headline text-primary">Araval</p>
-                     <p className='text-xs text-gray-600'>Fecha Emisión: {fechaCotizacion}</p>
+                     <p className="text-2xl font-black text-slate-900">ARAVAL</p>
+                     <p className='text-[10px] text-slate-500 font-bold uppercase'>Centro de Salud</p>
                  </div>
             </header>
 
             <main className="space-y-8">
                 <section className="grid grid-cols-2 gap-8">
-                    <div>
-                        <h3 className="font-bold text-base mb-1">Empresa</h3>
-                        <p>{empresa.razonSocial}</p>
-                        <p>RUT: {empresa.rut}</p>
+                    <div className="bg-slate-50 p-4 border border-slate-200">
+                        <h3 className="font-bold text-[10px] uppercase text-slate-400 mb-2">Datos de Empresa</h3>
+                        <p className="font-bold text-slate-800">{empresa?.razonSocial || 'N/A'}</p>
+                        <p className="text-xs text-slate-600">RUT: {empresa?.rut || 'N/A'}</p>
                     </div>
-                    <div>
-                        <h3 className="font-bold text-base mb-1">Trabajador</h3>
-                        <p>{solicitud.trabajador.nombre}</p>
-                        <p>RUT: {solicitud.trabajador.rut}</p>
-                        {solicitud.trabajador.cargo && <p>Cargo: {solicitud.trabajador.cargo}</p>}
-                        {solicitud.trabajador.fechaNacimiento && <p>F. Nacimiento: {solicitud.trabajador.fechaNacimiento}</p>}
-                        {solicitud.trabajador.fechaAtencion && <p>F. Atención: {solicitud.trabajador.fechaAtencion}</p>}
+                    <div className="bg-slate-50 p-4 border border-slate-200">
+                        <h3 className="font-bold text-[10px] uppercase text-slate-400 mb-2">Datos del Trabajador</h3>
+                        <p className="font-bold text-slate-800">{solicitud.trabajador?.nombre || 'N/A'}</p>
+                        <p className="text-xs text-slate-600">RUT: {solicitud.trabajador?.rut || 'N/A'}</p>
                     </div>
                 </section>
                 
-                <section>
-                    <h3 className="font-bold text-base">Exámenes a Realizar</h3>
-                    <hr className="my-2 border-gray-400"/>
-                    <ul className="list-disc list-inside space-y-1 pl-2">
-                        {solicitud.examenes.map(exam => (
-                            <li key={exam.id}>
-                                {exam.nombre}
-                            </li>
+                <section className="space-y-2">
+                    <h3 className="font-bold text-[10px] uppercase text-slate-400">Prestaciones a realizar</h3>
+                    <div className="border border-slate-200 rounded-sm overflow-hidden">
+                        {(solicitud.examenes || []).map((exam: any, idx: number) => (
+                            <div key={idx} className="p-2 text-xs border-b border-slate-100 last:border-none bg-white">
+                                • {exam.nombre}
+                            </div>
                         ))}
-                    </ul>
+                    </div>
                 </section>
 
-                <section className='pt-4'>
-                    <h3 className="font-bold text-base text-center">Información para el Paciente</h3>
-                     <hr className="my-2 border-gray-400"/>
-                </section>
-                
-                <section className='pt-4'>
-                    <h3 className="font-bold text-base">Centro Medico Araval</h3>
-                    <div className='text-gray-700 space-y-0.5 mt-1'>
-                        <p>Juan Martinez 235, Taltal Chile</p>
-                        <p>+56 9 7541 1515</p>
-                        <p>Lunes a Viernes: 08:00 - 12:00 / 15:00 - 17:00</p>
+                <section className="pt-20">
+                    <div className="flex justify-between items-end border-t border-slate-200 pt-4">
+                        <div className="text-[10px] text-slate-400">
+                            <p>Fecha de emisión: {fechaCotizacion}</p>
+                            <p>Documento generado electrónicamente</p>
+                        </div>
+                        <div className="w-48 border-t-2 border-slate-900 text-center pt-2">
+                            <p className="text-[10px] font-bold uppercase">Firma y Timbre Araval</p>
+                        </div>
                     </div>
-                    <hr className="my-3 border-gray-400"/>
                 </section>
             </main>
-            
-            <footer className="text-center text-gray-500 text-xs pt-24">
-                 <p>Centro médico, Laboratorio Clínico, Salud Ocupacional y Toma de muestras - Araval Taltal.</p>
-            </footer>
         </div>
     </div>
 );
 
-
 export class GeneradorPDF {
   static async generar(quote: Cotizacion, includeAnnexes = true): Promise<Blob> {
-    
-    // 1. Crear un contenedor temporal que no será visible en el DOM principal
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
-    container.style.top = '-9999px';
-    container.style.width = '8.5in'; // Ancho de página carta
+    container.style.top = '0';
+    container.style.width = '800px'; 
     document.body.appendChild(container);
 
     const root = ReactDOM.createRoot(container);
 
-    const fechaCotizacionStr = quote.fechaCreacion 
-        ? format(new Date(quote.fechaCreacion.seconds * 1000), 'dd/MM/yyyy', { locale: es })
-        : quote.fecha;
+    let fechaStr = "S/F";
+    try {
+        const fc = quote.fechaCreacion as any;
+        if (fc && typeof fc === 'object' && (fc.seconds || fc._seconds)) {
+            const s = fc.seconds || fc._seconds;
+            fechaStr = format(new Date(s * 1000), 'dd/MM/yyyy', { locale: es });
+        } else {
+            fechaStr = (quote as any).fecha || format(new Date(), 'dd/MM/yyyy');
+        }
+    } catch (e) {
+        fechaStr = format(new Date(), 'dd/MM/yyyy');
+    }
 
-    const contentToRender = (
+    const content = (
         <React.Fragment>
-            <div id="printable-quote-temp">
+            <div id="pdf-main-content">
                 <DetalleCotizacion quote={quote} />
             </div>
-            {includeAnnexes && quote.solicitudesData && quote.solicitudesData.map((solicitud, index) => (
+            {includeAnnexes && (quote.solicitudesData || []).map((sol: any, i: number) => (
                 <OrdenDeExamen 
-                    key={solicitud.id || index} 
-                    solicitud={solicitud} 
-                    empresa={quote.empresaData}
-                    fechaCotizacion={fechaCotizacionStr}
+                    key={i} 
+                    solicitud={sol} 
+                    empresa={quote.empresaData || {}} 
+                    fechaCotizacion={fechaStr} 
                 />
             ))}
         </React.Fragment>
     );
 
-    let pdf: jsPDF | undefined;
-
     try {
-        // 2. Renderizar los componentes en el contenedor temporal (compatible con React 18)
-        root.render(contentToRender);
+        root.render(content);
+        await new Promise(r => setTimeout(r, 800));
 
-        // Esperar a que el renderizado se complete en el siguiente ciclo de eventos
-        await new Promise(resolve => setTimeout(resolve, 0));
-        
-        // 3. Inicializar jsPDF
-        pdf = new jsPDF({
-          orientation: 'p',
-          unit: 'pt',
-          format: 'letter',
-        });
+        const pdf = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
         const pdfWidth = pdf.internal.pageSize.getWidth();
-        
-        // 4. Generación del Canvas para la Cotización Principal
-        const mainElement = container.querySelector<HTMLElement>('#printable-quote-temp');
-        if (!mainElement) throw new Error("Elemento principal de la cotización no encontrado para generar PDF");
 
-        const mainCanvas = await html2canvas(mainElement, { scale: 2, useCORS: true });
-        const mainImgData = mainCanvas.toDataURL('image/png');
-        const mainRatio = mainCanvas.height / mainCanvas.width;
-        let mainImgHeight = pdfWidth * mainRatio;
-        
-        pdf.addImage(mainImgData, 'PNG', 0, 0, pdfWidth, mainImgHeight);
-        
-        // 5. Generación del Canvas para los Anexos (Órdenes de Examen)
-        if(includeAnnexes && quote.solicitudesData?.length > 0) {
-            const annexElements = container.querySelectorAll<HTMLElement>('.order-page-container');
-            for (let i = 0; i < annexElements.length; i++) {
-              const annexElement = annexElements[i];
-              
-              const annexCanvas = await html2canvas(annexElement, { scale: 2, useCORS: true });
-              const annexImgData = annexCanvas.toDataURL('image/png');
-              const annexRatio = annexCanvas.height / annexCanvas.width;
-              const annexImgHeight = pdfWidth * annexRatio;
+        const process = async (el: HTMLElement, isNext = false) => {
+            if (isNext) pdf.addPage();
+            const canvas = await html2canvas(el, { scale: 1.5, useCORS: true });
+            // CALIDAD 0.7 JPEG = REDUCCIÓN DE 18MB A <1MB
+            const data = canvas.toDataURL('image/jpeg', 0.7);
+            const height = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(data, 'JPEG', 0, 0, pdfWidth, height, undefined, 'FAST');
+        };
 
-              pdf.addPage();
-              pdf.addImage(annexImgData, 'PNG', 0, 0, pdfWidth, annexImgHeight);
+        const main = container.querySelector<HTMLElement>('#pdf-main-content');
+        if (main) await process(main);
+
+        if (includeAnnexes) {
+            const annexes = container.querySelectorAll<HTMLElement>('.order-page-container');
+            for (let i = 0; i < annexes.length; i++) {
+                await process(annexes[i], true);
             }
         }
-        
-        // 6. Retornar el Blob del PDF
-        return pdf.output('blob');
 
-    } catch (error: any) {
-        console.error("Error crítico durante la generación de PDF:", error);
-        // Re-lanzar el error para que sea capturado en AdminCotizaciones.tsx
-        throw new Error(`Fallo en la generación del PDF: ${error.message || 'Error desconocido'}`);
+        return pdf.output('blob');
     } finally {
-        // 7. Limpiar el contenedor temporal (CRUCIAL)
-        // Se ejecuta siempre, asegurando que no quede código React montado en el DOM
         root.unmount();
-        document.body.removeChild(container);
+        if (document.body.contains(container)) document.body.removeChild(container);
     }
   }
 }

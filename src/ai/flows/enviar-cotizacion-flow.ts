@@ -20,70 +20,104 @@ const enviarCotizacionFlow = ai.defineFlow(
     outputSchema: EnviarCotizacionOutputSchema,
   },
   async (input): Promise<EnviarCotizacionOutput> => {
-    const { clienteEmail, cotizacionId, pdfBase64 } = input;
     const { host, port, user, pass, from } = SMTP_CONFIG;
 
-    console.log(`Intentando enviar correo a: ${clienteEmail} para la cotización: ${cotizacionId}`);
-
     if (!host || !user || !pass) {
-      return { status: 'error', message: 'Configuración SMTP incompleta.' };
+      const faltantes = [];
+      if (!host) faltantes.push("HOST");
+      if (!user) faltantes.push("USER");
+      if (!pass) faltantes.push("PASS");
+      
+      return {
+        status: 'error',
+        message: `Faltan credenciales en el servidor: ${faltantes.join(', ')}`,
+      };
     }
 
     const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-      tls: { rejectUnauthorized: false },
+      host: host,
+      port: port,
+      secure: port === 465, // True para 465, false para otros puertos
+      auth: {
+        user: user,
+        pass: pass,
+      },
+      tls: {
+        rejectUnauthorized: false,
+        servername: host,
+      }
     });
 
     try {
       await transporter.sendMail({
         from,
-        to: clienteEmail,
-        subject: `Cotización Araval Salud N° ${cotizacionId}`,
-        html: `
-          <div style="font-family: sans-serif; color: #333;">
-            <h2 style="color: #000;">Cotización de Servicios Médicos</h2>
-            <p>Estimado/a,</p>
-            <p>Adjuntamos la cotización solicitada para el Centro de Salud <b>ARAVAL</b>.</p>
-            <h3 style="border-bottom: 2px solid #eee; padding-bottom: 10px;">Pasos para concretar:</h3>
-            <ol>
-              <li>Realizar transferencia bancaria (datos adjuntos abajo).</li>
-              <li>Enviar comprobante a <b>pagos@aravalcsalud.cl</b> indicando el ID: <b>${cotizacionId}</b>.</li>
-            </ol>
-            <div style="background: #f9f9f9; padding: 15px; border-radius: 10px;">
-              <p><b>Datos de Transferencia:</b><br/>
-              Araval Fisioterapia y Medicina Spa<br/>
-              RUT: 77.102.661-3<br/>
-              Banco Estado | Cuenta Corriente: 027-0-002475-2</p>
-            </div>
-            <p style="margin-top: 20px;">Dirección: Juan Martínez Nº 235 - Taltal.</p>
-            <p>Saludos cordiales,<br/><b>Equipo Araval Salud</b></p>
+        to: input.clienteEmail,
+        subject: `Cotización Araval Salud N° ${input.cotizacionId}`,
+        html: `<div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <p>Estimado/a,</p>
+          <p>Gracias por su interés en nuestros servicios. Para coordinar la atención de los pacientes en nuestro Centro de Salud Araval, le detallamos los pasos a seguir:</p>
+          
+          <h3 style="color: #0303b5;">Pasos para agendar una hora</h3>
+          <ol>
+              <li>
+                  <strong>Realizar el pago</strong>
+                  <p>Los datos de transferencia se encuentran más abajo en este correo.</p>
+                  <p><strong>IMPORTANTE:</strong> En el correo de confirmación, indicar el número de Documento (ID), para agilizar el proceso de validación y agendamiento.</p>
+              </li>
+          </ol>
+
+          <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin-top: 20px;">
+              <h3 style="color: #0303b5;">Datos de Transferencia</h3>
+              <ul style="list-style-type: none; padding: 0;">
+                  <li><strong>Nombre:</strong> Araval Fisioterapia y Medicina Spa.</li>
+                  <li><strong>RUT:</strong> 77.102.661-3</li>
+                  <li><strong>Banco:</strong> Banco Estado</li>
+                  <li><strong>Cuenta corriente N°:</strong> 027-0-002475-2</li>
+                  <li><strong>Correo para envío del comprobante:</strong> pagos@aravalcsalud.cl</li>
+              </ul>
           </div>
-        `,
+
+          <div style="margin-top: 20px;">
+              <p><strong>Dirección de nuestra sucursal en TALTAL es:</strong><br/>
+              Dirección: Juan Martínez Nº 235 - Taltal.<br/>
+              (CENTRO DE SALUD ARAVAL)</p>
+              <p><strong>Horario de atención:</strong> 08:00 - 12:00, 15:00 - 17:00 Hrs</p>
+          </div>
+
+          <div style="margin-top: 20px;">
+              <h3 style="color: #0303b5;">Indicaciones para el paciente el día del examen:</h3>
+              <ul style="list-style-type: '• '; padding-left: 20px;">
+                  <li><strong>Ayuno obligatorio:</strong> mínimo 8 horas, máximo 12 horas.</li>
+                  <li>Llevar cédula de identidad.</li>
+                  <li>Usar lentes ópticos, en caso de necesitarlos.</li>
+                  <li>Presentar licencia de conducir, si tiene agendado un examen psicotécnico.</li>
+                  <li>No suspender la ingesta de medicamentos según tratamiento médico.</li>
+              </ul>
+          </div>
+
+          <p>Si tiene alguna consulta adicional o necesita más información, estamos disponibles para asistirle.</p>
+          <p>Quedamos atentos a su confirmación.</p>
+          <br/>
+          <p>Saludos cordiales,</p>
+          <p><strong>Equipo Araval</strong></p>
+      </div>`,
         attachments: [
           {
-            filename: `Cotizacion-Araval-${cotizacionId}.pdf`,
-            content: pdfBase64,
+            filename: `Cotizacion-${input.cotizacionId}.pdf`,
+            content: input.pdfBase64,
             encoding: 'base64',
-            contentType: 'application/pdf',
           },
         ],
       });
 
-      return { status: 'success', message: 'Correo enviado.' };
+      return { status: 'success', message: 'Correo enviado correctamente.' };
     } catch (error: any) {
-      console.error('Error en Nodemailer:', error);
-      return { status: 'error', message: error.message || 'Error al enviar email.' };
+      console.error('Error SMTP:', error);
+      return { status: 'error', message: `Error del servidor de correo: ${error.message}` };
     }
   }
 );
 
 export async function enviarCotizacion(input: EnviarCotizacionInput): Promise<EnviarCotizacionOutput> {
-    try {
-      return await enviarCotizacionFlow(input);
-    } catch (err: any) {
-      return { status: 'error', message: err.message };
-    }
+    return await enviarCotizacionFlow(input);
 }
