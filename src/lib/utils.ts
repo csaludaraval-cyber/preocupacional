@@ -22,32 +22,31 @@ export const formatRut = (rut: string): string => {
 };
 
 /**
- * NORMALIZADOR LIOREN INTELIGENTE
- * Busca el ID entero oficial comparando nombres en la API de Lioren.
+ * NORMALIZADOR LIOREN (NUCLEAR)
+ * Busca el ID oficial en la API de Lioren.
  */
 export async function normalizarUbicacionLioren(nombreComuna: string | undefined) {
   try {
     const localidades = await getLocalidades();
-    // Normalizamos el texto: MAYÚSCULAS y sin acentos
     const busca = (nombreComuna || "TALTAL").toUpperCase()
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     
-    // Buscamos coincidencia exacta o contenida
+    // Buscamos coincidencia en la lista oficial de Lioren
     const encontrada = localidades.find((l: any) => 
       l.nombre && l.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(busca)
     );
 
     if (encontrada) {
-      console.log(`LOG SENIOR: Match encontrado! ${encontrada.nombre} -> ID: ${encontrada.id}`);
+      console.log(`LOG: Match Lioren -> ${encontrada.nombre} ID: ${encontrada.id}`);
       return {
-        id: parseInt(encontrada.id, 10), // FORZAMOS ENTERO PARA EL SII
-        comuna: encontrada.nombre.toUpperCase(),
-        ciudad: (encontrada.provincia || encontrada.nombre).toUpperCase()
+        id: parseInt(encontrada.id, 10), // FORZAMOS ENTERO PURO
+        comuna: encontrada.nombre.toUpperCase()
       };
     }
   } catch (error) {
-    console.error("Error en mapeo de comuna:", error);
+    console.error("Error consultando API localidades:", error);
   }
-  // Fallback: Si no lo encuentra, usamos el ID estándar de Taltal (2104)
-  return { id: 2104, comuna: "TALTAL", ciudad: "TALTAL" };
+  
+  // FALLBACK: Si no lo encuentra, usamos el código 21 que sugeriste (Taltal real)
+  return { id: 21, comuna: "TALTAL" }; 
 }
