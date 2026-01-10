@@ -45,20 +45,23 @@ export default function AdminCotizaciones() {
       ).sort((a:any, b:any) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
   }, [quotes, searchTerm]);
 
+  // TEST CON ALERT PARA DEBUG DIRECTO
   const handleTestLioren = async () => {
+    console.log("LOG: Clic en Test Lioren");
     setIsProcessing("testing");
     try {
       const result = await probarConexionLioren();
+      console.log("LOG: Resultado del Test:", result);
       if (result.success) {
-        // CORRECCIÓN: Uso de optional chaining (?.) para evitar el error de undefined
-        toast({ title: "Conexión OK", description: result.data?.rs || "Credenciales verificadas" });
+        alert(result.message); // USAMOS ALERT PARA ASEGURAR VISIBILIDAD
       } else {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+        alert("Error de Conexión: " + result.error);
       }
-    } catch (err: any) { 
-      toast({ title: "Error Crítico", description: err.message, variant: "destructive" }); 
-    } finally { 
-      setIsProcessing(null); 
+    } catch (err: any) {
+      console.error("LOG: Fallo crítico en el test:", err);
+      alert("Error Crítico: " + err.message);
+    } finally {
+      setIsProcessing(null);
     }
   };
 
@@ -67,20 +70,20 @@ export default function AdminCotizaciones() {
     try {
       const result = await ejecutarFacturacionSiiV2(id);
       if (result.success) {
-        toast({ title: "Éxito", description: `Factura ${result.folio} generada correctamente.` });
+        toast({ title: "Éxito", description: `DTE generado.` });
         await refetchQuotes();
         setQuoteToManage(null);
       }
-    } catch (err: any) { 
-      toast({ variant: 'destructive', title: "Error SII", description: err.message }); 
-    } finally { 
-      setIsProcessing(null); 
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: "Error", description: err.message });
+    } finally {
+      setIsProcessing(null);
     }
   };
 
   const handleSendEmail = async (quote: any) => {
     const email = quote.solicitanteData?.mail || quote.solicitante?.mail;
-    if (!email) return toast({ title: "Error", description: "Email no registrado", variant: "destructive" });
+    if (!email) return alert("Falta email de contacto");
     setIsProcessing(quote.id);
     try {
       const pdfBlob = await GeneradorPDF.generar(quote);
@@ -88,66 +91,32 @@ export default function AdminCotizaciones() {
       const result = await enviarCotizacion({ clienteEmail: email, cotizacionId: quote.id.slice(-6).toUpperCase(), pdfBase64 });
       if (result.status === 'success') {
         await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvioEmail: new Date().toISOString() });
-        toast({ title: "Enviado", description: "Correo enviado con éxito." });
+        toast({ title: "Enviado", description: "Cotización enviada." });
         refetchQuotes();
         setQuoteToManage(null);
       }
-    } catch (err: any) { 
-      toast({ variant: 'destructive', title: "Error Envío", description: err.message }); 
-    } finally { 
-      setIsProcessing(null); 
-    }
+    } catch (err: any) { alert("Error Envío: " + err.message); }
+    finally { setIsProcessing(null); }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files?.[0] || !quoteToManage) return;
-    setIsUploading(true);
-    try {
-      const storage = getStorage();
-      const fileRef = storageRef(storage, `vouchers/${quoteToManage.id}_${Date.now()}`);
-      await uploadBytes(fileRef, event.target.files[0]);
-      const url = await getDownloadURL(fileRef);
-      await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
-      toast({ title: "Voucher cargado", description: "Estado actualizado a PAGADO." });
-      refetchQuotes();
-      setQuoteToManage(null);
-    } catch (err: any) { 
-      toast({ variant: 'destructive', title: "Error", description: "Fallo al subir voucher." }); 
-    } finally { 
-      setIsUploading(false); 
-    }
-  };
-
-  if (isLoading) return <div className="flex justify-center p-20 text-slate-300"><Loader2 className="animate-spin h-6 w-6" /></div>;
+  if (isLoading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-6 w-6 text-slate-300" /></div>;
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
       <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
-        <div>
-          <h1 className="text-xl font-bold uppercase tracking-tight">Administración</h1>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gestión de documentos tributarios</p>
-        </div>
+        <div><h1 className="text-xl font-bold uppercase">Administración</h1><p className="text-[10px] text-slate-400 font-bold uppercase">Gestión DTE</p></div>
         <div className="flex items-center gap-4">
-          <Button onClick={handleTestLioren} variant="outline" size="sm" className="bg-blue-50 text-blue-700 font-bold" disabled={isProcessing === "testing"}>
-            <FlaskConical className="h-3.5 w-3.5 mr-2" /> TEST CONEXIÓN SII
+          <Button onClick={handleTestLioren} variant="outline" size="sm" className="bg-blue-600 text-white font-bold hover:bg-blue-700" disabled={isProcessing === "testing"}>
+            {isProcessing === "testing" ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <FlaskConical className="h-3.5 w-3.5 mr-2" />} 
+            PROBAR CONEXIÓN SII
           </Button>
-          <div className="relative w-full md:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <Input placeholder="Buscar..." className="pl-9 h-9 text-xs" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          </div>
+          <div className="relative w-full md:w-72"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" /><Input placeholder="Buscar..." className="pl-9 h-9 text-xs" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
         </div>
       </div>
 
       <div className="bg-white border rounded-sm shadow-sm overflow-hidden">
         <Table>
-          <TableHeader className="bg-slate-50">
-            <TableRow>
-              <TableHead className="text-[10px] font-bold py-3 px-6 uppercase text-slate-500">ID</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase text-slate-500">Empresa Receptora</TableHead>
-              <TableHead className="text-[10px] font-bold text-center uppercase text-slate-500">Estado</TableHead>
-              <TableHead className="text-right text-[10px] font-bold px-6 uppercase text-slate-500">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
+          <TableHeader className="bg-slate-50"><TableRow><TableHead className="text-[10px] font-bold py-3 px-6">ID</TableHead><TableHead className="text-[10px] font-bold">Empresa Receptora</TableHead><TableHead className="text-[10px] font-bold text-center">Estado</TableHead><TableHead className="text-right text-[10px] font-bold px-6">Acciones</TableHead></TableRow></TableHeader>
           <TableBody>
             {filteredQuotes.map((quote) => {
               const status = mapLegacyStatus(quote.status);
@@ -162,7 +131,7 @@ export default function AdminCotizaciones() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge className={`font-bold text-[9px] uppercase px-2 py-0.5 rounded-none border-none text-white ${status === 'FACTURADO' ? 'bg-emerald-500' : status === 'PAGADO' ? 'bg-blue-700' : status === 'CORREO_ENVIADO' ? 'bg-indigo-600' : 'bg-amber-500'}`}>
+                    <Badge className={`font-bold text-[9px] uppercase px-2 py-0.5 rounded-none border-none text-white ${status === 'FACTURADO' ? 'bg-emerald-500' : status === 'PAGADO' ? 'bg-blue-700' : 'bg-amber-500'}`}>
                       {status}
                     </Badge>
                   </TableCell>
@@ -170,11 +139,10 @@ export default function AdminCotizaciones() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem className="text-xs font-bold" onClick={() => setQuoteToManage(quote)}><Eye className="mr-2 h-3.5 w-3.5" /> Ver Detalles</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setQuoteToManage(quote)}><Eye className="mr-2 h-3.5 w-3.5" /> Ver Detalles</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        {status === 'CONFIRMADA' && <DropdownMenuItem className="text-xs font-bold text-blue-600" onClick={() => handleSendEmail(quote)}><Mail className="mr-2 h-3.5 w-3.5" /> Enviar Correo</DropdownMenuItem>}
-                        {status === 'PAGADO' && <DropdownMenuItem className="text-xs font-bold text-emerald-600" onClick={() => handleInvoiceNow(quote.id)}><FileText className="mr-2 h-3.5 w-3.5" /> Facturar Individual</DropdownMenuItem>}
-                        {pdfUrl && <DropdownMenuItem className="text-xs font-bold text-blue-600" onClick={() => window.open(pdfUrl, '_blank')}><FileText className="mr-2 h-3.5 w-3.5" /> VER FACTURA SII</DropdownMenuItem>}
+                        {status === 'PAGADO' && <DropdownMenuItem className="text-emerald-600 font-bold" onClick={() => handleInvoiceNow(quote.id)}><FileText className="mr-2 h-3.5 w-3.5" /> Facturar Individual</DropdownMenuItem>}
+                        {pdfUrl && <DropdownMenuItem className="text-blue-600 font-bold" onClick={() => window.open(pdfUrl, '_blank')}><Eye className="mr-2 h-3.5 w-3.5" /> VER FACTURA SII</DropdownMenuItem>}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -190,32 +158,15 @@ export default function AdminCotizaciones() {
           {quoteToManage && (
             <div className="flex flex-col">
               <div className="p-4 bg-slate-50 border-b flex justify-between items-center sticky top-0 z-10">
-                <DialogTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Documento: {quoteToManage.id.slice(-6).toUpperCase()}</DialogTitle>
+                <DialogTitle className="text-[10px] font-bold text-slate-400 uppercase">Documento: {quoteToManage.id.slice(-6).toUpperCase()}</DialogTitle>
                 <div className="flex gap-2">
-                  {['CONFIRMADA', 'CORREO_ENVIADO'].includes(mapLegacyStatus(quoteToManage.status)) && (
-                    <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === quoteToManage.id} className="text-[10px] font-bold h-8 px-4 bg-slate-900">
-                      {isProcessing === quoteToManage.id ? <Loader2 className="animate-spin h-3 w-3 mr-2"/> : <Send className="h-3 w-3 mr-2" />} ENVIAR
-                    </Button>
-                  )}
-                  {mapLegacyStatus(quoteToManage.status) === 'CORREO_ENVIADO' && (
-                    <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="text-[10px] font-bold h-8 px-4 bg-blue-800">
-                      <Receipt className="h-3 w-3 mr-2" /> SUBIR PAGO
-                    </Button>
-                  )}
-                  {mapLegacyStatus(quoteToManage.status) === 'PAGADO' && (
-                    <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === quoteToManage.id} className="text-[10px] font-bold h-8 px-4 bg-emerald-700">
-                      <FileText className="h-3 w-3 mr-2" /> FACTURAR SII
-                    </Button>
-                  )}
+                  {mapLegacyStatus(quoteToManage.status) === 'PAGADO' && <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === quoteToManage.id} className="text-[10px] font-bold h-8 bg-emerald-700">FACTURAR SII</Button>}
                   {(quoteToManage.liorenPdfUrl || (quoteToManage as any).liorenPdfUrl) && (
-                    <Button asChild className="text-[10px] font-bold h-8 px-4 bg-blue-700">
-                      <a href={quoteToManage.liorenPdfUrl || (quoteToManage as any).liorenPdfUrl} target="_blank" rel="noopener noreferrer">
-                        <FileText className="h-3 w-3 mr-2" /> VER FACTURA SII
-                      </a>
+                    <Button asChild className="text-[10px] font-bold h-8 bg-blue-700">
+                      <a href={quoteToManage.liorenPdfUrl || (quoteToManage as any).liorenPdfUrl} target="_blank" rel="noopener noreferrer">VER FACTURA</a>
                     </Button>
                   )}
                 </div>
-                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
               </div>
               <div className="p-1"><DetalleCotizacion quote={quoteToManage} /></div>
             </div>
