@@ -5,30 +5,20 @@ import { createDTE, whoami } from '@/server/lioren';
 import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
-/**
- * 1. TEST DE CONEXIÓN (MÁXIMA SIMPLICIDAD)
- */
 export async function probarConexionLioren() {
   try {
-    console.log("SERVER LOG: Iniciando whoami...");
     const data = await whoami();
-    
-    console.log("SERVER LOG: Iniciando mapeo Taltal...");
     const ubicacion = await normalizarUbicacionLioren("TALTAL");
-    
+    const nombreEmpresa = data.rs || data.razon_social || "Empresa Araval";
     return { 
       success: true, 
-      message: `Conexión exitosa con Lioren. Razón Social: ${data.rs}. ID Taltal detectado: ${ubicacion.id}`
+      message: `Conexión exitosa con Lioren. Empresa: ${nombreEmpresa}. ID Localidad: ${ubicacion.id}`
     };
   } catch (error: any) {
-    console.error("SERVER ERROR:", error.message);
     return { success: false, error: error.message };
   }
 }
 
-/**
- * 2. FACTURACIÓN INDIVIDUAL
- */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   try {
     const db = getDb();
@@ -47,8 +37,8 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
         rs: (data.empresaData?.razonSocial || '').toUpperCase().substring(0, 100),
         giro: (data.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40),
         direccion: (data.empresaData?.direccion || "DIRECCION").toUpperCase().substring(0, 70),
-        comuna: ubicacion.id, // ID ENTERO
-        ciudad: ubicacion.id,  // ID ENTERO
+        comuna: ubicacion.id, 
+        ciudad: ubicacion.id,
         email: data.empresaData?.email || data.solicitanteData?.mail || "soporte@araval.cl"
       },
       detalles: (data.solicitudesData || []).flatMap((sol: any) =>
@@ -61,11 +51,15 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     };
 
     const result = await createDTE(payload);
-    const pdfUrl = result.url_pdf_cedible || result.url_pdf || "";
+    
+    // Captura robusta de ID y URL
+    const liorenId = result.id ? result.id.toString() : "";
+    const pdfUrl = result.url_pdf_cedible || result.url_pdf || result.pdf || "";
 
     await docRef.update({
       status: 'FACTURADO',
       liorenFolio: result.folio.toString(),
+      liorenId: liorenId, // GUARDAMOS EL ID CLAVE PARA EL LINK
       liorenPdfUrl: pdfUrl,
       liorenFechaEmision: new Date().toISOString()
     });
@@ -76,14 +70,11 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   }
 }
 
-/**
- * 3. FACTURACIÓN CONSOLIDADA
- */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   try {
     const db = getDb();
     const snap = await db.collection('cotizaciones').where('empresaData.rut', '==', rutEmpresa).where('status', '==', 'PAGADO').get();
-    if (snap.empty) throw new Error("Sin órdenes.");
+    if (snap.empty) throw new Error("Nada para consolidar.");
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
     const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna);
@@ -105,9 +96,15 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
     });
 
     const batch = db.batch();
+    const pdfUrl = result.url_pdf_cedible || result.url_pdf || "";
+    const liorenId = result.id ? result.id.toString() : "";
+
     docs.forEach(d => batch.update(d.ref, { 
-      status: 'FACTURADO', liorenFolio: result.folio.toString(), 
-      liorenPdfUrl: result.url_pdf_cedible || result.url_pdf || "", liorenConsolidado: true,
+      status: 'FACTURADO', 
+      liorenFolio: result.folio.toString(), 
+      liorenId: liorenId,
+      liorenPdfUrl: pdfUrl, 
+      liorenConsolidado: true,
       liorenFechaEmision: new Date().toISOString()
     }));
     await batch.commit();
