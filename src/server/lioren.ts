@@ -1,15 +1,13 @@
 /**
- * src/server/lioren.ts
- * Comunicación con API Lioren v1
+ * Cliente de integración con la API de Lioren
+ * Módulo: Localidades y DTE
  */
-
-const LIOREN_BASE_URL = 'https://www.lioren.cl/api';
 
 export async function createDTE(dteData: any): Promise<any> {
   const token = process.env.LIOREN_TOKEN;
-  if (!token) throw new Error('LIOREN_TOKEN_MISSING');
+  if (!token) throw new Error('LIOREN_TOKEN no configurado en el servidor.');
 
-  const response = await fetch(`${LIOREN_BASE_URL}/dtes`, {
+  const response = await fetch('https://www.lioren.cl/api/dtes', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -17,38 +15,56 @@ export async function createDTE(dteData: any): Promise<any> {
       'Authorization': `Bearer ${token.trim()}`,
     },
     body: JSON.stringify(dteData),
+    cache: 'no-store',
   });
 
   const responseData = await response.json();
-  if (!response.ok) throw new Error(responseData.message || JSON.stringify(responseData));
+  if (!response.ok) {
+    throw new Error(responseData.message || JSON.stringify(responseData));
+  }
   return responseData;
 }
 
-// Esta es la función que pide la documentación para obtener los IDs
+/**
+ * Obtiene la lista oficial de localidades (comunas/ciudades) desde Lioren.
+ * Implementa caché de 24 horas para no saturar la API.
+ */
 export async function getLocalidades(): Promise<any[]> {
   const token = process.env.LIOREN_TOKEN;
-  if (!token) throw new Error('LIOREN_TOKEN_MISSING');
+  if (!token) throw new Error('LIOREN_TOKEN no configurado.');
 
-  const response = await fetch(`${LIOREN_BASE_URL}/localidades`, {
+  try {
+    const response = await fetch('https://www.lioren.cl/api/localidades', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`,
+      },
+      next: { revalidate: 86400 } // Cache por 24 horas
+    });
+
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error("Error al obtener localidades de Lioren:", error);
+    return [];
+  }
+}
+
+export async function whoami(): Promise<any> {
+  const token = process.env.LIOREN_TOKEN;
+  if (!token) throw new Error('LIOREN_TOKEN no está configurado.');
+
+  const response = await fetch('https://www.lioren.cl/api/whoami', {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
       'Authorization': `Bearer ${token.trim()}`,
     },
+    cache: 'no-store',
   });
 
-  if (!response.ok) return [];
-  return await response.json();
-}
-
-export async function whoami(): Promise<any> {
-  const token = process.env.LIOREN_TOKEN;
-  const response = await fetch(`${LIOREN_BASE_URL}/whoami`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${token?.trim()}`,
-    },
-  });
-  return await response.json();
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Error en whoami.');
+  return data;
 }
