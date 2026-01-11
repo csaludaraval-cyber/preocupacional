@@ -6,7 +6,7 @@ import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
 /**
- * 1. TEST DE CONEXIÓN
+ * 1. TEST DE CONEXIÓN (DIAGNÓSTICO)
  */
 export async function probarConexionLioren() {
   try {
@@ -15,7 +15,7 @@ export async function probarConexionLioren() {
     const nombreEmpresa = data.rs || data.razon_social || "Empresa Araval";
     return { 
       success: true, 
-      message: `Conexión exitosa. Empresa: ${nombreEmpresa}. ID Localidad Taltal: ${ubicacion.id}`
+      message: `Conexión exitosa con Lioren. Empresa: ${nombreEmpresa}. ID Localidad Detectado: ${ubicacion.id}`
     };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -23,7 +23,8 @@ export async function probarConexionLioren() {
 }
 
 /**
- * 2. FACTURACIÓN INDIVIDUAL
+ * 2. FACTURACIÓN INDIVIDUAL (MODALIDAD NORMAL)
+ * Cierra el ciclo capturando el ID de forma robusta para el PDF.
  */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
@@ -62,16 +63,17 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     trace = "Llamada a Lioren";
     const result = await createDTE(payload);
 
-    // CAPTURA ROBUSTA DEL ID Y FOLIO
-    const lId = (result.id || result.dte_id || "").toString();
-    const lFolio = (result.folio || "").toString();
-    const pUrl = result.url_pdf_cedible || result.url_pdf || "";
+    // --- CAPTURA DE SEGURIDAD PARA EL PDF ---
+    // Lioren puede devolver el ID en 'id', 'dte_id' o dentro de un objeto 'dte'
+    const lId = (result.id || result.dte_id || result.dte?.id || "").toString();
+    const lFolio = (result.folio || result.dte?.folio || "").toString();
+    const pUrl = result.url_pdf_cedible || result.url_pdf || result.pdf || "";
 
     trace = "Actualizando Firestore";
     await docRef.update({
       status: 'FACTURADO',
       liorenFolio: lFolio,
-      liorenId: lId, 
+      liorenId: lId, // CLAVE PARA EL LINK DINÁMICO
       liorenPdfUrl: pUrl,
       liorenFechaEmision: new Date().toISOString()
     });
@@ -84,7 +86,8 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 }
 
 /**
- * 3. FACTURACIÓN CONSOLIDADA
+ * 3. FACTURACIÓN CONSOLIDADA (MODALIDAD FRECUENTE)
+ * Agrupa múltiples órdenes en una sola factura masiva.
  */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   let trace = "INICIO CONSOLIDACIÓN";
@@ -130,8 +133,8 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       expect_all: true
     });
 
-    const lId = (result.id || result.dte_id || "").toString();
-    const lFolio = (result.folio || "").toString();
+    const lId = (result.id || result.dte_id || result.dte?.id || "").toString();
+    const lFolio = (result.folio || result.dte?.folio || "").toString();
 
     trace = "Actualización Masiva (Batch)";
     const batch = db.batch();
@@ -147,7 +150,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
     });
     
     await batch.commit();
-    return { success: true, folio: lFolio, count: docs.length };
+    return { success: true, folio: lFolio, count: docs.length, liorenId: lId };
 
   } catch (error: any) {
     console.error("ERROR CONSOLIDADO:", error.message);
