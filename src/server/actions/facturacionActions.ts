@@ -9,10 +9,7 @@ export async function probarConexionLioren() {
   try {
     const data = await whoami();
     const ubicacion = await normalizarUbicacionLioren("TALTAL");
-    return { 
-      success: true, 
-      message: `Conexión exitosa. Empresa: ${data.rs || 'Araval'}. ID Localidad: ${ubicacion.id}`
-    };
+    return { success: true, message: `Conexión OK. ID Taltal: ${ubicacion.id}` };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -55,34 +52,30 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     trace = "Llamada a Lioren";
     const result = await createDTE(payload);
 
-    // ANALIZAR ID DE LIOREN (EXTRACCIÓN QUIRÚRGICA)
-    // Buscamos el ID en 'id', o en 'dte_id', o intentamos sacarlo de la URL si viene
-    let lId = "";
-    if (result.id) lId = result.id.toString();
-    else if (result.dte_id) lId = result.dte_id.toString();
-    else if (result.url_pdf) {
-        // Intento desesperado: Extraer el ID de la URL si Lioren la mandó
-        const parts = result.url_pdf.split('/');
-        lId = parts[parts.length - 1];
-    }
+    // EXTRACCIÓN DEL ID (Según tu log es result.id)
+    const lId = (result.id || result.dte_id || "").toString();
+    const lFolio = (result.folio || "").toString();
 
-    // SI NO HAY ID, NO PODEMOS SEGUIR (EVITA EL ICONO NARANJA)
-    if (!lId || lId === "undefined") {
-        console.error("Respuesta Lioren sin ID:", result);
-        throw new Error("Lioren no devolvió un ID de documento válido.");
+    if (!lId) {
+        console.error("Respuesta sin ID:", result);
+        throw new Error("Lioren no entregó un ID de documento.");
     }
 
     trace = "Actualizando Firestore";
+    // GUARDADO REDUNDANTE PARA ASEGURAR LECTURA
     await docRef.update({
       status: 'FACTURADO',
-      liorenFolio: (result.folio || "").toString(),
-      liorenId: lId, 
-      liorenPdfUrl: result.url_pdf || result.url_pdf_cedible || "",
-      liorenFechaEmision: new Date().toISOString(),
-      liorenRawResponse: JSON.stringify(result) // GUARDAMOS TODO PARA AUDITORÍA
+      liorenFolio: lFolio,
+      liorenId: lId,       // Nombre estándar
+      liorenid: lId,       // Backup minúsculas
+      lioren_id: lId,      // Backup snake_case
+      liorenPdfUrl: result.url_pdf || "",
+      liorenFechaEmision: new Date().toISOString()
     });
 
-    return { success: true, folio: result.folio, liorenId: lId };
+    console.log(`[EXITO] Cotización ${cotizacionId} facturada con ID Lioren: ${lId}`);
+
+    return { success: true, folio: lFolio, liorenId: lId };
   } catch (error: any) {
     console.error(`ERROR EN FACTURACIÓN [${trace}]:`, error.message);
     throw new Error(error.message);
@@ -92,61 +85,29 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   try {
     const db = getDb();
-    const snap = await db.collection('cotizaciones')
-      .where('empresaData.rut', '==', rutEmpresa)
-      .where('status', '==', 'PAGADO')
-      .get();
-
+    const snap = await db.collection('cotizaciones').where('empresaData.rut', '==', rutEmpresa).where('status', '==', 'PAGADO').get();
     if (snap.empty) throw new Error("No hay órdenes PAGADAS.");
-
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
     const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna);
-
     const todosLosDetalles = docs.flatMap(doc => {
       const d = doc.data() as CotizacionFirestore;
-      return (d.solicitudesData || []).flatMap((sol: any) =>
-        (sol.examenes || []).map((ex: any) => ({
-          nombre: `${ex.nombre} (Ref: ${doc.id.slice(-4)})`.substring(0, 80),
-          cantidad: 1, precio: Math.round(Number(ex.valor || 0)), exento: true
-        }))
-      );
+      return (d.solicitudesData || []).flatMap((sol: any) => (sol.examenes || []).map((ex: any) => ({
+        nombre: `${ex.nombre} (Ref: ${doc.id.slice(-4)})`.substring(0, 80),
+        cantidad: 1, precio: Math.round(Number(ex.valor || 0)), exento: true
+      })));
     });
-
     const result = await createDTE({
-      tipodoc: "34",
-      emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
-      receptor: {
-        rut: cleanRut(rutEmpresa),
-        rs: (base.empresaData?.razonSocial || "CONSOLIDADO").toUpperCase(),
-        giro: (base.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase(),
-        direccion: (base.empresaData?.direccion || "DIRECCION").toUpperCase(),
-        comuna: ubicacion.id,
-        ciudad: ubicacion.id,
-        email: base.empresaData?.email || "soporte@araval.cl"
-      },
-      detalles: todosLosDetalles,
-      expect_all: true
+      tipodoc: "34", emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
+      receptor: { rut: cleanRut(rutEmpresa), rs: (base.empresaData?.razonSocial || "CONSOLIDADO").toUpperCase(), giro: (base.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase(), direccion: (base.empresaData?.direccion || "DIRECCION").toUpperCase(), comuna: ubicacion.id, ciudad: ubicacion.id, email: base.empresaData?.email || "soporte@araval.cl" },
+      detalles: todosLosDetalles, expect_all: true
     });
-
     const lId = (result.id || result.dte_id || "").toString();
-    if (!lId) throw new Error("Consolidación sin ID de retorno.");
-
     const batch = db.batch();
     docs.forEach(d => {
-      batch.update(d.ref, { 
-        status: 'FACTURADO', 
-        liorenFolio: (result.folio || "").toString(), 
-        liorenId: lId,
-        liorenPdfUrl: result.url_pdf || "", 
-        liorenConsolidado: true,
-        liorenFechaEmision: new Date().toISOString()
-      });
+      batch.update(d.ref, { status: 'FACTURADO', liorenFolio: (result.folio || "").toString(), liorenId: lId, liorenid: lId, liorenPdfUrl: result.url_pdf || "", liorenConsolidado: true, liorenFechaEmision: new Date().toISOString() });
     });
-    
     await batch.commit();
     return { success: true, folio: result.folio, count: docs.length };
-  } catch (error: any) {
-    throw new Error(error.message);
-  }
+  } catch (error: any) { throw new Error(error.message); }
 }
