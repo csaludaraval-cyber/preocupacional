@@ -45,11 +45,12 @@ export default function AdminCotizaciones() {
       ).sort((a:any, b:any) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
   }, [quotes, searchTerm]);
 
-  // LINK DINÁMICO BASADO EN TU ENLACE DE LIOREN
+  // FUNCIÓN CORREGIDA: Construye la URL exacta del visor de Lioren
   const getLiorenPdfUrl = (quote: any) => {
-    if (quote.liorenPdfUrl) return quote.liorenPdfUrl;
+    if (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http')) return quote.liorenPdfUrl;
     if (quote.liorenId) {
-      return `https://cl.lioren.enterprises/empresas/araval-fisioterapia-y-medicina-spa-pruebas-api/dte/getpdf/${quote.liorenId}`;
+      const slug = "araval-fisioterapia-y-medicina-spa-pruebas-api";
+      return `https://cl.lioren.enterprises/empresas/${slug}/dte/getpdf/${quote.liorenId}`;
     }
     return null;
   };
@@ -137,7 +138,12 @@ export default function AdminCotizaciones() {
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <Badge className={`font-bold text-[9px] uppercase ${status === 'FACTURADO' ? 'bg-emerald-500' : status === 'PAGADO' ? 'bg-blue-700' : status === 'CORREO_ENVIADO' ? 'bg-indigo-600' : 'bg-amber-500'} border-none text-white`}>{status}</Badge>
-                      {pdfUrl && <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600"><FileText className="h-4 w-4" /></a>}
+                      {/* BOTÓN VISIBLE AL LADO DE LA ETIQUETA */}
+                      {status === 'FACTURADO' && pdfUrl && (
+                        <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-50 text-blue-600 p-1 rounded hover:bg-blue-100 transition-colors" title="Ver Factura SII">
+                          <FileText className="h-4 w-4" />
+                        </a>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-right px-6">
@@ -145,7 +151,11 @@ export default function AdminCotizaciones() {
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem onClick={() => setQuoteToManage(quote)}><Eye className="mr-2 h-3.5 w-3.5" /> Gestionar</DropdownMenuItem>
-                        {pdfUrl && <DropdownMenuItem className="text-blue-600 font-bold" onClick={() => window.open(pdfUrl, '_blank')}><ExternalLink className="mr-2 h-3.5 w-3.5" /> VER FACTURA SII</DropdownMenuItem>}
+                        {pdfUrl && (
+                           <DropdownMenuItem className="text-blue-600 font-bold" onClick={() => window.open(pdfUrl, '_blank')}>
+                             <ExternalLink className="mr-2 h-3.5 w-3.5" /> VER FACTURA SII
+                           </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -163,20 +173,21 @@ export default function AdminCotizaciones() {
               <div className="p-4 bg-slate-50 border-b flex justify-between items-center sticky top-0 z-10">
                 <DialogTitle className="text-[10px] font-bold uppercase">Gestión Cotización: {quoteToManage.id.slice(-6).toUpperCase()}</DialogTitle>
                 <div className="flex gap-2">
-                  {/* ESTADOS: CONFIRMADA O ENVIADA -> PUEDE ENVIAR EMAIL */}
                   {['CONFIRMADA', 'CORREO_ENVIADO'].includes(mapLegacyStatus(quoteToManage.status).toUpperCase()) && (
                     <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === quoteToManage.id} className="text-[10px] font-bold h-8 bg-slate-900"><Send className="h-3 w-3 mr-2" /> ENVIAR EMAIL</Button>
                   )}
-                  {/* ESTADO: ENVIADA -> PUEDE SUBIR VOUCHER */}
                   {mapLegacyStatus(quoteToManage.status).toUpperCase() === 'CORREO_ENVIADO' && (
                     <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="text-[10px] font-bold h-8 bg-blue-800"><Receipt className="h-3 w-3 mr-2" /> SUBIR PAGO</Button>
                   )}
-                  {/* ESTADO: PAGADO -> PUEDE FACTURAR */}
                   {mapLegacyStatus(quoteToManage.status).toUpperCase() === 'PAGADO' && (
                     <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === quoteToManage.id} className="text-[10px] font-bold h-8 bg-emerald-700"><FileText className="h-3 w-3 mr-2" /> FACTURAR SII</Button>
                   )}
                   {getLiorenPdfUrl(quoteToManage) && (
-                    <Button asChild className="text-[10px] font-bold h-8 bg-blue-700"><a href={getLiorenPdfUrl(quoteToManage)!} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-2" /> VER FACTURA</a></Button>
+                    <Button asChild className="text-[10px] font-bold h-8 bg-blue-700">
+                      <a href={getLiorenPdfUrl(quoteToManage)!} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3 w-3 mr-2" /> VER FACTURA
+                      </a>
+                    </Button>
                   )}
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>

@@ -19,6 +19,10 @@ export async function createDTE(dteData: any): Promise<any> {
   });
 
   const responseData = await response.json();
+  
+  // LOG DE SEGURIDAD: Permite ver en la consola de Google Cloud qué devolvió Lioren
+  console.log("DEBUG LIOREN RESPONSE:", JSON.stringify(responseData));
+
   if (!response.ok) {
     throw new Error(responseData.message || JSON.stringify(responseData));
   }
@@ -26,8 +30,7 @@ export async function createDTE(dteData: any): Promise<any> {
 }
 
 /**
- * Obtiene la lista oficial de localidades (comunas/ciudades) desde Lioren.
- * Implementa caché de 24 horas para no saturar la API.
+ * Obtiene la lista oficial de localidades desde Lioren con caché de 24h.
  */
 export async function getLocalidades(): Promise<any[]> {
   const token = process.env.LIOREN_TOKEN;
@@ -40,7 +43,7 @@ export async function getLocalidades(): Promise<any[]> {
         'Accept': 'application/json',
         'Authorization': `Bearer ${token.trim()}`,
       },
-      next: { revalidate: 86400 } // Cache por 24 horas
+      next: { revalidate: 86400 } 
     });
 
     if (!response.ok) return [];

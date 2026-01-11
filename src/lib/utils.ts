@@ -22,8 +22,8 @@ export const formatRut = (rut: string): string => {
 };
 
 /**
- * NORMALIZADOR LIOREN (NUCLEAR)
- * Busca el ID oficial en la API de Lioren.
+ * NORMALIZADOR LIOREN
+ * Busca el ID oficial en la API.
  */
 export async function normalizarUbicacionLioren(nombreComuna: string | undefined) {
   try {
@@ -31,15 +31,13 @@ export async function normalizarUbicacionLioren(nombreComuna: string | undefined
     const busca = (nombreComuna || "TALTAL").toUpperCase()
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     
-    // Buscamos coincidencia en la lista oficial de Lioren
     const encontrada = localidades.find((l: any) => 
       l.nombre && l.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(busca)
     );
 
     if (encontrada) {
-      console.log(`LOG: Match Lioren -> ${encontrada.nombre} ID: ${encontrada.id}`);
       return {
-        id: parseInt(encontrada.id, 10), // FORZAMOS ENTERO PURO
+        id: parseInt(encontrada.id, 10), 
         comuna: encontrada.nombre.toUpperCase()
       };
     }
@@ -47,6 +45,6 @@ export async function normalizarUbicacionLioren(nombreComuna: string | undefined
     console.error("Error consultando API localidades:", error);
   }
   
-  // FALLBACK: Si no lo encuentra, usamos el código 21 que sugeriste (Taltal real)
+  // FALLBACK TALTAL (ID 21)
   return { id: 21, comuna: "TALTAL" }; 
 }

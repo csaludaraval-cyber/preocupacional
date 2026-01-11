@@ -6,7 +6,7 @@ import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
 /**
- * 1. TEST DE CONEXIÓN (DIAGNÓSTICO)
+ * 1. TEST DE CONEXIÓN
  */
 export async function probarConexionLioren() {
   try {
@@ -15,7 +15,7 @@ export async function probarConexionLioren() {
     const nombreEmpresa = data.rs || data.razon_social || "Empresa Araval";
     return { 
       success: true, 
-      message: `Conexión exitosa con Lioren. Empresa: ${nombreEmpresa}. ID Localidad Detectado: ${ubicacion.id}`
+      message: `Conexión exitosa. Empresa: ${nombreEmpresa}. ID Localidad Taltal: ${ubicacion.id}`
     };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -23,8 +23,7 @@ export async function probarConexionLioren() {
 }
 
 /**
- * 2. FACTURACIÓN INDIVIDUAL (MODALIDAD NORMAL)
- * Cierra el ciclo guardando el liorenId para reconstruir el link del PDF.
+ * 2. FACTURACIÓN INDIVIDUAL
  */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
@@ -47,8 +46,8 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
         rs: (data.empresaData?.razonSocial || '').toUpperCase().substring(0, 100),
         giro: (data.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40),
         direccion: (data.empresaData?.direccion || "DIRECCION").toUpperCase().substring(0, 70),
-        comuna: ubicacion.id, // ID ENTERO
-        ciudad: ubicacion.id,  // ID ENTERO
+        comuna: ubicacion.id, 
+        ciudad: ubicacion.id,
         email: data.empresaData?.email || data.solicitanteData?.mail || "soporte@araval.cl"
       },
       detalles: (data.solicitudesData || []).flatMap((sol: any) =>
@@ -63,20 +62,21 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     trace = "Llamada a Lioren";
     const result = await createDTE(payload);
 
-    // CAPTURA DE DATOS PARA EL CIERRE DE CICLO
-    const lId = result.id ? result.id.toString() : "";
-    const pUrl = result.url_pdf_cedible || result.url_pdf || result.pdf || "";
+    // CAPTURA ROBUSTA DEL ID Y FOLIO
+    const lId = (result.id || result.dte_id || "").toString();
+    const lFolio = (result.folio || "").toString();
+    const pUrl = result.url_pdf_cedible || result.url_pdf || "";
 
     trace = "Actualizando Firestore";
     await docRef.update({
       status: 'FACTURADO',
-      liorenFolio: result.folio.toString(),
-      liorenId: lId, // CLAVE PARA EL LINK DINÁMICO
+      liorenFolio: lFolio,
+      liorenId: lId, 
       liorenPdfUrl: pUrl,
       liorenFechaEmision: new Date().toISOString()
     });
 
-    return { success: true, folio: result.folio };
+    return { success: true, folio: lFolio, liorenId: lId };
   } catch (error: any) {
     console.error(`ERROR EN FACTURACIÓN [${trace}]:`, error.message);
     throw new Error(error.message);
@@ -84,8 +84,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 }
 
 /**
- * 3. FACTURACIÓN CONSOLIDADA (MODALIDAD FRECUENTE)
- * Agrupa múltiples órdenes en una sola factura masiva.
+ * 3. FACTURACIÓN CONSOLIDADA
  */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   let trace = "INICIO CONSOLIDACIÓN";
@@ -131,24 +130,24 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       expect_all: true
     });
 
-    const lId = result.id ? result.id.toString() : "";
-    const pUrl = result.url_pdf_cedible || result.url_pdf || "";
+    const lId = (result.id || result.dte_id || "").toString();
+    const lFolio = (result.folio || "").toString();
 
     trace = "Actualización Masiva (Batch)";
     const batch = db.batch();
     docs.forEach(d => {
       batch.update(d.ref, { 
         status: 'FACTURADO', 
-        liorenFolio: result.folio.toString(), 
+        liorenFolio: lFolio, 
         liorenId: lId,
-        liorenPdfUrl: pUrl, 
+        liorenPdfUrl: result.url_pdf || "", 
         liorenConsolidado: true,
         liorenFechaEmision: new Date().toISOString()
       });
     });
     
     await batch.commit();
-    return { success: true, folio: result.folio, count: docs.length };
+    return { success: true, folio: lFolio, count: docs.length };
 
   } catch (error: any) {
     console.error("ERROR CONSOLIDADO:", error.message);
