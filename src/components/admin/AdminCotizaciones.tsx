@@ -45,11 +45,16 @@ export default function AdminCotizaciones() {
       ).sort((a:any, b:any) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
   }, [quotes, searchTerm]);
 
+  // LA FUNCIÓN QUE CORRIGE EL ACCESO AL PDF
   const getLiorenPdfUrl = (quote: any) => {
-    if (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http')) return quote.liorenPdfUrl;
+    // Si la base de datos tiene liorenId, generamos el link de ARAVAL PRUEBAS
     if (quote.liorenId) {
       const slug = "araval-fisioterapia-y-medicina-spa-pruebas-api";
       return `https://cl.lioren.enterprises/empresas/${slug}/dte/getpdf/${quote.liorenId}`;
+    }
+    // Si no hay ID pero hay una URL guardada directamente
+    if (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http')) {
+      return quote.liorenPdfUrl;
     }
     return null;
   };
@@ -58,8 +63,8 @@ export default function AdminCotizaciones() {
     setIsProcessing("testing");
     try {
       const result = await probarConexionLioren();
-      alert(result.message || "Error: " + result.error);
-    } catch (err: any) { alert("Fallo: " + err.message); }
+      alert(result.message);
+    } catch (err: any) { alert("Error: " + err.message); }
     finally { setIsProcessing(null); }
   };
 
@@ -68,12 +73,15 @@ export default function AdminCotizaciones() {
     try {
       const result = await ejecutarFacturacionSiiV2(id);
       if (result.success) {
-        toast({ title: "Facturación exitosa" });
+        toast({ title: "¡Facturado!", description: "El documento se emitió correctamente." });
         await refetchQuotes();
         setQuoteToManage(null);
       }
-    } catch (err: any) { toast({ variant: 'destructive', title: "Error SII", description: err.message }); }
-    finally { setIsProcessing(null); }
+    } catch (err: any) { 
+        toast({ variant: 'destructive', title: "Fallo de Facturación", description: err.message }); 
+    } finally { 
+        setIsProcessing(null); 
+    }
   };
 
   const handleSendEmail = async (quote: any) => {
@@ -86,11 +94,11 @@ export default function AdminCotizaciones() {
       const result = await enviarCotizacion({ clienteEmail: email, cotizacionId: quote.id.slice(-6).toUpperCase(), pdfBase64 });
       if (result.status === 'success') {
         await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvioEmail: new Date().toISOString() });
-        toast({ title: "Enviado con éxito" });
+        toast({ title: "Correo enviado" });
         await refetchQuotes();
         setQuoteToManage(null);
       }
-    } catch (err: any) { alert("Error: " + err.message); }
+    } catch (err: any) { alert(err.message); }
     finally { setIsProcessing(null); }
   };
 
@@ -103,10 +111,10 @@ export default function AdminCotizaciones() {
       await uploadBytes(fileRef, event.target.files[0]);
       const url = await getDownloadURL(fileRef);
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
-      toast({ title: "Pago registrado" });
+      toast({ title: "Pago recibido" });
       await refetchQuotes();
       setQuoteToManage(null);
-    } catch (err: any) { alert("Error subida."); }
+    } catch (err: any) { alert("Error al subir."); }
     finally { setIsUploading(false); }
   };
 
@@ -136,14 +144,16 @@ export default function AdminCotizaciones() {
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <Badge className={`font-bold text-[9px] uppercase ${status === 'FACTURADO' ? 'bg-emerald-500' : status === 'PAGADO' ? 'bg-blue-700' : status === 'CORREO_ENVIADO' ? 'bg-indigo-600' : 'bg-amber-500'} border-none text-white`}>{status}</Badge>
+                      
+                      {/* LÓGICA DEL BOTÓN PDF AL LADO DEL ESTADO */}
                       {status === 'FACTURADO' && (
                         pdfUrl ? (
-                          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-50 text-blue-600 p-1.5 rounded-md hover:bg-blue-100 transition-colors">
+                          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-50 text-blue-600 p-1.5 rounded hover:bg-blue-100 transition-colors" title="Ver Factura SII">
                             <FileText className="h-4 w-4" />
                           </a>
                         ) : (
-                          <div title="ID de factura no encontrado en base de datos" className="text-amber-500 cursor-help">
-                            <AlertCircle className="h-4 w-4" />
+                          <div title="ID de factura no encontrado. La factura se emitió pero el ID no se guardó." className="text-amber-500">
+                             <AlertCircle className="h-4 w-4" />
                           </div>
                         )
                       )}
@@ -154,7 +164,11 @@ export default function AdminCotizaciones() {
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem onClick={() => setQuoteToManage(quote)}><Eye className="mr-2 h-3.5 w-3.5" /> Gestionar</DropdownMenuItem>
-                        {pdfUrl && <DropdownMenuItem className="text-blue-600 font-bold" onClick={() => window.open(pdfUrl, '_blank')}><ExternalLink className="mr-2 h-3.5 w-3.5" /> VER FACTURA SII</DropdownMenuItem>}
+                        {pdfUrl && (
+                          <DropdownMenuItem className="text-blue-600 font-bold" onClick={() => window.open(pdfUrl, '_blank')}>
+                            <ExternalLink className="mr-2 h-3.5 w-3.5" /> VER FACTURA SII
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -172,21 +186,20 @@ export default function AdminCotizaciones() {
               <div className="p-4 bg-slate-50 border-b flex justify-between items-center sticky top-0 z-10">
                 <DialogTitle className="text-[10px] font-bold uppercase">Gestión: {quoteToManage.id.slice(-6).toUpperCase()}</DialogTitle>
                 <div className="flex gap-2">
-                  {['CONFIRMADA', 'CORREO_ENVIADO'].includes(mapLegacyStatus(quoteToManage.status).toUpperCase()) && (
-                    <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === quoteToManage.id} className="text-[10px] font-bold h-8 bg-slate-900"><Send className="h-3 w-3 mr-2" /> ENVIAR EMAIL</Button>
-                  )}
-                  {mapLegacyStatus(quoteToManage.status).toUpperCase() === 'CORREO_ENVIADO' && (
-                    <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="text-[10px] font-bold h-8 bg-blue-800"><Receipt className="h-3 w-3 mr-2" /> SUBIR PAGO</Button>
-                  )}
                   {mapLegacyStatus(quoteToManage.status).toUpperCase() === 'PAGADO' && (
                     <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === quoteToManage.id} className="text-[10px] font-bold h-8 bg-emerald-700">
-                      {isProcessing === quoteToManage.id ? <Loader2 className="animate-spin h-3 w-3 mr-2"/> : <FileText className="h-3 w-3 mr-2" />}
-                      FACTURAR SII
+                       {isProcessing === quoteToManage.id ? <Loader2 className="animate-spin h-3 w-3 mr-2"/> : <FileText className="h-3 w-3 mr-2" />}
+                       FACTURAR SII
                     </Button>
                   )}
                   {getLiorenPdfUrl(quoteToManage) && (
-                    <Button asChild className="text-[10px] font-bold h-8 bg-blue-700"><a href={getLiorenPdfUrl(quoteToManage)!} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-2" /> VER FACTURA</a></Button>
+                    <Button asChild className="text-[10px] font-bold h-8 bg-blue-700">
+                      <a href={getLiorenPdfUrl(quoteToManage)!} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3 w-3 mr-2" /> VER FACTURA
+                      </a>
+                    </Button>
                   )}
+                  <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="text-[10px] font-bold h-8 bg-slate-200 text-slate-800"><Receipt className="h-3 w-3 mr-2" /> SUBIR VOUCHER</Button>
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
               </div>

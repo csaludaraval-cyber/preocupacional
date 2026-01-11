@@ -5,27 +5,19 @@ import { createDTE, whoami } from '@/server/lioren';
 import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
-/**
- * 1. TEST DE CONEXIÓN (DIAGNÓSTICO)
- */
 export async function probarConexionLioren() {
   try {
     const data = await whoami();
     const ubicacion = await normalizarUbicacionLioren("TALTAL");
-    const nombreEmpresa = data.rs || data.razon_social || "Empresa Araval";
     return { 
       success: true, 
-      message: `Conexión exitosa con Lioren. Empresa: ${nombreEmpresa}. ID Localidad Detectado: ${ubicacion.id}`
+      message: `Conexión exitosa. Empresa: ${data.rs || 'Araval'}. ID Localidad: ${ubicacion.id}`
     };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
-/**
- * 2. FACTURACIÓN INDIVIDUAL (MODALIDAD NORMAL)
- * Cierra el ciclo capturando el ID de forma robusta para el PDF.
- */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
   try {
@@ -63,34 +55,41 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     trace = "Llamada a Lioren";
     const result = await createDTE(payload);
 
-    // --- CAPTURA DE SEGURIDAD PARA EL PDF ---
-    // Lioren puede devolver el ID en 'id', 'dte_id' o dentro de un objeto 'dte'
-    const lId = (result.id || result.dte_id || result.dte?.id || "").toString();
-    const lFolio = (result.folio || result.dte?.folio || "").toString();
-    const pUrl = result.url_pdf_cedible || result.url_pdf || result.pdf || "";
+    // ANALIZAR ID DE LIOREN (EXTRACCIÓN QUIRÚRGICA)
+    // Buscamos el ID en 'id', o en 'dte_id', o intentamos sacarlo de la URL si viene
+    let lId = "";
+    if (result.id) lId = result.id.toString();
+    else if (result.dte_id) lId = result.dte_id.toString();
+    else if (result.url_pdf) {
+        // Intento desesperado: Extraer el ID de la URL si Lioren la mandó
+        const parts = result.url_pdf.split('/');
+        lId = parts[parts.length - 1];
+    }
+
+    // SI NO HAY ID, NO PODEMOS SEGUIR (EVITA EL ICONO NARANJA)
+    if (!lId || lId === "undefined") {
+        console.error("Respuesta Lioren sin ID:", result);
+        throw new Error("Lioren no devolvió un ID de documento válido.");
+    }
 
     trace = "Actualizando Firestore";
     await docRef.update({
       status: 'FACTURADO',
-      liorenFolio: lFolio,
-      liorenId: lId, // CLAVE PARA EL LINK DINÁMICO
-      liorenPdfUrl: pUrl,
-      liorenFechaEmision: new Date().toISOString()
+      liorenFolio: (result.folio || "").toString(),
+      liorenId: lId, 
+      liorenPdfUrl: result.url_pdf || result.url_pdf_cedible || "",
+      liorenFechaEmision: new Date().toISOString(),
+      liorenRawResponse: JSON.stringify(result) // GUARDAMOS TODO PARA AUDITORÍA
     });
 
-    return { success: true, folio: lFolio, liorenId: lId };
+    return { success: true, folio: result.folio, liorenId: lId };
   } catch (error: any) {
     console.error(`ERROR EN FACTURACIÓN [${trace}]:`, error.message);
     throw new Error(error.message);
   }
 }
 
-/**
- * 3. FACTURACIÓN CONSOLIDADA (MODALIDAD FRECUENTE)
- * Agrupa múltiples órdenes en una sola factura masiva.
- */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
-  let trace = "INICIO CONSOLIDACIÓN";
   try {
     const db = getDb();
     const snap = await db.collection('cotizaciones')
@@ -98,15 +97,12 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       .where('status', '==', 'PAGADO')
       .get();
 
-    if (snap.empty) throw new Error("No hay órdenes PAGADAS para este RUT.");
+    if (snap.empty) throw new Error("No hay órdenes PAGADAS.");
 
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
-    
-    trace = "Mapeo Ubicación Grupal";
     const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna);
 
-    trace = "Construyendo Payload Consolidado";
     const todosLosDetalles = docs.flatMap(doc => {
       const d = doc.data() as CotizacionFirestore;
       return (d.solicitudesData || []).flatMap((sol: any) =>
@@ -133,15 +129,14 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       expect_all: true
     });
 
-    const lId = (result.id || result.dte_id || result.dte?.id || "").toString();
-    const lFolio = (result.folio || result.dte?.folio || "").toString();
+    const lId = (result.id || result.dte_id || "").toString();
+    if (!lId) throw new Error("Consolidación sin ID de retorno.");
 
-    trace = "Actualización Masiva (Batch)";
     const batch = db.batch();
     docs.forEach(d => {
       batch.update(d.ref, { 
         status: 'FACTURADO', 
-        liorenFolio: lFolio, 
+        liorenFolio: (result.folio || "").toString(), 
         liorenId: lId,
         liorenPdfUrl: result.url_pdf || "", 
         liorenConsolidado: true,
@@ -150,10 +145,8 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
     });
     
     await batch.commit();
-    return { success: true, folio: lFolio, count: docs.length, liorenId: lId };
-
+    return { success: true, folio: result.folio, count: docs.length };
   } catch (error: any) {
-    console.error("ERROR CONSOLIDADO:", error.message);
     throw new Error(error.message);
   }
 }
