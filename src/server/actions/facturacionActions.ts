@@ -24,7 +24,7 @@ export async function probarConexionLioren() {
 
 /**
  * 2. FACTURACIÓN INDIVIDUAL (MODALIDAD NORMAL)
- * Cierra el ciclo guardando el liorenId de forma robusta para el PDF.
+ * Estrategia: SET MERGE para forzar escritura en Firestore.
  */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
@@ -63,30 +63,28 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     trace = "Llamada a Lioren";
     const result = await createDTE(payload);
 
-    // --- CAPTURA ROBUSTA DEL ID (SOLUCIÓN DEL BOTÓN) ---
-    // Buscamos el ID en todas las ubicaciones posibles de la respuesta
+    // EXTRACCIÓN ROBUSTA DEL ID
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id) || "";
     const finalFolio = result.folio || (result.dte && result.dte.folio) || "";
-    
-    // Validamos que exista
+
     if (!finalId) {
-       console.error("LIOREN RESPONDIO SIN ID:", JSON.stringify(result));
-       throw new Error("La factura se emitió pero Lioren no devolvió el ID del documento.");
+      console.error("LIOREN SIN ID:", result);
+      throw new Error("Lioren no devolvió un ID de documento válido.");
     }
 
-    trace = "Actualizando Firestore";
-    // Guardamos con redundancia para asegurar que el frontend lo encuentre
-    await docRef.update({
+    trace = "Escribiendo en Firestore (SET MERGE)";
+    // Usamos set({ ... }, { merge: true }) para garantizar la escritura
+    await docRef.set({
       status: 'FACTURADO',
+      liorenId: String(finalId),       // Principal
+      liorenid: String(finalId),       // Respaldo minúsculas
       liorenFolio: String(finalFolio),
-      liorenId: String(finalId),      // CamelCase standard
-      liorenid: String(finalId),      // Lowercase backup
       liorenPdfUrl: result.url_pdf || result.url_pdf_cedible || "",
       liorenFechaEmision: new Date().toISOString(),
-      liorenRawResponse: JSON.stringify(result) // Auditoría
-    });
+      liorenRawResponse: JSON.stringify(result) // Auditoría completa
+    }, { merge: true });
 
-    return { success: true, folio: finalFolio, liorenId: finalId };
+    return { success: true, folio: finalFolio, liorenId: String(finalId) };
   } catch (error: any) {
     console.error(`ERROR EN FACTURACIÓN [${trace}]:`, error.message);
     throw new Error(error.message);
@@ -141,7 +139,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       expect_all: true
     });
 
-    // --- CAPTURA ROBUSTA DEL ID EN CONSOLIDADO TAMBIÉN ---
+    // Extracción robusta ID Consolidado
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id) || "";
     const finalFolio = result.folio || (result.dte && result.dte.folio) || "";
 
@@ -155,7 +153,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
         status: 'FACTURADO', 
         liorenFolio: String(finalFolio), 
         liorenId: String(finalId),
-        liorenid: String(finalId), // Redundancia
+        liorenid: String(finalId), // Respaldo
         liorenPdfUrl: result.url_pdf || "", 
         liorenConsolidado: true,
         liorenFechaEmision: new Date().toISOString()
@@ -163,7 +161,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
     });
     
     await batch.commit();
-    return { success: true, folio: finalFolio, count: docs.length, liorenId: finalId };
+    return { success: true, folio: finalFolio, count: docs.length, liorenId: String(finalId) };
 
   } catch (error: any) {
     console.error("ERROR CONSOLIDADO:", error.message);
