@@ -5,6 +5,9 @@ import { createDTE, whoami } from '@/server/lioren';
 import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
+// CONSTANTE: Slug de la empresa en Lioren (Ambiente de Pruebas)
+const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa-pruebas-api";
+
 /**
  * 1. TEST DE CONEXIÓN (DIAGNÓSTICO)
  */
@@ -13,9 +16,10 @@ export async function probarConexionLioren() {
     const data = await whoami();
     const ubicacion = await normalizarUbicacionLioren("TALTAL");
     const nombreEmpresa = data.rs || data.razon_social || "Empresa Araval";
+    
     return { 
       success: true, 
-      message: `Conexión exitosa con Lioren. Empresa: ${nombreEmpresa}. ID Localidad Detectado: ${ubicacion.id}`
+      message: `Conexión OK con Lioren.\nEmpresa: ${nombreEmpresa}\nID Taltal Detectado: ${ubicacion.id}`
     };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -24,7 +28,7 @@ export async function probarConexionLioren() {
 
 /**
  * 2. FACTURACIÓN INDIVIDUAL (MODALIDAD NORMAL)
- * Estrategia: SET MERGE para forzar escritura en Firestore.
+ * Guarda la URL completa en Firestore para persistencia total.
  */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
@@ -63,28 +67,29 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     trace = "Llamada a Lioren";
     const result = await createDTE(payload);
 
-    // EXTRACCIÓN ROBUSTA DEL ID
+    // EXTRACCIÓN DEL ID
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id) || "";
     const finalFolio = result.folio || (result.dte && result.dte.folio) || "";
 
     if (!finalId) {
-      console.error("LIOREN SIN ID:", result);
-      throw new Error("Lioren no devolvió un ID de documento válido.");
+       console.error("LIOREN SIN ID:", result);
+       throw new Error("Lioren no devolvió un ID válido.");
     }
 
-    trace = "Escribiendo en Firestore (SET MERGE)";
-    // Usamos set({ ... }, { merge: true }) para garantizar la escritura
+    // CONSTRUCCIÓN DE LA URL FINAL (BALA DE PLATA)
+    const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
+
+    trace = "Escribiendo en Firestore (Set Merge)";
     await docRef.set({
       status: 'FACTURADO',
-      liorenId: String(finalId),       // Principal
-      liorenid: String(finalId),       // Respaldo minúsculas
+      liorenId: String(finalId),
       liorenFolio: String(finalFolio),
-      liorenPdfUrl: result.url_pdf || result.url_pdf_cedible || "",
+      liorenPdfUrl: finalPdfUrl, // Guardamos el link completo
       liorenFechaEmision: new Date().toISOString(),
-      liorenRawResponse: JSON.stringify(result) // Auditoría completa
+      liorenRawResponse: JSON.stringify(result)
     }, { merge: true });
 
-    return { success: true, folio: finalFolio, liorenId: String(finalId) };
+    return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
   } catch (error: any) {
     console.error(`ERROR EN FACTURACIÓN [${trace}]:`, error.message);
     throw new Error(error.message);
@@ -93,7 +98,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 
 /**
  * 3. FACTURACIÓN CONSOLIDADA (MODALIDAD FRECUENTE)
- * Agrupa múltiples órdenes en una sola factura masiva.
+ * Agrupa múltiples órdenes en una sola factura masiva y guarda la URL en todas ellas.
  */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   let trace = "INICIO CONSOLIDACIÓN";
@@ -145,23 +150,26 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 
     if (!finalId) throw new Error("Consolidación exitosa pero sin ID de retorno.");
 
+    // Construcción de la URL
+    const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
+
     trace = "Actualización Masiva (Batch)";
     const batch = db.batch();
     
+    // Actualizamos TODAS las cotizaciones involucradas con el mismo PDF
     docs.forEach(d => {
       batch.update(d.ref, { 
         status: 'FACTURADO', 
         liorenFolio: String(finalFolio), 
         liorenId: String(finalId),
-        liorenid: String(finalId), // Respaldo
-        liorenPdfUrl: result.url_pdf || "", 
+        liorenPdfUrl: finalPdfUrl, // URL COMPLETA
         liorenConsolidado: true,
         liorenFechaEmision: new Date().toISOString()
       });
     });
     
     await batch.commit();
-    return { success: true, folio: finalFolio, count: docs.length, liorenId: String(finalId) };
+    return { success: true, folio: finalFolio, count: docs.length, pdfUrl: finalPdfUrl };
 
   } catch (error: any) {
     console.error("ERROR CONSOLIDADO:", error.message);
