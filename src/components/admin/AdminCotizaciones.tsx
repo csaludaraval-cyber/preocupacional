@@ -5,8 +5,7 @@ import { useCotizaciones } from '@/hooks/use-cotizaciones';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, MoreVertical, FileText, Search, Mail, Receipt, Eye, Send, FlaskConical, ExternalLink, AlertCircle, RefreshCw, UploadCloud, Bug } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Loader2, FileText, Search, Send, ExternalLink, AlertCircle, RefreshCw, UploadCloud, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
@@ -14,10 +13,19 @@ import { updateDoc, doc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { mapLegacyStatus } from '@/lib/status-mapper';
-import { ejecutarFacturacionSiiV2, probarConexionLioren } from '@/server/actions/facturacionActions';
+import { ejecutarFacturacionSiiV2 } from '@/server/actions/facturacionActions';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { GeneradorPDF } from '../cotizacion/GeneradorPDF';
 import { Input } from '@/components/ui/input';
+
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
 
 export default function AdminCotizaciones() {
   const { quotes, isLoading, refetchQuotes } = useCotizaciones();
@@ -27,7 +35,7 @@ export default function AdminCotizaciones() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // BYPASS DE MEMORIA: IDs recién generados
+  // BYPASS DE MEMORIA: Para visualización instantánea post-facturación
   const [forcedIds, setForcedIds] = useState<Record<string, string>>({});
   
   const { toast } = useToast();
@@ -40,7 +48,7 @@ export default function AdminCotizaciones() {
       ).sort((a:any, b:any) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
   }, [quotes, searchTerm]);
 
-  // LÓGICA BLINDADA PARA OBTENER EL LINK
+  // CONSTRUCTOR DE LINK AL PDF (Memoria + DB)
   const getLiorenPdfUrl = (quote: any) => {
     const idMemoria = forcedIds[quote.id];
     const idDB = quote.liorenId || quote.liorenid;
@@ -58,21 +66,24 @@ export default function AdminCotizaciones() {
     try {
       const result = await ejecutarFacturacionSiiV2(id);
       if (result.success) {
-        toast({ title: "Facturado con éxito", description: `ID Lioren: ${result.liorenId}` });
+        toast({ title: "Facturación exitosa", description: "El documento ha sido emitido correctamente." });
+        
+        // Inyectamos el ID en memoria para feedback instantáneo
         if (result.liorenId) {
           setForcedIds(prev => ({ ...prev, [id]: result.liorenId }));
         }
+        
         await refetchQuotes();
         setQuoteToManage(null);
       }
     } catch (err: any) { 
-        toast({ variant: 'destructive', title: "Error", description: err.message }); 
+        toast({ variant: 'destructive', title: "Error al facturar", description: err.message }); 
     } finally { setIsProcessing(null); }
   };
 
   const handleSendEmail = async (quote: any) => {
     const email = quote.solicitanteData?.mail || quote.solicitante?.mail;
-    if (!email) return alert("Sin email.");
+    if (!email) return alert("La cotización no tiene un email asociado.");
     setIsProcessing("email");
     try {
       const pdfBlob = await GeneradorPDF.generar(quote);
@@ -80,7 +91,7 @@ export default function AdminCotizaciones() {
       const result = await enviarCotizacion({ clienteEmail: email, cotizacionId: quote.id.slice(-6).toUpperCase(), pdfBase64 });
       if (result.status === 'success') {
         await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvioEmail: new Date().toISOString() });
-        toast({ title: "Enviado con éxito" });
+        toast({ title: "Correo enviado con éxito" });
         await refetchQuotes();
       }
     } catch (err: any) { alert(err.message); }
@@ -96,7 +107,7 @@ export default function AdminCotizaciones() {
       await uploadBytes(fileRef, event.target.files[0]);
       const url = await getDownloadURL(fileRef);
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
-      toast({ title: "Pago registrado exitosamente" });
+      toast({ title: "Pago registrado", description: "El comprobante se subió correctamente." });
       await refetchQuotes();
       setQuoteToManage(null);
     } catch (err: any) { alert("Error al subir el archivo."); }
@@ -111,7 +122,7 @@ export default function AdminCotizaciones() {
         <div><h1 className="text-xl font-bold uppercase text-slate-800">Administración</h1><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gestión DTE Araval</p></div>
         <div className="flex items-center gap-4">
           <Button onClick={() => refetchQuotes()} variant="outline" size="sm" className="h-9"><RefreshCw className="h-4 w-4 mr-2" /> Actualizar</Button>
-          <Input placeholder="Buscar..." className="w-64 h-9 text-xs" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <Input placeholder="Buscar por ID, empresa..." className="w-64 h-9 text-xs" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
@@ -121,12 +132,13 @@ export default function AdminCotizaciones() {
           <TableBody>
             {filteredQuotes.map((quote) => {
               const status = mapLegacyStatus(quote.status).toUpperCase();
+              
               const hasIdInMemory = !!forcedIds[quote.id];
               const isFacturadoVisual = status === 'FACTURADO' || hasIdInMemory;
               const pdfUrl = getLiorenPdfUrl(quote);
 
               return (
-                <TableRow key={quote.id} className="text-xs hover:bg-slate-50">
+                <TableRow key={quote.id} className="text-xs hover:bg-slate-50 transition-colors">
                   <TableCell className="font-mono font-bold px-6">#{quote.id.slice(-6).toUpperCase()}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
@@ -142,22 +154,17 @@ export default function AdminCotizaciones() {
                       
                       {isFacturadoVisual && (
                         pdfUrl ? (
-                          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white p-1 rounded hover:bg-blue-700 transition-colors" title="Abrir PDF Lioren">
+                          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white p-1 rounded hover:bg-blue-700 transition-colors shadow-sm" title="Ver Factura SII">
                             <FileText className="h-4 w-4" />
                           </a>
                         ) : (
-                          <div title="Procesando..." className="text-slate-400 animate-pulse"><Loader2 className="h-3 w-3" /></div>
+                          <div title="Procesando DTE..." className="text-slate-400 animate-pulse"><Loader2 className="h-3 w-3" /></div>
                         )
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right px-6 flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-red-500" 
-                      onClick={() => alert(`DATOS:\nID: ${quote.id}\nLiorenID (DB): ${quote.liorenId}\nLiorenID (Memoria): ${forcedIds[quote.id]}`)}
-                      title="Diagnóstico">
-                      <Bug className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setQuoteToManage(quote)}><Eye className="h-4 w-4" /></Button>
+                  <TableCell className="text-right px-6">
+                    <Button variant="ghost" size="icon" className="hover:bg-slate-100 rounded-full" onClick={() => setQuoteToManage(quote)}><Eye className="h-4 w-4 text-slate-600" /></Button>
                   </TableCell>
                 </TableRow>
               );
@@ -177,13 +184,13 @@ export default function AdminCotizaciones() {
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} size="sm" className="bg-slate-700 hover:bg-slate-600 text-[10px] font-bold h-8"><Send className="h-3 w-3 mr-1" /> EMAIL</Button>
-                  <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm" className="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold h-8"><UploadCloud className="h-3 w-3 mr-1" /> PAGO</Button>
-                  <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === "invoice"} size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold h-8">
+                  <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} size="sm" className="bg-slate-700 hover:bg-slate-600 text-[10px] font-bold h-8 transition-all"><Send className="h-3 w-3 mr-1" /> EMAIL</Button>
+                  <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm" className="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold h-8 transition-all"><UploadCloud className="h-3 w-3 mr-1" /> PAGO</Button>
+                  <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === "invoice"} size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold h-8 transition-all">
                      {isProcessing === "invoice" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <FileText className="h-3 w-3 mr-1" />} FACTURAR
                   </Button>
                   {(getLiorenPdfUrl(quoteToManage)) && (
-                    <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold h-8">
+                    <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold h-8 transition-all">
                       <a href={getLiorenPdfUrl(quoteToManage)!} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-1" /> VER PDF</a>
                     </Button>
                   )}
