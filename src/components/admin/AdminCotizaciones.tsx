@@ -47,14 +47,6 @@ export default function AdminCotizaciones() {
       ).sort((a:any, b:any) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
   }, [quotes, searchTerm]);
 
-  // Si tenemos una cotización seleccionada, buscamos su versión más fresca en la lista "quotes"
-  // Esto asegura que si la tabla se actualiza, el modal también lo haga.
-  const activeQuote = useMemo(() => {
-    if (!quoteToManage) return null;
-    const freshQuote = quotes?.find(q => q.id === quoteToManage.id);
-    return freshQuote || quoteToManage; // Si no la encuentra (raro), usa la vieja
-  }, [quotes, quoteToManage]);
-
   const getLiorenPdfUrl = (quote: any) => {
     if (forcedUrls[quote.id]) return forcedUrls[quote.id];
     if (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http')) return quote.liorenPdfUrl;
@@ -110,7 +102,9 @@ export default function AdminCotizaciones() {
         toast({ title: "Facturado Exitosamente" });
         if (result.pdfUrl) setForcedUrls(prev => ({ ...prev, [id]: result.pdfUrl }));
         
-        // Refrescamos la tabla global, el useMemo actualizará el modal
+        // FUERZA BRUTA: Actualizamos el estado local INMEDIATAMENTE
+        setQuoteToManage((prev: any) => ({ ...prev, status: 'FACTURADO', liorenPdfUrl: result.pdfUrl }));
+        
         await refetchQuotes(); 
       }
     } catch (err: any) { toast({ variant: 'destructive', title: "Error", description: err.message }); } 
@@ -126,15 +120,14 @@ export default function AdminCotizaciones() {
       const pdfBase64 = await blobToBase64(pdfBlob);
       const result = await enviarCotizacion({ clienteEmail: email, cotizacionId: quote.id.slice(-6).toUpperCase(), pdfBase64 });
       if (result.status === 'success') {
-        // 1. Actualizamos Firestore
+        // 1. Base de datos
         await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvioEmail: new Date().toISOString() });
         toast({ title: "Correo enviado" });
         
-        // 2. Refrescamos la tabla para que traiga el nuevo estado
-        await refetchQuotes();
-        
-        // 3. Forzamos la actualización visual inmediata del modal (por si el refetch tarda)
+        // 2. FUERZA BRUTA: Aquí está el arreglo. Forzamos el estado local.
         setQuoteToManage((prev: any) => ({ ...prev, status: 'CORREO_ENVIADO' }));
+        
+        await refetchQuotes();
       }
     } catch (err: any) { alert(err.message); }
     finally { setIsProcessing(null); }
@@ -152,10 +145,10 @@ export default function AdminCotizaciones() {
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
       toast({ title: "Pago registrado" });
       
-      // Actualizamos todo
-      await refetchQuotes();
+      // 3. FUERZA BRUTA: Forzamos el estado local a PAGADO
       setQuoteToManage((prev: any) => ({ ...prev, status: 'PAGADO', pagoVoucherUrl: url }));
       
+      await refetchQuotes();
     } catch (err: any) { alert("Error subida."); }
     finally { setIsUploading(false); }
   };
@@ -228,33 +221,33 @@ export default function AdminCotizaciones() {
 
       <Dialog open={!!quoteToManage} onOpenChange={() => setQuoteToManage(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
-          {activeQuote && ( // USAMOS activeQuote EN VEZ DE quoteToManage PARA QUE SE REFRESQUE
+          {quoteToManage && (
             <div className="flex flex-col">
               <div className="p-4 bg-slate-900 text-white flex flex-wrap gap-3 justify-between items-center sticky top-0 z-50">
                 <div className="flex flex-col">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Gestión de Orden</span>
-                    <span className="text-sm font-bold">#{activeQuote.id.slice(-6).toUpperCase()}</span>
+                    <span className="text-sm font-bold">#{quoteToManage.id.slice(-6).toUpperCase()}</span>
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
                   {(() => {
-                    // LEEMOS EL ESTADO DE LA VERSIÓN FRESCA (activeQuote)
-                    const status = mapLegacyStatus(activeQuote.status).toUpperCase();
-                    const hasUrl = !!forcedUrls[activeQuote.id] || (activeQuote.liorenPdfUrl && activeQuote.liorenPdfUrl.startsWith('http'));
+                    // AQUÍ USAMOS quoteToManage DIRECTAMENTE, QUE YA FUE ACTUALIZADO MANUALMENTE
+                    const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
+                    const hasUrl = !!forcedUrls[quoteToManage.id] || (quoteToManage.liorenPdfUrl && quoteToManage.liorenPdfUrl.startsWith('http'));
                     const isFacturado = status === 'FACTURADO' || hasUrl;
-                    const pdfUrl = getLiorenPdfUrl(activeQuote);
+                    const pdfUrl = getLiorenPdfUrl(quoteToManage);
 
                     if (!isFacturado && status !== 'PAGADO') {
-                        return <Button onClick={() => handleSendEmail(activeQuote)} disabled={isProcessing === "email"} size="sm" className="bg-slate-700 hover:bg-slate-600 text-[10px] font-bold h-8 transition-all">{isProcessing === "email" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <Send className="h-3 w-3 mr-1" />} EMAIL</Button>;
+                        return <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} size="sm" className="bg-slate-700 hover:bg-slate-600 text-[10px] font-bold h-8 transition-all">{isProcessing === "email" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <Send className="h-3 w-3 mr-1" />} EMAIL</Button>;
                     }
                     if (status === 'CORREO_ENVIADO' || (status === 'PAGADO' && !isFacturado)) {
                         return <>
-                             <Button onClick={() => handleSendEmail(activeQuote)} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800"><Send className="h-3 w-3" /></Button>
+                             <Button onClick={() => handleSendEmail(quoteToManage)} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800" title="Reenviar"><Send className="h-3 w-3" /></Button>
                              {status !== 'PAGADO' && <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm" className="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold h-8 transition-all">{isUploading ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <UploadCloud className="h-3 w-3 mr-1" />} PAGO</Button>}
                         </>;
                     }
                     if (status === 'PAGADO' && !isFacturado) {
-                        return <Button onClick={() => handleInvoiceNow(activeQuote.id)} disabled={isProcessing === "invoice"} size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold h-8 transition-all">{isProcessing === "invoice" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <FileText className="h-3 w-3 mr-1" />} FACTURAR SII</Button>;
+                        return <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === "invoice"} size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold h-8 transition-all">{isProcessing === "invoice" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <FileText className="h-3 w-3 mr-1" />} FACTURAR SII</Button>;
                     }
                     if (isFacturado && pdfUrl) {
                         return <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold h-8 transition-all"><a href={pdfUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-1" /> VER PDF OFICIAL</a></Button>;
@@ -264,7 +257,7 @@ export default function AdminCotizaciones() {
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
               </div>
-              <div className="p-1"><DetalleCotizacion quote={activeQuote} /></div>
+              <div className="p-1"><DetalleCotizacion quote={quoteToManage} /></div>
             </div>
           )}
         </DialogContent>
