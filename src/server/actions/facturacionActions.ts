@@ -9,7 +9,7 @@ import type { CotizacionFirestore } from '@/lib/types';
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa-pruebas-api";
 
 /**
- * 1. TEST DE CONEXIÓN (DIAGNÓSTICO)
+ * 1. TEST DE CONEXIÓN
  */
 export async function probarConexionLioren() {
   try {
@@ -28,7 +28,6 @@ export async function probarConexionLioren() {
 
 /**
  * 2. FACTURACIÓN INDIVIDUAL (MODALIDAD NORMAL)
- * Guarda la URL completa para evitar problemas de visualización futuros.
  */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
@@ -67,7 +66,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     trace = "Llamada a Lioren";
     const result = await createDTE(payload);
 
-    // EXTRACCIÓN DEL ID
+    // Extracción ID y Folio
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id) || "";
     const finalFolio = result.folio || (result.dte && result.dte.folio) || "";
 
@@ -76,7 +75,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
        throw new Error("Lioren no devolvió un ID válido.");
     }
 
-    // CONSTRUCCIÓN DE LA URL FINAL (BALA DE PLATA)
+    // URL BALA DE PLATA
     const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
 
     trace = "Escribiendo en Firestore (Set Merge)";
@@ -97,8 +96,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 }
 
 /**
- * 3. FACTURACIÓN CONSOLIDADA (MODALIDAD FRECUENTE)
- * Agrupa múltiples órdenes en una sola factura masiva.
+ * 3. FACTURACIÓN CONSOLIDADA
  */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   let trace = "INICIO CONSOLIDACIÓN";
@@ -113,11 +111,8 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
-    
-    trace = "Mapeo Ubicación Grupal";
     const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna);
 
-    trace = "Construyendo Payload Consolidado";
     const todosLosDetalles = docs.flatMap(doc => {
       const d = doc.data() as CotizacionFirestore;
       return (d.solicitudesData || []).flatMap((sol: any) =>
@@ -144,24 +139,20 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       expect_all: true
     });
 
-    // Extracción robusta ID Consolidado
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id) || "";
     const finalFolio = result.folio || (result.dte && result.dte.folio) || "";
 
     if (!finalId) throw new Error("Consolidación exitosa pero sin ID de retorno.");
 
-    // Construcción de la URL (BALA DE PLATA)
     const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
 
-    trace = "Actualización Masiva (Batch)";
     const batch = db.batch();
-    
     docs.forEach(d => {
       batch.update(d.ref, { 
         status: 'FACTURADO', 
         liorenFolio: String(finalFolio), 
         liorenId: String(finalId),
-        liorenPdfUrl: finalPdfUrl, // URL COMPLETA EN TODAS
+        liorenPdfUrl: finalPdfUrl, 
         liorenConsolidado: true,
         liorenFechaEmision: new Date().toISOString()
       });
@@ -177,42 +168,43 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 }
 
 /**
- * 4. HERRAMIENTA: DESCARGAR MAESTRO LOCALIDADES (VERSIÓN DIAGNÓSTICO)
- * Hacemos la petición directa para ver si hay error 401, 404 o 500.
+ * 4. HERRAMIENTA: TRIPLE EXTRACCIÓN (Regiones, Comunas, Ciudades)
+ * Consulta los 3 endpoints oficiales para armar el maestro completo.
  */
 export async function descargarMaestroLocalidades() {
   try {
     const token = process.env.LIOREN_TOKEN;
-    if (!token) throw new Error("ERROR CRÍTICO: No hay variable LIOREN_TOKEN en el servidor.");
+    if (!token) throw new Error("Falta LIOREN_TOKEN");
 
-    console.log("Iniciando descarga directa de localidades...");
+    const headers = {
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${token.trim()}`,
+    };
 
-    const response = await fetch('https://www.lioren.cl/api/localidades', {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token.trim()}`,
-      },
-      cache: 'no-store' // Forzamos a no usar caché
-    });
+    console.log("Iniciando Triple Extracción...");
 
-    if (!response.ok) {
-      // SI FALLA, LEEMOS EL MENSAJE DE ERROR DE LIOREN
-      const errorText = await response.text();
-      console.error("Error Lioren:", response.status, errorText);
-      throw new Error(`Fallo Lioren (${response.status}): ${errorText.substring(0, 100)}`);
+    // Ejecutamos las 3 peticiones en paralelo para mayor velocidad
+    const [resRegiones, resComunas, resCiudades] = await Promise.all([
+      fetch('https://www.lioren.cl/api/regiones', { method: 'GET', headers, cache: 'no-store' }),
+      fetch('https://www.lioren.cl/api/comunas', { method: 'GET', headers, cache: 'no-store' }),
+      fetch('https://www.lioren.cl/api/ciudades', { method: 'GET', headers, cache: 'no-store' })
+    ]);
+
+    if (!resRegiones.ok || !resComunas.ok || !resCiudades.ok) {
+      throw new Error(`Error en API Lioren. Regiones: ${resRegiones.status}, Comunas: ${resComunas.status}, Ciudades: ${resCiudades.status}`);
     }
 
-    const data = await response.json();
-    
-    // Verificamos si vino vacío aunque el status sea 200
-    if (Array.isArray(data) && data.length === 0) {
-      throw new Error("Lioren respondió OK (200) pero la lista está vacía.");
-    }
+    const maestro = {
+      fecha_extraccion: new Date().toISOString(),
+      regiones: await resRegiones.json(),
+      comunas: await resComunas.json(),
+      ciudades: await resCiudades.json()
+    };
 
-    return { success: true, data: data };
+    return { success: true, data: maestro };
+
   } catch (error: any) {
-    console.error("Error Descarga:", error);
+    console.error("Error Descarga Maestro:", error);
     return { success: false, error: error.message };
   }
 }
