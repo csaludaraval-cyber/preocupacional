@@ -22,29 +22,40 @@ export const formatRut = (rut: string): string => {
 };
 
 /**
- * NORMALIZADOR LIOREN
- * Busca el ID oficial en la API.
+ * NORMALIZADOR LIOREN (CEREBRO DE UBICACIÓN)
+ * Estrategia Híbrida:
+ * 1. Intenta buscar la ciudad exacta en la API (para clientes de otras regiones).
+ * 2. Si falla o no encuentra, usa el ID 15 (Casa Matriz Taltal).
  */
 export async function normalizarUbicacionLioren(nombreComuna: string | undefined) {
+  // Limpieza del nombre (Ej: " Viña del Mar " -> "VINA DEL MAR")
+  const busca = (nombreComuna || "TALTAL").toUpperCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
   try {
+    // 1. Consultamos la API de Lioren (Búsqueda en Vivo)
     const localidades = await getLocalidades();
-    const busca = (nombreComuna || "TALTAL").toUpperCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     
+    // Buscamos coincidencia (ignorando tildes y mayúsculas)
+    // Buscamos que el nombre en Lioren CONTENGA lo que escribimos (ej: "SANTIAGO" halla "SANTIAGO CENTRO")
     const encontrada = localidades.find((l: any) => 
       l.nombre && l.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(busca)
     );
 
     if (encontrada) {
+      // ÉXITO: Encontramos la ciudad específica del cliente
       return {
         id: parseInt(encontrada.id, 10), 
         comuna: encontrada.nombre.toUpperCase()
       };
     }
   } catch (error) {
-    console.error("Error consultando API localidades:", error);
+    console.error("Error API Localidades (Usando Fallback):", error);
   }
   
-  // FALLBACK TALTAL (ID 21)
-  return { id: 21, comuna: "TALTAL" }; 
+  // 2. FALLBACK DE SEGURIDAD (PLAN B)
+  // Si no encontramos la ciudad o la API falló, usamos TALTAL.
+  // IMPORTANTE: ID 15 (Dato confirmado por Soporte). Antes era 21.
+  
+  return { id: 15, comuna: "TALTAL" }; 
 }
