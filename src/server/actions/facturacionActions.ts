@@ -19,7 +19,7 @@ export async function probarConexionLioren() {
     
     return { 
       success: true, 
-      message: `Conexión OK con Lioren.\nEmpresa: ${nombreEmpresa}\nID Taltal Detectado: ${ubicacion.id}`
+      message: `Conexión OK con Lioren.\nEmpresa: ${nombreEmpresa}\nID Taltal Detectado (Actual): ${ubicacion.id}`
     };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -28,7 +28,7 @@ export async function probarConexionLioren() {
 
 /**
  * 2. FACTURACIÓN INDIVIDUAL (MODALIDAD NORMAL)
- * Guarda la URL completa en Firestore para persistencia total.
+ * Guarda la URL completa para evitar problemas de visualización futuros.
  */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
@@ -84,7 +84,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
       status: 'FACTURADO',
       liorenId: String(finalId),
       liorenFolio: String(finalFolio),
-      liorenPdfUrl: finalPdfUrl, // Guardamos el link completo
+      liorenPdfUrl: finalPdfUrl,
       liorenFechaEmision: new Date().toISOString(),
       liorenRawResponse: JSON.stringify(result)
     }, { merge: true });
@@ -98,7 +98,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 
 /**
  * 3. FACTURACIÓN CONSOLIDADA (MODALIDAD FRECUENTE)
- * Agrupa múltiples órdenes en una sola factura masiva y guarda la URL en todas ellas.
+ * Agrupa múltiples órdenes en una sola factura masiva.
  */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   let trace = "INICIO CONSOLIDACIÓN";
@@ -150,19 +150,18 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 
     if (!finalId) throw new Error("Consolidación exitosa pero sin ID de retorno.");
 
-    // Construcción de la URL
+    // Construcción de la URL (BALA DE PLATA)
     const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
 
     trace = "Actualización Masiva (Batch)";
     const batch = db.batch();
     
-    // Actualizamos TODAS las cotizaciones involucradas con el mismo PDF
     docs.forEach(d => {
       batch.update(d.ref, { 
         status: 'FACTURADO', 
         liorenFolio: String(finalFolio), 
         liorenId: String(finalId),
-        liorenPdfUrl: finalPdfUrl, // URL COMPLETA
+        liorenPdfUrl: finalPdfUrl, // URL COMPLETA EN TODAS
         liorenConsolidado: true,
         liorenFechaEmision: new Date().toISOString()
       });
@@ -174,5 +173,19 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
   } catch (error: any) {
     console.error("ERROR CONSOLIDADO:", error.message);
     throw new Error(error.message);
+  }
+}
+
+/**
+ * 4. HERRAMIENTA: DESCARGAR MAESTRO LOCALIDADES
+ * Obtiene la lista completa desde Lioren para crear el JSON local.
+ */
+export async function descargarMaestroLocalidades() {
+  try {
+    const data = await import('@/server/lioren').then(m => m.getLocalidades());
+    if (!Array.isArray(data)) throw new Error("La API no devolvió una lista válida.");
+    return { success: true, data: data };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 }

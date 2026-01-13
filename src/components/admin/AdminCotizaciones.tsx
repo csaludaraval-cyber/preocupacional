@@ -1,5 +1,3 @@
-// Actualización flujo visual
-
 "use client";
 
 import React, { useMemo, useState, useRef } from 'react';
@@ -7,7 +5,7 @@ import { useCotizaciones } from '@/hooks/use-cotizaciones';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, Send, ExternalLink, AlertTriangle, RefreshCw, UploadCloud, Eye, FlaskConical, Trash2, MoreVertical } from 'lucide-react';
+import { Loader2, FileText, Send, ExternalLink, AlertTriangle, RefreshCw, UploadCloud, Eye, FlaskConical, Trash2, MoreVertical, Download } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +14,7 @@ import { updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { mapLegacyStatus } from '@/lib/status-mapper';
-import { ejecutarFacturacionSiiV2, probarConexionLioren } from '@/server/actions/facturacionActions';
+import { ejecutarFacturacionSiiV2, probarConexionLioren, descargarMaestroLocalidades } from '@/server/actions/facturacionActions';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { GeneradorPDF } from '../cotizacion/GeneradorPDF';
 import { Input } from '@/components/ui/input';
@@ -38,7 +36,7 @@ export default function AdminCotizaciones() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Memoria temporal para URL recién generada
+  // Memoria temporal solo para URL recién generada
   const [forcedUrls, setForcedUrls] = useState<Record<string, string>>({});
   
   const { toast } = useToast();
@@ -51,6 +49,7 @@ export default function AdminCotizaciones() {
       ).sort((a:any, b:any) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
   }, [quotes, searchTerm]);
 
+  // FUNCIÓN SIMPLIFICADA
   const getLiorenPdfUrl = (quote: any) => {
     if (forcedUrls[quote.id]) return forcedUrls[quote.id];
     if (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http')) return quote.liorenPdfUrl;
@@ -62,6 +61,29 @@ export default function AdminCotizaciones() {
     try {
       const result = await probarConexionLioren();
       alert(result.message || result.error);
+    } catch (err: any) { alert("Error: " + err.message); }
+    finally { setIsProcessing(null); }
+  };
+
+  const handleDescargarMaestro = async () => {
+    if (!confirm("¿Descargar listado maestro de localidades (JSON)?")) return;
+    setIsProcessing("download");
+    try {
+      const result = await descargarMaestroLocalidades();
+      if (result.success) {
+        const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'localidades_lioren.json';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast({ title: "Maestro descargado", description: "Guarda el archivo para la integración." });
+      } else {
+        alert("Error API: " + result.error);
+      }
     } catch (err: any) { alert("Error: " + err.message); }
     finally { setIsProcessing(null); }
   };
@@ -86,10 +108,10 @@ export default function AdminCotizaciones() {
         }
         
         // ACTUALIZACIÓN EN VIVO DEL MODAL
-        setQuoteToManage((prev: any) => ({
-             ...prev, 
-             status: 'FACTURADO', 
-             liorenPdfUrl: result.pdfUrl 
+        setQuoteToManage((prev: any) => ({ 
+           ...prev, 
+           status: 'FACTURADO', 
+           liorenPdfUrl: result.pdfUrl 
         }));
         
         await refetchQuotes();
@@ -111,7 +133,7 @@ export default function AdminCotizaciones() {
         await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvioEmail: new Date().toISOString() });
         toast({ title: "Correo enviado" });
         
-        // ACTUALIZACIÓN EN VIVO: Habilita el siguiente botón inmediatamente
+        // ACTUALIZACIÓN EN VIVO
         setQuoteToManage((prev: any) => ({ ...prev, status: 'CORREO_ENVIADO' }));
         
         await refetchQuotes();
@@ -131,7 +153,7 @@ export default function AdminCotizaciones() {
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
       toast({ title: "Pago registrado" });
       
-      // ACTUALIZACIÓN EN VIVO: Habilita el siguiente botón inmediatamente
+      // ACTUALIZACIÓN EN VIVO
       setQuoteToManage((prev: any) => ({ ...prev, status: 'PAGADO', pagoVoucherUrl: url }));
       
       await refetchQuotes();
@@ -146,9 +168,16 @@ export default function AdminCotizaciones() {
       <div className="flex justify-between items-end mb-8">
         <div><h1 className="text-xl font-bold uppercase text-slate-800">Administración</h1><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gestión DTE Araval</p></div>
         <div className="flex items-center gap-4">
-          <Button onClick={handleTestLioren} disabled={isProcessing === "test"} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 text-xs">
-             {isProcessing === "test" ? <Loader2 className="h-3 w-3 animate-spin mr-2"/> : <FlaskConical className="h-3.5 w-3.5 mr-2" />} TEST SII
+          <Button onClick={handleDescargarMaestro} disabled={isProcessing === "download"} variant="outline" size="sm" className="h-9 border-slate-400 text-slate-600">
+             {isProcessing === "download" ? <Loader2 className="h-3 w-3 animate-spin mr-2"/> : <Download className="h-3.5 w-3.5 mr-2" />} 
+             MAESTRO
           </Button>
+
+          <Button onClick={handleTestLioren} disabled={isProcessing === "test"} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 text-xs">
+             {isProcessing === "test" ? <Loader2 className="h-3 w-3 animate-spin mr-2"/> : <FlaskConical className="h-3.5 w-3.5 mr-2" />} 
+             TEST SII
+          </Button>
+          
           <Button onClick={() => refetchQuotes()} variant="outline" size="sm" className="h-9"><RefreshCw className="h-4 w-4" /></Button>
           <Input placeholder="Buscar..." className="w-64 h-9 text-xs" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
@@ -224,7 +253,7 @@ export default function AdminCotizaciones() {
                     const isFacturado = status === 'FACTURADO' || hasUrl;
                     const pdfUrl = getLiorenPdfUrl(quoteToManage);
 
-                    // 1. ENVIAR EMAIL (Inicio)
+                    // 1. EMAIL
                     if (!isFacturado && status !== 'PAGADO') {
                         return (
                             <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} size="sm" className="bg-slate-700 hover:bg-slate-600 text-[10px] font-bold h-8 transition-all">
@@ -233,13 +262,11 @@ export default function AdminCotizaciones() {
                         );
                     }
 
-                    // 2. SUBIR PAGO (Secuencial: Aparece tras enviar correo)
+                    // 2. PAGO
                     if (status === 'CORREO_ENVIADO' || (status === 'PAGADO' && !isFacturado)) {
                         return (
                            <>
-                             {/* Botón Email pequeño para reenvíos */}
-                             <Button onClick={() => handleSendEmail(quoteToManage)} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800" title="Reenviar Email"><Send className="h-3 w-3" /></Button>
-                             
+                             <Button onClick={() => handleSendEmail(quoteToManage)} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800" title="Reenviar"><Send className="h-3 w-3" /></Button>
                              {status !== 'PAGADO' && (
                                  <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm" className="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold h-8 transition-all">
                                     {isUploading ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <UploadCloud className="h-3 w-3 mr-1" />} PAGO
@@ -249,7 +276,7 @@ export default function AdminCotizaciones() {
                         );
                     }
                     
-                    // 3. FACTURAR (Secuencial: Aparece tras Pagar)
+                    // 3. FACTURAR
                     if (status === 'PAGADO' && !isFacturado) {
                         return (
                             <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === "invoice"} size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold h-8 transition-all">
@@ -258,7 +285,7 @@ export default function AdminCotizaciones() {
                         );
                     }
 
-                    // 4. VER PDF (Final)
+                    // 4. VER PDF
                     if (isFacturado && pdfUrl) {
                         return (
                             <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold h-8 transition-all">
@@ -266,7 +293,6 @@ export default function AdminCotizaciones() {
                             </Button>
                         );
                     }
-                    
                     return null;
                   })()}
                 </div>
