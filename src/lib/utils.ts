@@ -1,15 +1,14 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { getLocalidades } from "@/server/lioren";
+// IMPORTAMOS EL JSON QUE ACABAS DE CREAR (Al mismo nivel en /lib)
+import maestroLocalidades from "./localidades.json";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 export const cleanRut = (rut: string): string => {
-  return typeof rut === 'string'
-    ? rut.replace(/[^0-9kK]+/g, '').toUpperCase()
-    : '';
+  return typeof rut === 'string' ? rut.replace(/[^0-9kK]+/g, '').toUpperCase() : '';
 };
 
 export const formatRut = (rut: string): string => {
@@ -22,40 +21,47 @@ export const formatRut = (rut: string): string => {
 };
 
 /**
- * NORMALIZADOR LIOREN (CEREBRO DE UBICACIÓN)
- * Estrategia Híbrida:
- * 1. Intenta buscar la ciudad exacta en la API (para clientes de otras regiones).
- * 2. Si falla o no encuentra, usa el ID 15 (Casa Matriz Taltal).
+ * NORMALIZADOR LIOREN (VERSIÓN MAESTRO LOCAL OFICIAL)
+ * Lee desde src/lib/localidades.json
  */
 export async function normalizarUbicacionLioren(nombreComuna: string | undefined) {
-  // Limpieza del nombre (Ej: " Viña del Mar " -> "VINA DEL MAR")
+  // 1. Limpieza del texto ingresado
   const busca = (nombreComuna || "TALTAL").toUpperCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
   try {
-    // 1. Consultamos la API de Lioren (Búsqueda en Vivo)
-    const localidades = await getLocalidades();
+    // 2. BUSCAMOS LA COMUNA (Dato Fiscal - ID 15 para Taltal)
+    // Usamos 'as any' para que TypeScript lea el JSON sin problemas
+    const listaComunas = (maestroLocalidades as any).comunas || [];
     
-    // Buscamos coincidencia (ignorando tildes y mayúsculas)
-    // Buscamos que el nombre en Lioren CONTENGA lo que escribimos (ej: "SANTIAGO" halla "SANTIAGO CENTRO")
-    const encontrada = localidades.find((l: any) => 
+    const comunaEncontrada = listaComunas.find((l: any) => 
       l.nombre && l.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(busca)
     );
 
-    if (encontrada) {
-      // ÉXITO: Encontramos la ciudad específica del cliente
+    if (comunaEncontrada) {
+      // 3. BUSCAMOS LA CIUDAD (Dato Físico - ID 8 para Taltal)
+      // Lioren separa Comunas de Ciudades. Intentamos hallar la ciudad con el mismo nombre.
+      const listaCiudades = (maestroLocalidades as any).ciudades || [];
+      const ciudadEncontrada = listaCiudades.find((c: any) => 
+        c.nombre && c.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === comunaEncontrada.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      );
+
+      // ID de ciudad: Si encontramos la ciudad exacta, usamos su ID. Si no, usamos el mismo ID de la comuna como fallback.
+      const ciudadIdFinal = ciudadEncontrada ? parseInt(ciudadEncontrada.id, 10) : parseInt(comunaEncontrada.id, 10);
+
+      console.log(`✅ LOCALIDAD OFICIAL: ${comunaEncontrada.nombre} -> Comuna ID: ${comunaEncontrada.id}, Ciudad ID: ${ciudadIdFinal}`);
+
       return {
-        id: parseInt(encontrada.id, 10), 
-        comuna: encontrada.nombre.toUpperCase()
+        id: parseInt(comunaEncontrada.id, 10), // ID para el SII (ej: 15)
+        comuna: comunaEncontrada.nombre.toUpperCase(),
+        ciudadId: ciudadIdFinal // ID para la dirección (ej: 8)
       };
     }
   } catch (error) {
-    console.error("Error API Localidades (Usando Fallback):", error);
+    console.error("Error leyendo maestro local:", error);
   }
   
-  // 2. FALLBACK DE SEGURIDAD (PLAN B)
-  // Si no encontramos la ciudad o la API falló, usamos TALTAL.
-  // IMPORTANTE: ID 15 (Dato confirmado por Soporte). Antes era 21.
-  
-  return { id: 15, comuna: "TALTAL" }; 
+  // 4. FALLBACK DE SEGURIDAD (DATOS OFICIALES TALTAL)
+  // Si todo falla, usamos los datos que viste en el JSON: Comuna 15, Ciudad 8.
+  return { id: 15, comuna: "TALTAL", ciudadId: 8 }; 
 }
