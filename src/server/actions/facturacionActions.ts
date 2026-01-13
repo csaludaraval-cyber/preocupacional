@@ -177,15 +177,42 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 }
 
 /**
- * 4. HERRAMIENTA: DESCARGAR MAESTRO LOCALIDADES
- * Obtiene la lista completa desde Lioren para crear el JSON local.
+ * 4. HERRAMIENTA: DESCARGAR MAESTRO LOCALIDADES (VERSIÓN DIAGNÓSTICO)
+ * Hacemos la petición directa para ver si hay error 401, 404 o 500.
  */
 export async function descargarMaestroLocalidades() {
   try {
-    const data = await import('@/server/lioren').then(m => m.getLocalidades());
-    if (!Array.isArray(data)) throw new Error("La API no devolvió una lista válida.");
+    const token = process.env.LIOREN_TOKEN;
+    if (!token) throw new Error("ERROR CRÍTICO: No hay variable LIOREN_TOKEN en el servidor.");
+
+    console.log("Iniciando descarga directa de localidades...");
+
+    const response = await fetch('https://www.lioren.cl/api/localidades', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`,
+      },
+      cache: 'no-store' // Forzamos a no usar caché
+    });
+
+    if (!response.ok) {
+      // SI FALLA, LEEMOS EL MENSAJE DE ERROR DE LIOREN
+      const errorText = await response.text();
+      console.error("Error Lioren:", response.status, errorText);
+      throw new Error(`Fallo Lioren (${response.status}): ${errorText.substring(0, 100)}`);
+    }
+
+    const data = await response.json();
+    
+    // Verificamos si vino vacío aunque el status sea 200
+    if (Array.isArray(data) && data.length === 0) {
+      throw new Error("Lioren respondió OK (200) pero la lista está vacía.");
+    }
+
     return { success: true, data: data };
   } catch (error: any) {
+    console.error("Error Descarga:", error);
     return { success: false, error: error.message };
   }
 }
