@@ -36,7 +36,7 @@ export default function AdminCotizaciones() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Memoria temporal solo para URL recién generada (Feedback inmediato)
+  // Memoria temporal para URL recién generada
   const [forcedUrls, setForcedUrls] = useState<Record<string, string>>({});
   
   const { toast } = useToast();
@@ -49,16 +49,9 @@ export default function AdminCotizaciones() {
       ).sort((a:any, b:any) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
   }, [quotes, searchTerm]);
 
-  // FUNCIÓN SIMPLIFICADA: Lee la URL directa.
   const getLiorenPdfUrl = (quote: any) => {
-    // 1. Memoria inmediata (recién facturado sin refrescar)
     if (forcedUrls[quote.id]) return forcedUrls[quote.id];
-    
-    // 2. Base de Datos (URL guardada por el servidor)
-    if (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http')) {
-      return quote.liorenPdfUrl;
-    }
-    
+    if (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http')) return quote.liorenPdfUrl;
     return null;
   };
 
@@ -86,10 +79,17 @@ export default function AdminCotizaciones() {
       const result = await ejecutarFacturacionSiiV2(id);
       if (result.success) {
         toast({ title: "Facturado Exitosamente" });
-        // Guardamos la URL completa en memoria para feedback instantáneo
         if (result.pdfUrl) {
           setForcedUrls(prev => ({ ...prev, [id]: result.pdfUrl }));
         }
+        
+        // ACTUALIZACIÓN EN VIVO DEL MODAL
+        setQuoteToManage((prev: any) => ({
+             ...prev, 
+             status: 'FACTURADO', 
+             liorenPdfUrl: result.pdfUrl 
+        }));
+        
         await refetchQuotes();
       }
     } catch (err: any) { 
@@ -97,7 +97,6 @@ export default function AdminCotizaciones() {
     } finally { setIsProcessing(null); }
   };
 
-  // ... Funciones estándar (Email, Upload) ...
   const handleSendEmail = async (quote: any) => {
     const email = quote.solicitanteData?.mail || quote.solicitante?.mail;
     if (!email) return alert("Sin email.");
@@ -109,6 +108,10 @@ export default function AdminCotizaciones() {
       if (result.status === 'success') {
         await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvioEmail: new Date().toISOString() });
         toast({ title: "Correo enviado" });
+        
+        // ACTUALIZACIÓN EN VIVO: Habilita el siguiente botón inmediatamente
+        setQuoteToManage((prev: any) => ({ ...prev, status: 'CORREO_ENVIADO' }));
+        
         await refetchQuotes();
       }
     } catch (err: any) { alert(err.message); }
@@ -125,6 +128,10 @@ export default function AdminCotizaciones() {
       const url = await getDownloadURL(fileRef);
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
       toast({ title: "Pago registrado" });
+      
+      // ACTUALIZACIÓN EN VIVO: Habilita el siguiente botón inmediatamente
+      setQuoteToManage((prev: any) => ({ ...prev, status: 'PAGADO', pagoVoucherUrl: url }));
+      
       await refetchQuotes();
     } catch (err: any) { alert("Error subida."); }
     finally { setIsUploading(false); }
@@ -138,8 +145,7 @@ export default function AdminCotizaciones() {
         <div><h1 className="text-xl font-bold uppercase text-slate-800">Administración</h1><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gestión DTE Araval</p></div>
         <div className="flex items-center gap-4">
           <Button onClick={handleTestLioren} disabled={isProcessing === "test"} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 text-xs">
-             {isProcessing === "test" ? <Loader2 className="h-3 w-3 animate-spin mr-2"/> : <FlaskConical className="h-3.5 w-3.5 mr-2" />}
-             TEST SII
+             {isProcessing === "test" ? <Loader2 className="h-3 w-3 animate-spin mr-2"/> : <FlaskConical className="h-3.5 w-3.5 mr-2" />} TEST SII
           </Button>
           <Button onClick={() => refetchQuotes()} variant="outline" size="sm" className="h-9"><RefreshCw className="h-4 w-4" /></Button>
           <Input placeholder="Buscar..." className="w-64 h-9 text-xs" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -152,8 +158,6 @@ export default function AdminCotizaciones() {
           <TableBody>
             {filteredQuotes.map((quote) => {
               const status = mapLegacyStatus(quote.status).toUpperCase();
-              
-              // Verificación visual simple: Si hay URL forzada o en DB
               const hasUrl = !!forcedUrls[quote.id] || (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http'));
               const isFacturadoVisual = status === 'FACTURADO' || hasUrl;
               const pdfUrl = getLiorenPdfUrl(quote);
@@ -179,8 +183,7 @@ export default function AdminCotizaciones() {
                             <FileText className="h-4 w-4" />
                           </a>
                         ) : (
-                          // FACTURADO PERO SIN URL (ANTIGUO) -> ALERTA NARANJA (YA NO CARGANDO)
-                          <div title="Sin Link (Registro antiguo)" className="text-amber-500"><AlertTriangle className="h-4 w-4" /></div>
+                          <div title="Sin Link" className="text-amber-500"><AlertTriangle className="h-4 w-4" /></div>
                         )
                       ) : null}
                     </div>
@@ -213,7 +216,6 @@ export default function AdminCotizaciones() {
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  {/* BOTONES POR ETAPAS */}
                   {(() => {
                     const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
                     const hasUrl = !!forcedUrls[quoteToManage.id] || (quoteToManage.liorenPdfUrl && quoteToManage.liorenPdfUrl.startsWith('http'));
@@ -229,11 +231,13 @@ export default function AdminCotizaciones() {
                         );
                     }
 
-                    // 2. SUBIR PAGO (Tras Email o si no está facturado)
+                    // 2. SUBIR PAGO (Secuencial: Aparece tras enviar correo)
                     if (status === 'CORREO_ENVIADO' || (status === 'PAGADO' && !isFacturado)) {
                         return (
                            <>
-                             <Button onClick={() => handleSendEmail(quoteToManage)} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800"><Send className="h-3 w-3" /></Button>
+                             {/* Botón Email pequeño para reenvíos */}
+                             <Button onClick={() => handleSendEmail(quoteToManage)} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800" title="Reenviar Email"><Send className="h-3 w-3" /></Button>
+                             
                              {status !== 'PAGADO' && (
                                  <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm" className="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold h-8 transition-all">
                                     {isUploading ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <UploadCloud className="h-3 w-3 mr-1" />} PAGO
@@ -243,7 +247,7 @@ export default function AdminCotizaciones() {
                         );
                     }
                     
-                    // 3. FACTURAR (Tras Pago)
+                    // 3. FACTURAR (Secuencial: Aparece tras Pagar)
                     if (status === 'PAGADO' && !isFacturado) {
                         return (
                             <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === "invoice"} size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold h-8 transition-all">
