@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { useCotizaciones } from '@/hooks/use-cotizaciones';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -19,30 +19,23 @@ import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { GeneradorPDF } from '../cotizacion/GeneradorPDF';
 import { Input } from '@/components/ui/input';
 
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 export default function AdminCotizaciones() {
   const { quotes, isLoading, refetchQuotes } = useCotizaciones();
   const [searchTerm, setSearchTerm] = useState('');
   const [quoteToManage, setQuoteToManage] = useState<any | null>(null);
-  
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  // --- INTERRUPTORES MANUALES (LA SOLUCIÓN QUIRÚRGICA) ---
-  // Estas variables obligan a la interfaz a mostrar los botones sin esperar a la base de datos
-  const [forceShowPago, setForceShowPago] = useState(false);
-  const [forceShowFacturar, setForceShowFacturar] = useState(false);
-  const [forceShowPdf, setForceShowPdf] = useState<string | null>(null);
-
-  // Reseteamos los interruptores cada vez que abres una cotización nueva
-  useEffect(() => {
-    if (quoteToManage) {
-      setForceShowPago(false);
-      setForceShowFacturar(false);
-      setForceShowPdf(null);
-    }
-  }, [quoteToManage]);
 
   const filteredQuotes = useMemo(() => {
     if (!quotes) return [];
@@ -52,9 +45,8 @@ export default function AdminCotizaciones() {
       ).sort((a:any, b:any) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
   }, [quotes, searchTerm]);
 
-  // Constructor de URL (Prioriza el interruptor manual)
+  // Función para obtener la URL del PDF (Prioridad: local o DB)
   const getLiorenPdfUrl = (quote: any) => {
-    if (forceShowPdf) return forceShowPdf; // Prioridad 1: Recién generado
     if (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http')) return quote.liorenPdfUrl;
     return null;
   };
@@ -69,7 +61,6 @@ export default function AdminCotizaciones() {
   };
 
   const handleDescargarMaestro = async () => {
-    if (!confirm("¿Descargar las 3 tablas oficiales (Regiones, Comunas, Ciudades)?")) return;
     setIsProcessing("download");
     try {
       const result = await descargarMaestroLocalidades();
@@ -77,60 +68,34 @@ export default function AdminCotizaciones() {
         const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = 'maestro_lioren_full.json';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        toast({ title: "Maestro descargado" });
-      } else {
-        alert("Error API: " + result.error);
+        a.href = url; a.download = 'maestro_lioren_full.json';
+        document.body.appendChild(a); a.click();
+        window.URL.revokeObjectURL(url); document.body.removeChild(a);
       }
-    } catch (err: any) { alert("Error: " + err.message); }
+    } catch (err: any) { alert(err.message); }
     finally { setIsProcessing(null); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("¿Eliminar solicitud?")) return;
-    try {
-      await deleteDoc(doc(firestore, 'cotizaciones', id));
-      toast({ title: "Eliminado" });
-      await refetchQuotes();
-    } catch (err: any) { alert("Error: " + err.message); }
-  };
-
-  const handleInvoiceNow = async (id: string) => {
-    setIsProcessing("invoice");
-    try {
-      const result = await ejecutarFacturacionSiiV2(id);
-      if (result.success) {
-        toast({ title: "¡Facturado!" });
-        
-        // ACTIVAMOS INTERRUPTOR 3: VER PDF
-        if (result.pdfUrl) setForceShowPdf(result.pdfUrl);
-        
-        await refetchQuotes();
-      }
-    } catch (err: any) { 
-        toast({ variant: 'destructive', title: "Error", description: err.message }); 
-    } finally { setIsProcessing(null); }
-  };
-
   const handleSendEmail = async (quote: any) => {
-    const email = quote.solicitanteData?.mail || quote.solicitante?.mail;
-    if (!email) return alert("Sin email.");
     setIsProcessing("email");
     try {
       const pdfBlob = await GeneradorPDF.generar(quote);
       const pdfBase64 = await blobToBase64(pdfBlob);
-      const result = await enviarCotizacion({ clienteEmail: email, cotizacionId: quote.id.slice(-6).toUpperCase(), pdfBase64 });
+      const result = await enviarCotizacion({ 
+        clienteEmail: quote.solicitanteData?.mail || quote.solicitante?.mail, 
+        cotizacionId: quote.id.slice(-6).toUpperCase(), 
+        pdfBase64 
+      });
+      
       if (result.status === 'success') {
-        await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvioEmail: new Date().toISOString() });
+        await updateDoc(doc(firestore, 'cotizaciones', quote.id), { 
+          status: 'CORREO_ENVIADO', 
+          fechaEnvioEmail: new Date().toISOString() 
+        });
         toast({ title: "Correo enviado" });
         
-        // ACTIVAMOS INTERRUPTOR 1: MOSTRAR PAGO
-        setForceShowPago(true);
+        // ACTUALIZACIÓN LOCAL INMEDIATA PARA ACTIVAR BOTÓN PAGO
+        setQuoteToManage((prev: any) => ({ ...prev, status: 'CORREO_ENVIADO' }));
         
         await refetchQuotes();
       }
@@ -146,77 +111,80 @@ export default function AdminCotizaciones() {
       const fileRef = storageRef(storage, `vouchers/${quoteToManage.id}_${Date.now()}`);
       await uploadBytes(fileRef, event.target.files[0]);
       const url = await getDownloadURL(fileRef);
-      await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
-      toast({ title: "Pago OK" });
       
-      // ACTIVAMOS INTERRUPTOR 2: MOSTRAR FACTURAR
-      setForceShowFacturar(true);
+      await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { 
+        pagoVoucherUrl: url, 
+        status: 'PAGADO' 
+      });
+      toast({ title: "Pago registrado" });
+      
+      // ACTUALIZACIÓN LOCAL INMEDIATA PARA ACTIVAR BOTÓN FACTURAR
+      setQuoteToManage((prev: any) => ({ ...prev, status: 'PAGADO', pagoVoucherUrl: url }));
       
       await refetchQuotes();
-    } catch (err: any) { alert("Error subida."); }
+    } catch (err: any) { alert("Error al subir."); }
     finally { setIsUploading(false); }
+  };
+
+  const handleInvoiceNow = async (id: string) => {
+    setIsProcessing("invoice");
+    try {
+      const result = await ejecutarFacturacionSiiV2(id);
+      if (result.success) {
+        toast({ title: "¡Facturado con éxito!" });
+        
+        // ACTUALIZACIÓN LOCAL INMEDIATA PARA ACTIVAR BOTÓN VER PDF
+        setQuoteToManage((prev: any) => ({ 
+          ...prev, 
+          status: 'FACTURADO', 
+          liorenPdfUrl: result.pdfUrl 
+        }));
+        
+        await refetchQuotes();
+      }
+    } catch (err: any) { alert(err.message); }
+    finally { setIsProcessing(null); }
   };
 
   if (isLoading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-6 w-6 text-slate-300" /></div>;
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
+      {/* Header */}
       <div className="flex justify-between items-end mb-8">
         <div><h1 className="text-xl font-bold uppercase text-slate-800">Administración</h1><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gestión DTE Araval</p></div>
         <div className="flex items-center gap-4">
-          <Button onClick={handleDescargarMaestro} disabled={isProcessing === "download"} variant="outline" size="sm" className="h-9 border-slate-400 text-slate-600">
-             {isProcessing === "download" ? <Loader2 className="h-3 w-3 animate-spin mr-2"/> : <Download className="h-3.5 w-3.5 mr-2" />} MAESTRO
-          </Button>
-          <Button onClick={handleTestLioren} disabled={isProcessing === "test"} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 text-xs">
-             {isProcessing === "test" ? <Loader2 className="h-3 w-3 animate-spin mr-2"/> : <FlaskConical className="h-3.5 w-3.5 mr-2" />} TEST SII
-          </Button>
+          <Button onClick={handleDescargarMaestro} disabled={isProcessing === "download"} variant="outline" size="sm" className="h-9 border-slate-400 text-slate-600"><Download className="h-3.5 w-3.5 mr-2" /> MAESTRO</Button>
+          <Button onClick={handleTestLioren} disabled={isProcessing === "test"} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 text-xs"><FlaskConical className="h-3.5 w-3.5 mr-2" /> TEST SII</Button>
           <Button onClick={() => refetchQuotes()} variant="outline" size="sm" className="h-9"><RefreshCw className="h-4 w-4" /></Button>
           <Input placeholder="Buscar..." className="w-64 h-9 text-xs" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
+      {/* Tabla Principal */}
       <div className="bg-white border rounded-sm shadow-sm">
         <Table>
           <TableHeader className="bg-slate-50"><TableRow><TableHead className="py-3 px-6 text-[10px]">ID</TableHead><TableHead className="text-[10px]">Empresa</TableHead><TableHead className="text-center text-[10px]">Estado / DTE</TableHead><TableHead className="text-right px-6 text-[10px]">Acciones</TableHead></TableRow></TableHeader>
           <TableBody>
             {filteredQuotes.map((quote) => {
               const status = mapLegacyStatus(quote.status).toUpperCase();
-              
-              // Verificación visual en la tabla
-              const hasUrl = !!forceShowPdf || (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http'));
-              const isFacturadoVisual = status === 'FACTURADO' || hasUrl;
               const pdfUrl = getLiorenPdfUrl(quote);
-
               return (
-                <TableRow key={quote.id} className="text-xs hover:bg-slate-50 transition-colors">
+                <TableRow key={quote.id} className="text-xs hover:bg-slate-50">
                   <TableCell className="font-mono font-bold px-6">#{quote.id.slice(-6).toUpperCase()}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-bold">{quote.empresaData?.razonSocial}</span>
-                      <span className="text-[10px] text-slate-400">{quote.empresaData?.rut}</span>
-                    </div>
-                  </TableCell>
+                  <TableCell><div className="flex flex-col"><span className="font-bold text-slate-700">{quote.empresaData?.razonSocial}</span><span className="text-[10px] text-slate-400 font-mono">{quote.empresaData?.rut}</span></div></TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <Badge className={`font-bold text-[9px] uppercase ${isFacturadoVisual ? 'bg-emerald-500' : status === 'PAGADO' ? 'bg-blue-600' : 'bg-slate-400'} border-none text-white`}>
-                        {isFacturadoVisual ? 'FACTURADO' : status}
-                      </Badge>
-                      {isFacturadoVisual ? (
+                      <Badge className={`font-bold text-[9px] uppercase ${status === 'FACTURADO' ? 'bg-emerald-500' : status === 'PAGADO' ? 'bg-blue-600' : status === 'CORREO_ENVIADO' ? 'bg-amber-500' : 'bg-slate-400'} border-none text-white`}>{status}</Badge>
+                      {status === 'FACTURADO' && (
                         pdfUrl ? (
-                          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white p-1 rounded hover:bg-blue-700 transition-colors shadow-sm"><FileText className="h-4 w-4" /></a>
+                          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white p-1 rounded hover:bg-blue-700"><FileText className="h-4 w-4" /></a>
                         ) : <div className="text-amber-500"><AlertTriangle className="h-4 w-4" /></div>
-                      ) : null}
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-right px-6">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4 text-slate-400" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setQuoteToManage(quote)}><Eye className="mr-2 h-4 w-4" /> Gestionar</DropdownMenuItem>
-                        {pdfUrl && <DropdownMenuItem onClick={() => window.open(pdfUrl, '_blank')}><ExternalLink className="mr-2 h-4 w-4" /> Ver Factura</DropdownMenuItem>}
-                        <DropdownMenuItem onClick={() => handleDelete(quote.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50"><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button variant="ghost" size="icon" onClick={() => setQuoteToManage(quote)}><Eye className="h-4 w-4 text-slate-600" /></Button>
                   </TableCell>
                 </TableRow>
               );
@@ -225,46 +193,58 @@ export default function AdminCotizaciones() {
         </Table>
       </div>
 
+      {/* DIÁLOGO DE GESTIÓN CON PASOS ESTRICTOS */}
       <Dialog open={!!quoteToManage} onOpenChange={() => setQuoteToManage(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
           {quoteToManage && (
             <div className="flex flex-col">
               <div className="p-4 bg-slate-900 text-white flex flex-wrap gap-3 justify-between items-center sticky top-0 z-50">
                 <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Gestión de Orden</span>
-                    <span className="text-sm font-bold">#{quoteToManage.id.slice(-6).toUpperCase()}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 text-white">Gestión de Orden</span>
+                    <span className="text-sm font-bold text-white">#{quoteToManage.id.slice(-6).toUpperCase()}</span>
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
                   {(() => {
                     const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
                     const pdfUrl = getLiorenPdfUrl(quoteToManage);
-                    const isFacturado = status === 'FACTURADO' || !!forceShowPdf;
 
-                    // --- LÓGICA DE BOTONES BASADA EN ESTADO O INTERRUPTORES MANUALES ---
-
-                    // 1. EMAIL
-                    if (!isFacturado && status !== 'PAGADO' && !forceShowPago && !forceShowFacturar) {
-                        return <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} size="sm" className="bg-slate-700 hover:bg-slate-600 text-[10px] font-bold h-8 transition-all">{isProcessing === "email" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <Send className="h-3 w-3 mr-1" />} EMAIL</Button>;
+                    // PASO 1: CONFIRMADA -> Mostrar EMAIL
+                    if (status === 'CONFIRMADA') {
+                        return (
+                            <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} size="sm" className="bg-slate-700 hover:bg-slate-600 text-[10px] font-bold h-8 transition-all">
+                                {isProcessing === "email" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <Send className="h-3 w-3 mr-1" />} EMAIL
+                            </Button>
+                        );
                     }
 
-                    // 2. PAGO (Si ya enviamos mail O si activamos el switch manual)
-                    if ((status === 'CORREO_ENVIADO' || forceShowPago) && !isFacturado && !forceShowFacturar && status !== 'PAGADO') {
-                        return <>
-                             <Button onClick={() => handleSendEmail(quoteToManage)} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800" title="Reenviar"><Send className="h-3 w-3" /></Button>
-                             <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm" className="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold h-8 transition-all">{isUploading ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <UploadCloud className="h-3 w-3 mr-1" />} PAGO</Button>
-                        </>;
+                    // PASO 2: CORREO_ENVIADO -> Mostrar PAGO
+                    if (status === 'CORREO_ENVIADO') {
+                        return (
+                            <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm" className="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold h-8 transition-all">
+                                {isUploading ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <UploadCloud className="h-3 w-3 mr-1" />} PAGO
+                            </Button>
+                        );
                     }
                     
-                    // 3. FACTURAR (Si ya pagamos O si activamos el switch manual)
-                    if ((status === 'PAGADO' || forceShowFacturar) && !isFacturado) {
-                        return <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === "invoice"} size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold h-8 transition-all">{isProcessing === "invoice" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <FileText className="h-3 w-3 mr-1" />} FACTURAR SII</Button>;
+                    // PASO 3: PAGADO -> Mostrar FACTURAR SII
+                    if (status === 'PAGADO') {
+                        return (
+                            <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === "invoice"} size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold h-8 transition-all">
+                                {isProcessing === "invoice" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <FileText className="h-3 w-3 mr-1" />} FACTURAR SII
+                            </Button>
+                        );
                     }
 
-                    // 4. VER PDF (Si está facturado O si activamos el switch manual)
-                    if (isFacturado || pdfUrl) {
-                        return <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold h-8 transition-all"><a href={pdfUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-1" /> VER PDF OFICIAL</a></Button>;
+                    // PASO 4: FACTURADO -> Mostrar VER PDF
+                    if (status === 'FACTURADO' && pdfUrl) {
+                        return (
+                            <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold h-8 transition-all">
+                                <a href={pdfUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-1" /> VER PDF OFICIAL</a>
+                            </Button>
+                        );
                     }
+                    
                     return null;
                   })()}
                 </div>
