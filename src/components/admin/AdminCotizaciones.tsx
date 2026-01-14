@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useCotizaciones } from '@/hooks/use-cotizaciones';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -19,25 +19,30 @@ import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
 import { GeneradorPDF } from '../cotizacion/GeneradorPDF';
 import { Input } from '@/components/ui/input';
 
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
-
 export default function AdminCotizaciones() {
   const { quotes, isLoading, refetchQuotes } = useCotizaciones();
   const [searchTerm, setSearchTerm] = useState('');
   const [quoteToManage, setQuoteToManage] = useState<any | null>(null);
+  
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [forcedUrls, setForcedUrls] = useState<Record<string, string>>({});
   const { toast } = useToast();
+
+  // --- INTERRUPTORES MANUALES (LA SOLUCIÓN QUIRÚRGICA) ---
+  // Estas variables obligan a la interfaz a mostrar los botones sin esperar a la base de datos
+  const [forceShowPago, setForceShowPago] = useState(false);
+  const [forceShowFacturar, setForceShowFacturar] = useState(false);
+  const [forceShowPdf, setForceShowPdf] = useState<string | null>(null);
+
+  // Reseteamos los interruptores cada vez que abres una cotización nueva
+  useEffect(() => {
+    if (quoteToManage) {
+      setForceShowPago(false);
+      setForceShowFacturar(false);
+      setForceShowPdf(null);
+    }
+  }, [quoteToManage]);
 
   const filteredQuotes = useMemo(() => {
     if (!quotes) return [];
@@ -47,8 +52,9 @@ export default function AdminCotizaciones() {
       ).sort((a:any, b:any) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
   }, [quotes, searchTerm]);
 
+  // Constructor de URL (Prioriza el interruptor manual)
   const getLiorenPdfUrl = (quote: any) => {
-    if (forcedUrls[quote.id]) return forcedUrls[quote.id];
+    if (forceShowPdf) return forceShowPdf; // Prioridad 1: Recién generado
     if (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http')) return quote.liorenPdfUrl;
     return null;
   };
@@ -77,7 +83,7 @@ export default function AdminCotizaciones() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        toast({ title: "Tablas descargadas", description: "Revisa el archivo maestro_lioren_full.json" });
+        toast({ title: "Maestro descargado" });
       } else {
         alert("Error API: " + result.error);
       }
@@ -89,7 +95,7 @@ export default function AdminCotizaciones() {
     if (!window.confirm("¿Eliminar solicitud?")) return;
     try {
       await deleteDoc(doc(firestore, 'cotizaciones', id));
-      toast({ title: "Solicitud eliminada" });
+      toast({ title: "Eliminado" });
       await refetchQuotes();
     } catch (err: any) { alert("Error: " + err.message); }
   };
@@ -99,16 +105,16 @@ export default function AdminCotizaciones() {
     try {
       const result = await ejecutarFacturacionSiiV2(id);
       if (result.success) {
-        toast({ title: "Facturado Exitosamente" });
-        if (result.pdfUrl) setForcedUrls(prev => ({ ...prev, [id]: result.pdfUrl }));
+        toast({ title: "¡Facturado!" });
         
-        // FUERZA BRUTA: Actualizamos el estado local INMEDIATAMENTE
-        setQuoteToManage((prev: any) => ({ ...prev, status: 'FACTURADO', liorenPdfUrl: result.pdfUrl }));
+        // ACTIVAMOS INTERRUPTOR 3: VER PDF
+        if (result.pdfUrl) setForceShowPdf(result.pdfUrl);
         
-        await refetchQuotes(); 
+        await refetchQuotes();
       }
-    } catch (err: any) { toast({ variant: 'destructive', title: "Error", description: err.message }); } 
-    finally { setIsProcessing(null); }
+    } catch (err: any) { 
+        toast({ variant: 'destructive', title: "Error", description: err.message }); 
+    } finally { setIsProcessing(null); }
   };
 
   const handleSendEmail = async (quote: any) => {
@@ -120,12 +126,11 @@ export default function AdminCotizaciones() {
       const pdfBase64 = await blobToBase64(pdfBlob);
       const result = await enviarCotizacion({ clienteEmail: email, cotizacionId: quote.id.slice(-6).toUpperCase(), pdfBase64 });
       if (result.status === 'success') {
-        // 1. Base de datos
         await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvioEmail: new Date().toISOString() });
         toast({ title: "Correo enviado" });
         
-        // 2. FUERZA BRUTA: Aquí está el arreglo. Forzamos el estado local.
-        setQuoteToManage((prev: any) => ({ ...prev, status: 'CORREO_ENVIADO' }));
+        // ACTIVAMOS INTERRUPTOR 1: MOSTRAR PAGO
+        setForceShowPago(true);
         
         await refetchQuotes();
       }
@@ -141,12 +146,11 @@ export default function AdminCotizaciones() {
       const fileRef = storageRef(storage, `vouchers/${quoteToManage.id}_${Date.now()}`);
       await uploadBytes(fileRef, event.target.files[0]);
       const url = await getDownloadURL(fileRef);
-      
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
-      toast({ title: "Pago registrado" });
+      toast({ title: "Pago OK" });
       
-      // 3. FUERZA BRUTA: Forzamos el estado local a PAGADO
-      setQuoteToManage((prev: any) => ({ ...prev, status: 'PAGADO', pagoVoucherUrl: url }));
+      // ACTIVAMOS INTERRUPTOR 2: MOSTRAR FACTURAR
+      setForceShowFacturar(true);
       
       await refetchQuotes();
     } catch (err: any) { alert("Error subida."); }
@@ -177,7 +181,9 @@ export default function AdminCotizaciones() {
           <TableBody>
             {filteredQuotes.map((quote) => {
               const status = mapLegacyStatus(quote.status).toUpperCase();
-              const hasUrl = !!forcedUrls[quote.id] || (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http'));
+              
+              // Verificación visual en la tabla
+              const hasUrl = !!forceShowPdf || (quote.liorenPdfUrl && quote.liorenPdfUrl.startsWith('http'));
               const isFacturadoVisual = status === 'FACTURADO' || hasUrl;
               const pdfUrl = getLiorenPdfUrl(quote);
 
@@ -231,25 +237,32 @@ export default function AdminCotizaciones() {
                 
                 <div className="flex flex-wrap gap-2">
                   {(() => {
-                    // AQUÍ USAMOS quoteToManage DIRECTAMENTE, QUE YA FUE ACTUALIZADO MANUALMENTE
                     const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
-                    const hasUrl = !!forcedUrls[quoteToManage.id] || (quoteToManage.liorenPdfUrl && quoteToManage.liorenPdfUrl.startsWith('http'));
-                    const isFacturado = status === 'FACTURADO' || hasUrl;
                     const pdfUrl = getLiorenPdfUrl(quoteToManage);
+                    const isFacturado = status === 'FACTURADO' || !!forceShowPdf;
 
-                    if (!isFacturado && status !== 'PAGADO') {
+                    // --- LÓGICA DE BOTONES BASADA EN ESTADO O INTERRUPTORES MANUALES ---
+
+                    // 1. EMAIL
+                    if (!isFacturado && status !== 'PAGADO' && !forceShowPago && !forceShowFacturar) {
                         return <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} size="sm" className="bg-slate-700 hover:bg-slate-600 text-[10px] font-bold h-8 transition-all">{isProcessing === "email" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <Send className="h-3 w-3 mr-1" />} EMAIL</Button>;
                     }
-                    if (status === 'CORREO_ENVIADO' || (status === 'PAGADO' && !isFacturado)) {
+
+                    // 2. PAGO (Si ya enviamos mail O si activamos el switch manual)
+                    if ((status === 'CORREO_ENVIADO' || forceShowPago) && !isFacturado && !forceShowFacturar && status !== 'PAGADO') {
                         return <>
                              <Button onClick={() => handleSendEmail(quoteToManage)} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800" title="Reenviar"><Send className="h-3 w-3" /></Button>
-                             {status !== 'PAGADO' && <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm" className="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold h-8 transition-all">{isUploading ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <UploadCloud className="h-3 w-3 mr-1" />} PAGO</Button>}
+                             <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm" className="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold h-8 transition-all">{isUploading ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <UploadCloud className="h-3 w-3 mr-1" />} PAGO</Button>
                         </>;
                     }
-                    if (status === 'PAGADO' && !isFacturado) {
+                    
+                    // 3. FACTURAR (Si ya pagamos O si activamos el switch manual)
+                    if ((status === 'PAGADO' || forceShowFacturar) && !isFacturado) {
                         return <Button onClick={() => handleInvoiceNow(quoteToManage.id)} disabled={isProcessing === "invoice"} size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold h-8 transition-all">{isProcessing === "invoice" ? <Loader2 className="animate-spin h-3 w-3 mr-1"/> : <FileText className="h-3 w-3 mr-1" />} FACTURAR SII</Button>;
                     }
-                    if (isFacturado && pdfUrl) {
+
+                    // 4. VER PDF (Si está facturado O si activamos el switch manual)
+                    if (isFacturado || pdfUrl) {
                         return <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold h-8 transition-all"><a href={pdfUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-1" /> VER PDF OFICIAL</a></Button>;
                     }
                     return null;
