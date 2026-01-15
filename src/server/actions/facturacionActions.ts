@@ -7,16 +7,23 @@ import type { CotizacionFirestore } from '@/lib/types';
 
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa-pruebas-api";
 
+/**
+ * 1. TEST DE CONEXIÓN
+ */
 export async function probarConexionLioren() {
   try {
     const data = await whoami();
     const ubicacion = await normalizarUbicacionLioren("TALTAL", "TALTAL");
-    return { success: true, message: `Conexión OK. Taltal mapeado como C:${ubicacion.comunaId} CI:${ubicacion.ciudadId}` };
+    // Corrección aquí: Usamos comunaId y ciudadId
+    return { success: true, message: `Conexión OK. Taltal: C:${ubicacion.comunaId} CI:${ubicacion.ciudadId}` };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
+/**
+ * 2. FACTURACIÓN INDIVIDUAL
+ */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
   try {
@@ -26,12 +33,8 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     if (!snap.exists) throw new Error("Cotización no encontrada.");
     const data = snap.data() as CotizacionFirestore;
 
-    trace = "Mapeo de Localidades";
-    // ENVIAMOS COMUNA Y CIUDAD POR SEPARADO
-    const ubicacion = await normalizarUbicacionLioren(
-      data.empresaData?.comuna, 
-      data.empresaData?.ciudad
-    );
+    trace = "Mapeo Ubicación";
+    const ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna, data.empresaData?.ciudad);
 
     trace = "Construyendo Payload";
     const payload = {
@@ -42,8 +45,9 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
         rs: (data.empresaData?.razonSocial || '').toUpperCase().substring(0, 100),
         giro: (data.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40),
         direccion: (data.empresaData?.direccion || "DIRECCION").toUpperCase().substring(0, 70),
-        comuna: ubicacion.comunaId, // ID de la tabla Comunas
-        ciudad: ubicacion.ciudadId, // ID de la tabla Ciudades
+        // Corrección aquí: Usamos comunaId
+        comuna: ubicacion.comunaId,
+        ciudad: ubicacion.ciudadId,
         email: data.empresaData?.email || data.solicitanteData?.mail || "soporte@araval.cl"
       },
       detalles: (data.solicitudesData || []).flatMap((sol: any) =>
@@ -60,11 +64,11 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id) || "";
     const finalFolio = result.folio || (result.dte && result.dte.folio) || "";
 
-    if (!finalId) throw new Error("ID no recibido.");
+    if (!finalId) throw new Error("Lioren no devolvió ID.");
 
     const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
 
-    trace = "Escritura Firestore";
+    trace = "Firestore Write";
     await docRef.set({
       status: 'FACTURADO',
       liorenId: String(finalId),
@@ -80,15 +84,24 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   }
 }
 
+/**
+ * 3. FACTURACIÓN CONSOLIDADA
+ */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
+  let trace = "INICIO CONSOLIDACIÓN";
   try {
     const db = getDb();
-    const snap = await db.collection('cotizaciones').where('empresaData.rut', '==', rutEmpresa).where('status', '==', 'PAGADO').get();
-    if (snap.empty) throw new Error("No hay órdenes.");
+    
+    const snap = await db.collection('cotizaciones')
+      .where('empresaData.rut', '==', rutEmpresa)
+      .where('status', 'in', ['PAGADO', 'CORREO_ENVIADO', 'orden_examen_enviada']) 
+      .get();
+
+    if (snap.empty) throw new Error("No hay órdenes pendientes para facturar.");
+
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
     
-    // Mapeo doble para consolidado
     const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna, base.empresaData?.ciudad);
 
     const todosLosDetalles = docs.flatMap(doc => {
@@ -109,6 +122,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
         rs: (base.empresaData?.razonSocial || "CONSOLIDADO").toUpperCase(),
         giro: (base.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase(),
         direccion: (base.empresaData?.direccion || "DIRECCION").toUpperCase(),
+        // Corrección aquí: Usamos comunaId
         comuna: ubicacion.comunaId,
         ciudad: ubicacion.ciudadId,
         email: base.empresaData?.email || "soporte@araval.cl"
@@ -124,13 +138,21 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
     const batch = db.batch();
     docs.forEach(d => {
       batch.update(d.ref, { 
-        status: 'FACTURADO', liorenFolio: String(finalFolio), liorenId: String(finalId),
-        liorenPdfUrl: finalPdfUrl, liorenConsolidado: true, liorenFechaEmision: new Date().toISOString()
+        status: 'FACTURADO', 
+        liorenFolio: String(finalFolio), 
+        liorenId: String(finalId),
+        liorenPdfUrl: finalPdfUrl, 
+        liorenConsolidado: true,
+        liorenFechaEmision: new Date().toISOString()
       });
     });
+    
     await batch.commit();
     return { success: true, folio: finalFolio, count: docs.length, pdfUrl: finalPdfUrl };
-  } catch (error: any) { throw new Error(error.message); }
+  } catch (error: any) { 
+    console.error("ERROR CONSOLIDADO:", error.message);
+    throw new Error(error.message); 
+  }
 }
 
 export async function descargarMaestroLocalidades() {
