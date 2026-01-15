@@ -18,12 +18,13 @@ import Paso1DatosGenerales from '@/components/cotizacion/Paso1DatosGenerales';
 import Paso2SeleccionExamenes from '@/components/cotizacion/Paso2SeleccionExamenes';
 import type { SolicitudTrabajador } from '@/types/models';
 
-const BATERIA_HEFAISTOS_MOCK: Examen = {
-  id: 'MOCK-001',
-  codigo: 'BAT-HEF',
-  nombre: 'Batería de Exámenes Hefaistos',
-  categoria: 'Exámenes Ocupacionales / Minería',
-  valor: 75000, 
+// BATERÍA IMAX REAL (Datos obtenidos del catálogo)
+const BATERIA_IMAX_REAL: Examen = {
+  id: '303001', // ID Real de la batería básica
+  codigo: '303001',
+  nombre: 'Batería Básica Preocupacional (IMAX)',
+  categoria: 'Baterías y Exámenes Ocupacionales',
+  valor: 28000, 
 };
 
 const initialEmpresa: Empresa = { rut: '', razonSocial: '', direccion: '', giro: '', ciudad: '', comuna: '', region: '', email: '' };
@@ -67,18 +68,19 @@ export default function SolicitudPage() {
         const docSnap = await getDoc(empresaRef);
         if (docSnap.exists()) {
             const data = docSnap.data() as Empresa;
+            setEmpresa(data); // Rellena datos automáticamente
+            
             if (data.modalidadFacturacion === 'frecuente') {
-                setEmpresa(data);
                 setIsClienteFrecuente(true);
-                setSolicitudes(prev => prev.map(s => ({ ...s, examenes: [BATERIA_HEFAISTOS_MOCK] })));
-                toast({ title: 'Cliente Frecuente Detectado', description: `Se han cargado los datos de ${data.razonSocial}.` });
+                // Pre-carga Batería IMAX a todas las solicitudes actuales
+                setSolicitudes(prev => prev.map(s => ({ ...s, examenes: [BATERIA_IMAX_REAL] })));
+                toast({ title: 'Cliente Frecuente Detectado', description: `Datos de ${data.razonSocial} cargados con Batería IMAX.` });
             } else {
-                 toast({ title: 'Cliente Estándar', description: 'Continúe con la solicitud normal.' });
+                 toast({ title: 'Cliente Estándar', description: 'Datos cargados. Seleccione los exámenes manualmente.' });
                  setIsClienteFrecuente(false);
-                 setEmpresa(data);
             }
         } else {
-             toast({ variant: 'destructive', title: 'Empresa no encontrada', description: 'El RUT no corresponde a un cliente frecuente registrado.' });
+             toast({ variant: 'destructive', title: 'Empresa no encontrada', description: 'Por favor ingrese los datos manualmente.' });
              setIsClienteFrecuente(false);
         }
     } catch (error) {
@@ -103,10 +105,8 @@ export default function SolicitudPage() {
   };
   
   const handleExamToggle = (exam: Examen, checked: boolean) => {
-    if (isClienteFrecuente) {
-        toast({ title: "Acción no permitida", description: "Los exámenes para clientes frecuentes son fijos."});
-        return;
-    }
+    // DESBLOQUEO: Eliminada la restricción 'isClienteFrecuente'
+    // Ahora cualquier cliente puede agregar o quitar exámenes libremente
     const currentExams = currentSolicitud.examenes;
     const newExams = checked
       ? [...currentExams, exam]
@@ -115,14 +115,15 @@ export default function SolicitudPage() {
   };
 
   const addTrabajador = () => {
-    setStep(1); 
+    // Al añadir trabajador, hereda la configuración del cliente (IMAX si es frecuente)
     const newSolicitud: SolicitudTrabajador = { 
         id: crypto.randomUUID(), 
         trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' }, 
-        examenes: isClienteFrecuente ? [BATERIA_HEFAISTOS_MOCK] : [] 
+        examenes: isClienteFrecuente ? [BATERIA_IMAX_REAL] : [] 
     };
     setSolicitudes(prev => [...prev, newSolicitud]);
-    setCurrentSolicitudIndex(solicitudes.length);
+    setCurrentSolicitudIndex(solicitudes.length); // Ir al nuevo trabajador
+    setStep(1); // Volver al paso 1 para llenar sus datos
   };
 
   const removeTrabajador = (indexToRemove: number) => {
@@ -135,8 +136,9 @@ export default function SolicitudPage() {
 
   const handleSendRequest = async () => {
      setIsSubmitting(true);
+     // Validación básica
      if (!empresa.razonSocial || !empresa.rut || !solicitante.nombre || !solicitante.mail) {
-        toast({ title: "Datos incompletos", variant: "destructive"});
+        toast({ title: "Datos incompletos", description: "Complete los datos de Empresa y Solicitante.", variant: "destructive"});
         setIsSubmitting(false);
         setStep(1);
         return;
@@ -147,7 +149,7 @@ export default function SolicitudPage() {
       solicitante,
       solicitudes: solicitudes.map(s => ({ ...s, trabajador: { ...s.trabajador, fechaAtencion: s.trabajador.fechaAtencion || null } })),
       fechaCreacion: serverTimestamp(),
-      estado: isClienteFrecuente ? 'orden_examen_enviada' : 'pendiente',
+      estado: isClienteFrecuente ? 'orden_examen_enviada' : 'pendiente', // Los frecuentes saltan directo a orden enviada
     };
 
     try {
@@ -160,8 +162,6 @@ export default function SolicitudPage() {
     }
   };
   
-  // FIX QUIRÚRGICO PARA EL ERROR DE TYPESCRIPT:
-  // Se crea un manejador que acepta tanto el objeto Trabajador como una función de actualización
   const handleSetTrabajador = (value: React.SetStateAction<Trabajador>) => {
     const nextTrabajador = typeof value === 'function' 
       ? (value as (prev: Trabajador) => Trabajador)(currentSolicitud.trabajador) 
@@ -193,14 +193,16 @@ export default function SolicitudPage() {
 
   const currentStepData = steps.find(s => s.id === step);
 
-  if (solicitudes.length === 0) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+  if (solicitudes.length === 0) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
 
   if (formSubmitted) {
     return (
-        <Alert className="max-w-2xl mx-auto border-accent">
-            <Send className="h-5 w-5" />
-            <AlertTitle className="text-xl font-headline">¡Solicitud Enviada!</AlertTitle>
-            <AlertDescription>Gracias por su solicitud. Nuestro equipo la revisará a la brevedad.</AlertDescription>
+        <Alert className="max-w-2xl mx-auto border-blue-500 bg-blue-50">
+            <Send className="h-5 w-5 text-blue-600" />
+            <AlertTitle className="text-xl font-headline text-blue-800">¡Solicitud Enviada con Éxito!</AlertTitle>
+            <AlertDescription className="text-blue-700">
+                Hemos recibido su solicitud correctamente. Se ha notificado al equipo de administración.
+            </AlertDescription>
         </Alert>
     );
   }
@@ -208,58 +210,95 @@ export default function SolicitudPage() {
   return (
     <div className="space-y-8">
         <div className="text-center">
-            <h1 className="font-headline text-3xl font-bold text-primary uppercase">Solicitud de Exámenes</h1>
+            <h1 className="font-headline text-3xl font-bold text-slate-800 uppercase">Solicitud de Exámenes</h1>
+            <p className="text-slate-500">Complete los datos para generar la orden de atención</p>
         </div>
 
-      <Card className="border-2 border-primary/20 shadow-lg">
-        <CardHeader>
-             <CardTitle className='font-headline uppercase text-primary font-bold'>Validación de Cliente Frecuente</CardTitle>
+      {/* Tarjeta de Validación - Ahora más limpia */}
+      <Card className="border shadow-md">
+        <CardHeader className="pb-3">
+             <CardTitle className='font-bold text-sm uppercase text-slate-500'>Validación Cliente Frecuente (Opcional)</CardTitle>
         </CardHeader>
         <CardContent>
-            <div className="flex w-full max-w-sm items-center space-x-2">
-                <Input placeholder="RUT de la empresa" value={rutEmpresa} onChange={(e) => setRutEmpresa(formatRut(e.target.value))} disabled={isValidating || isClienteFrecuente} />
-                <Button onClick={handleValidateRut} disabled={isValidating || isClienteFrecuente}>
-                    {isValidating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ShieldCheck className="mr-2 h-4 w-4" />} Validar
+            <div className="flex w-full max-w-md items-center space-x-2">
+                <Input 
+                    placeholder="Ingrese RUT Empresa (Ej: 76.123.456-7)" 
+                    value={rutEmpresa} 
+                    onChange={(e) => setRutEmpresa(formatRut(e.target.value))} 
+                    disabled={isValidating || isClienteFrecuente}
+                    className="border-slate-300"
+                />
+                <Button 
+                    onClick={handleValidateRut} 
+                    disabled={isValidating || isClienteFrecuente}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                >
+                    {isValidating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ShieldCheck className="mr-2 h-4 w-4" />} 
+                    Validar
                 </Button>
             </div>
         </CardContent>
       </Card>
 
-      <Card className="border-2 border-primary/20 shadow-lg">
+      <Card className="border shadow-lg">
         <CardContent className="p-6">
-          <Progress value={progress} className="h-2 mb-6" />
+          <Progress value={progress} className="h-2 mb-6 bg-slate-100" indicatorClassName="bg-blue-600"/>
+          
           <div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
+            {/* Columna Izquierda: Formulario Dinámico */}
             <div className="md:col-span-2">
               <AnimatePresence mode="wait">
-                <motion.div key={`${step}-${currentSolicitudIndex}`} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                <motion.div key={`${step}-${currentSolicitudIndex}`} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
                   {currentStepData?.component}
                 </motion.div>
               </AnimatePresence>
             </div>
+
+            {/* Columna Derecha: Resumen de Trabajadores */}
             <div className="md:col-span-1 space-y-4">
-              <Card>
-                <CardHeader><CardTitle className="text-lg font-headline flex items-center gap-2"><Users className="h-5 w-5"/> Trabajadores ({solicitudes.length})</CardTitle></CardHeader>
+              <Card className="bg-slate-50 border-slate-200">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold uppercase text-slate-500 flex items-center gap-2">
+                        <Users className="h-4 w-4"/> Trabajadores ({solicitudes.length})
+                    </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-2">
                   {solicitudes.map((s, index) => (
-                    <div key={s.id} className="flex items-center gap-2">
-                      <Button variant={index === currentSolicitudIndex ? 'secondary' : 'ghost'} size="sm" className="flex-grow justify-start" onClick={() => { setCurrentSolicitudIndex(index); setStep(1); }}>
-                          {s.trabajador.nombre || `Trabajador ${index + 1}`}
+                    <div key={s.id} className={`flex items-center gap-2 p-2 rounded-md ${index === currentSolicitudIndex ? 'bg-white shadow-sm border border-blue-200' : 'hover:bg-white/50'}`}>
+                      <Button variant="ghost" size="sm" className="flex-grow justify-start h-auto py-1 font-normal text-slate-700" onClick={() => { setCurrentSolicitudIndex(index); setStep(1); }}>
+                          <span className="truncate">{s.trabajador.nombre || `Trabajador ${index + 1}`}</span>
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => removeTrabajador(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={() => removeTrabajador(index)}>
+                          <Trash2 className="h-3 w-3"/>
+                      </Button>
                     </div>
                   ))}
-                  <Button variant="outline" size="sm" className="w-full" onClick={addTrabajador}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Trabajador</Button>
+                  <Button variant="outline" size="sm" className="w-full mt-2 border-dashed border-slate-300 text-slate-600 hover:bg-white" onClick={addTrabajador}>
+                      <PlusCircle className="mr-2 h-3 w-3" /> Añadir Otro Trabajador
+                  </Button>
                 </CardContent>
               </Card>
             </div>
           </div>
-          <div className="mt-8 flex justify-between">
-            <Button variant="outline" onClick={prevStep} disabled={step === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Anterior</Button>
+
+          {/* Botonera de Navegación AZUL */}
+          <div className="mt-8 flex justify-between pt-4 border-t border-slate-100">
+            <Button variant="outline" onClick={prevStep} disabled={step === 1} className="text-slate-600">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
+            </Button>
+            
             <div className="flex gap-2">
-                {step === 1 && <Button onClick={nextStep}>Seleccionar Exámenes <ArrowRight className="ml-2 h-4 w-4" /></Button>}
-                <Button onClick={handleSendRequest} disabled={isSubmitting} className="bg-accent text-accent-foreground">
-                    {isSubmitting ? 'Enviando...' : <><Send className="mr-2 h-4 w-4" /> Enviar Solicitud</>}
-                </Button>
+                {step === 1 && (
+                    <Button onClick={nextStep} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6">
+                        Siguiente: Exámenes <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                )}
+                
+                {step === 2 && (
+                    <Button onClick={handleSendRequest} disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8">
+                        {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Enviando...</> : <><Send className="mr-2 h-4 w-4" /> Finalizar Solicitud</>}
+                    </Button>
+                )}
             </div>
           </div>
         </CardContent>
