@@ -20,41 +20,50 @@ export const formatRut = (rut: string): string => {
 };
 
 /**
- * NORMALIZADOR LIOREN (SOLUCIÓN NUCLEAR CIUDADES)
- * Devuelve IDs separados para Comuna y Ciudad.
+ * NORMALIZADOR LIOREN (SISTEMA DE DOBLE LLAVE)
+ * Busca Comuna en la tabla de comunas y Ciudad en la tabla de ciudades.
  */
-export async function normalizarUbicacionLioren(nombreComuna: string | undefined) {
-  const busca = (nombreComuna || "TALTAL").toUpperCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+export async function normalizarUbicacionLioren(comunaStr: string | undefined, ciudadStr: string | undefined) {
+  // Limpieza de textos
+  const cBusca = (comunaStr || "TALTAL").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const ciBusca = (ciudadStr || comunaStr || "TALTAL").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-  // --- REGLA DE ORO TALTAL ---
-  if (busca.includes("TALTAL")) {
-    return { id: 15, ciudadId: 8, comuna: "TALTAL" };
+  // --- EXCEPCIÓN NUCLEAR: TALTAL ---
+  if (cBusca.includes("TALTAL")) {
+    return { comunaId: 15, ciudadId: 8, comunaNombre: "TALTAL" };
   }
 
   try {
-    const listaComunas = (maestroLocalidades as any).comunas || [];
-    const listaCiudades = (maestroLocalidades as any).ciudades || [];
-    
-    const comunaEncontrada = listaComunas.find((l: any) => 
-      l.nombre && l.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(busca)
+    const maestro = maestroLocalidades as any;
+    const listaComunas = maestro.comunas || [];
+    const listaCiudades = maestro.ciudades || [];
+
+    // 1. BUSCAR ID DE COMUNA (Tabla Comunas)
+    const comunaMatch = listaComunas.find((l: any) => 
+      l.nombre && l.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(cBusca)
     );
 
-    if (comunaEncontrada) {
-      // Buscamos la ciudad que se llame igual
-      const ciudadEncontrada = listaCiudades.find((c: any) => 
-        c.nombre && c.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === comunaEncontrada.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      );
+    // 2. BUSCAR ID DE CIUDAD (Tabla Ciudades)
+    // Intentamos buscar el texto de ciudad, si no viene, usamos el de la comuna en la tabla de ciudades
+    const ciudadMatch = listaCiudades.find((c: any) => 
+      c.nombre && c.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(ciBusca)
+    );
 
-      return {
-        id: parseInt(comunaEncontrada.id, 10),
-        comuna: comunaEncontrada.nombre.toUpperCase(),
-        ciudadId: ciudadEncontrada ? parseInt(ciudadEncontrada.id, 10) : parseInt(comunaEncontrada.id, 10)
-      };
-    }
+    const finalComunaId = comunaMatch ? parseInt(comunaMatch.id, 10) : 15;
+    // IMPORTANTE: Si no hallamos la ciudad, usamos el ID de Comuna PERO solo si es Taltal, 
+    // de lo contrario usamos un fallback seguro para evitar TelAviv.
+    const finalCiudadId = ciudadMatch ? parseInt(ciudadMatch.id, 10) : (comunaMatch ? finalComunaId : 8);
+
+    console.log(`📍 MAPEO: [${comunaStr}/${ciudadStr}] -> C:${finalComunaId} CI:${finalCiudadId}`);
+
+    return {
+      comunaId: finalComunaId,
+      ciudadId: finalCiudadId,
+      comunaNombre: comunaMatch ? comunaMatch.nombre.toUpperCase() : "TALTAL"
+    };
+
   } catch (error) {
-    console.error("Error en mapeo localidades:", error);
+    console.error("Error en normalización doble:", error);
+    return { comunaId: 15, ciudadId: 8, comunaNombre: "TALTAL" };
   }
-  
-  return { id: 15, ciudadId: 8, comuna: "TALTAL" }; 
 }

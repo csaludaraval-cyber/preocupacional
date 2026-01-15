@@ -10,8 +10,8 @@ const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa-pruebas-api";
 export async function probarConexionLioren() {
   try {
     const data = await whoami();
-    const ubicacion = await normalizarUbicacionLioren("TALTAL");
-    return { success: true, message: `Conexión OK. Comuna: 15, Ciudad: 8 Detectados.` };
+    const ubicacion = await normalizarUbicacionLioren("TALTAL", "TALTAL");
+    return { success: true, message: `Conexión OK. Taltal mapeado como C:${ubicacion.comunaId} CI:${ubicacion.ciudadId}` };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -26,8 +26,12 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     if (!snap.exists) throw new Error("Cotización no encontrada.");
     const data = snap.data() as CotizacionFirestore;
 
-    trace = "Mapeo de Comuna/Ciudad";
-    const ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna);
+    trace = "Mapeo de Localidades";
+    // ENVIAMOS COMUNA Y CIUDAD POR SEPARADO
+    const ubicacion = await normalizarUbicacionLioren(
+      data.empresaData?.comuna, 
+      data.empresaData?.ciudad
+    );
 
     trace = "Construyendo Payload";
     const payload = {
@@ -38,8 +42,8 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
         rs: (data.empresaData?.razonSocial || '').toUpperCase().substring(0, 100),
         giro: (data.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40),
         direccion: (data.empresaData?.direccion || "DIRECCION").toUpperCase().substring(0, 70),
-        comuna: ubicacion.id,       // ID 15 para Taltal
-        ciudad: ubicacion.ciudadId, // ID 8 para Taltal (CORRECCIÓN)
+        comuna: ubicacion.comunaId, // ID de la tabla Comunas
+        ciudad: ubicacion.ciudadId, // ID de la tabla Ciudades
         email: data.empresaData?.email || data.solicitanteData?.mail || "soporte@araval.cl"
       },
       detalles: (data.solicitudesData || []).flatMap((sol: any) =>
@@ -53,15 +57,14 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 
     trace = "Llamada a Lioren";
     const result = await createDTE(payload);
-
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id) || "";
     const finalFolio = result.folio || (result.dte && result.dte.folio) || "";
 
-    if (!finalId) throw new Error("Lioren no devolvió un ID válido.");
+    if (!finalId) throw new Error("ID no recibido.");
 
     const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
 
-    trace = "Escribiendo en Firestore";
+    trace = "Escritura Firestore";
     await docRef.set({
       status: 'FACTURADO',
       liorenId: String(finalId),
@@ -81,10 +84,12 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
   try {
     const db = getDb();
     const snap = await db.collection('cotizaciones').where('empresaData.rut', '==', rutEmpresa).where('status', '==', 'PAGADO').get();
-    if (snap.empty) throw new Error("No hay órdenes PAGADAS.");
+    if (snap.empty) throw new Error("No hay órdenes.");
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
-    const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna);
+    
+    // Mapeo doble para consolidado
+    const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna, base.empresaData?.ciudad);
 
     const todosLosDetalles = docs.flatMap(doc => {
       const d = doc.data() as CotizacionFirestore;
@@ -104,8 +109,8 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
         rs: (base.empresaData?.razonSocial || "CONSOLIDADO").toUpperCase(),
         giro: (base.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase(),
         direccion: (base.empresaData?.direccion || "DIRECCION").toUpperCase(),
-        comuna: ubicacion.id,
-        ciudad: ubicacion.ciudadId, // CORRECCIÓN AQUÍ TAMBIÉN
+        comuna: ubicacion.comunaId,
+        ciudad: ubicacion.ciudadId,
         email: base.empresaData?.email || "soporte@araval.cl"
       },
       detalles: todosLosDetalles,
