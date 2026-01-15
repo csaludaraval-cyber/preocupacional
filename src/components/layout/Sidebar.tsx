@@ -1,12 +1,10 @@
-
-// src/components/layout/Sidebar.tsx
 "use client";
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { FileText, Inbox, History, FileClock, Shield, Users, Activity, Stethoscope } from 'lucide-react'; // Importar iconos
+// Agregamos el icono 'List' para el historial
+import { FileText, Inbox, History, FileClock, Shield, Users, Activity, Stethoscope, List } from 'lucide-react'; 
 import { useAuth } from '@/lib/auth';
-
 
 export const Sidebar = () => {
     const pathname = usePathname();
@@ -20,6 +18,8 @@ export const Sidebar = () => {
                     { href: '/solicitudes-recibidas', label: 'Solicitudes', icon: Inbox },
                     { href: '/cotizaciones-guardadas', label: 'Cotizaciones', icon: History },
                     { href: '/admin/facturacion-consolidada', label: 'Facturación', icon: FileClock },
+                    // NUEVO ENLACE AGREGADO AQUÍ:
+                    { href: '/admin/historial', label: 'Facturas Emitidas', icon: List },
                     { href: '/admin', label: 'Catálogo', icon: Shield },
                     { href: '/admin/clientes', label: 'Clientes', icon: Users },
                     { href: '/admin/status', label: 'Sistema', icon: Activity },
@@ -37,7 +37,6 @@ export const Sidebar = () => {
     };
     
     const navLinks = getNavLinks();
-
 
     return (
         <aside className="w-64 flex-col bg-sidebar-background p-4 hidden md:flex print:hidden">
