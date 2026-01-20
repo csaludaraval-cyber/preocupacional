@@ -1,17 +1,14 @@
 'use server';
 
-// AÑADIMOS LAS IMPORTACIONES EXPLÍCITAS DE FIREBASE/FIRESTORE
-import { doc, getDoc, setDoc } from 'firebase/firestore'; 
+// Importaciones corregidas de Firebase Client SDK para que funcione en Next.js Server Actions
+import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { firestore } from '@/lib/firebase';
 
-// Importación de la instancia de Firestore (asumiendo la ruta estándar de tu proyecto)
-import { firestore } from '@/lib/firebase'; 
-
-import { getDb } from '@/lib/firestore-admin';
 import { createDTE, whoami } from '@/server/lioren';
 import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
-// AJUSTE CRÍTICO A PRODUCCIÓN: SLUG FINAL (Eliminamos la parte de prueba)
+// AJUSTE CRÍTICO A PRODUCCIÓN: SLUG FINAL
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa";
 
 /**
@@ -21,7 +18,6 @@ export async function probarConexionLioren() {
   try {
     const data = await whoami();
     const ubicacion = await normalizarUbicacionLioren("TALTAL", "TALTAL");
-    // Usamos el ID de Comuna que se obtiene del normalizador
     return { success: true, message: `Conexión OK. Taltal: C:${ubicacion.comunaId} CI:${ubicacion.ciudadId}` };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -34,10 +30,10 @@ export async function probarConexionLioren() {
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
   try {
-    // Usamos la instancia de firestore para referenciar el documento (Soluciona el error TS)
     const docRef = doc(firestore, 'cotizaciones', cotizacionId);
     const snap = await getDoc(docRef);
-    if (!snap.exists) throw new Error("Cotización no encontrada.");
+    
+    if (!snap.exists()) throw new Error("Cotización no encontrada.");
     const data = snap.data() as CotizacionFirestore;
 
     trace = "Mapeo Ubicación";
@@ -75,7 +71,6 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
 
     trace = "Firestore Write";
-    // Usamos setDoc para escribir, solucionando el error TS
     await setDoc(docRef, {
       status: 'FACTURADO',
       liorenId: String(finalId),
@@ -97,25 +92,28 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   let trace = "INICIO CONSOLIDACIÓN";
   try {
-    const db = getDb(); // getDb se usa para el Batch, el cual usa collection() y where()
+    // CORRECCIÓN FINAL: Usamos query + collection de firebase/firestore correctamente
+    const q = query(
+      collection(firestore, 'cotizaciones'),
+      where('empresaData.rut', '==', rutEmpresa),
+      where('status', 'in', ['PAGADO', 'CORREO_ENVIADO', 'orden_examen_enviada'])
+    );
 
-    const snap = await db.collection('cotizaciones')
-      .where('empresaData.rut', '==', rutEmpresa)
-      .where('status', 'in', ['PAGADO', 'CORREO_ENVIADO', 'orden_examen_enviada']) 
-      .get();
+    const snap = await getDocs(q);
 
     if (snap.empty) throw new Error("No hay órdenes pendientes para facturar.");
 
     const docs = snap.docs;
+    // Obtenemos datos del primer documento para usarlos como base
     const base = docs[0].data() as CotizacionFirestore;
     
     const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna, base.empresaData?.ciudad);
 
-    const todosLosDetalles = docs.flatMap(doc => {
-      const d = doc.data() as CotizacionFirestore;
+    const todosLosDetalles = docs.flatMap(docSnapshot => {
+      const d = docSnapshot.data() as CotizacionFirestore;
       return (d.solicitudesData || []).flatMap((sol: any) =>
         (sol.examenes || []).map((ex: any) => ({
-          nombre: `${ex.nombre} (Ref: ${doc.id.slice(-4)})`.substring(0, 80),
+          nombre: `${ex.nombre} (Ref: ${docSnapshot.id.slice(-4)})`.substring(0, 80),
           cantidad: 1, precio: Math.round(Number(ex.valor || 0)), exento: true
         }))
       );
@@ -141,9 +139,12 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
     const finalFolio = result.folio || (result.dte && result.dte.folio) || "";
     const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
 
-    const batch = db.batch();
-    docs.forEach(d => {
-      batch.update(d.ref, { 
+    // CORRECCIÓN FINAL: Usamos writeBatch de firebase/firestore
+    const batch = writeBatch(firestore);
+    
+    docs.forEach(docSnapshot => {
+      // batch.update requiere una referencia de documento válida
+      batch.update(doc(firestore, 'cotizaciones', docSnapshot.id), { 
         status: 'FACTURADO', 
         liorenFolio: String(finalFolio), 
         liorenId: String(finalId),
