@@ -163,7 +163,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 }
 
 /**
- * 4. HERRAMIENTA: DESCARGAR MAESTRO LOCALIDADES
+ * 4. HERRAMIENTA: DESCARGAR MAESTRO LOCALIDADESS
  */
 export async function descargarMaestroLocalidades() {
   try {
