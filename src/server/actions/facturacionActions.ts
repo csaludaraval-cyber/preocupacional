@@ -1,11 +1,18 @@
 'use server';
 
+// AÑADIMOS LAS IMPORTACIONES EXPLÍCITAS DE FIREBASE/FIRESTORE
+import { doc, getDoc, setDoc } from 'firebase/firestore'; 
+
+// Importación de la instancia de Firestore (asumiendo la ruta estándar de tu proyecto)
+import { firestore } from '@/lib/firebase'; 
+
 import { getDb } from '@/lib/firestore-admin';
 import { createDTE, whoami } from '@/server/lioren';
 import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
-const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa-pruebas-api";
+// AJUSTE CRÍTICO A PRODUCCIÓN: SLUG FINAL (Eliminamos la parte de prueba)
+const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa";
 
 /**
  * 1. TEST DE CONEXIÓN
@@ -14,7 +21,7 @@ export async function probarConexionLioren() {
   try {
     const data = await whoami();
     const ubicacion = await normalizarUbicacionLioren("TALTAL", "TALTAL");
-    // Corrección aquí: Usamos comunaId y ciudadId
+    // Usamos el ID de Comuna que se obtiene del normalizador
     return { success: true, message: `Conexión OK. Taltal: C:${ubicacion.comunaId} CI:${ubicacion.ciudadId}` };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -27,9 +34,9 @@ export async function probarConexionLioren() {
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   let trace = "INICIO";
   try {
-    const db = getDb();
-    const docRef = db.collection('cotizaciones').doc(cotizacionId);
-    const snap = await docRef.get();
+    // Usamos la instancia de firestore para referenciar el documento (Soluciona el error TS)
+    const docRef = doc(firestore, 'cotizaciones', cotizacionId);
+    const snap = await getDoc(docRef);
     if (!snap.exists) throw new Error("Cotización no encontrada.");
     const data = snap.data() as CotizacionFirestore;
 
@@ -45,7 +52,6 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
         rs: (data.empresaData?.razonSocial || '').toUpperCase().substring(0, 100),
         giro: (data.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40),
         direccion: (data.empresaData?.direccion || "DIRECCION").toUpperCase().substring(0, 70),
-        // Corrección aquí: Usamos comunaId
         comuna: ubicacion.comunaId,
         ciudad: ubicacion.ciudadId,
         email: data.empresaData?.email || data.solicitanteData?.mail || "soporte@araval.cl"
@@ -69,7 +75,8 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
 
     trace = "Firestore Write";
-    await docRef.set({
+    // Usamos setDoc para escribir, solucionando el error TS
+    await setDoc(docRef, {
       status: 'FACTURADO',
       liorenId: String(finalId),
       liorenFolio: String(finalFolio),
@@ -90,8 +97,8 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   let trace = "INICIO CONSOLIDACIÓN";
   try {
-    const db = getDb();
-    
+    const db = getDb(); // getDb se usa para el Batch, el cual usa collection() y where()
+
     const snap = await db.collection('cotizaciones')
       .where('empresaData.rut', '==', rutEmpresa)
       .where('status', 'in', ['PAGADO', 'CORREO_ENVIADO', 'orden_examen_enviada']) 
@@ -122,7 +129,6 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
         rs: (base.empresaData?.razonSocial || "CONSOLIDADO").toUpperCase(),
         giro: (base.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase(),
         direccion: (base.empresaData?.direccion || "DIRECCION").toUpperCase(),
-        // Corrección aquí: Usamos comunaId
         comuna: ubicacion.comunaId,
         ciudad: ubicacion.ciudadId,
         email: base.empresaData?.email || "soporte@araval.cl"
@@ -155,6 +161,9 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
   }
 }
 
+/**
+ * 4. HERRAMIENTA: DESCARGAR MAESTRO LOCALIDADES
+ */
 export async function descargarMaestroLocalidades() {
   try {
     const token = process.env.LIOREN_TOKEN;
