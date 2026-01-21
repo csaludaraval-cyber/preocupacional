@@ -53,6 +53,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     if (detalles.length === 0) throw new Error("No hay ítems con valor mayor a 0 para facturar.");
 
     const payload = {
+      test: false, // <--- BANDERAZO DE PRODUCCIÓN REAL
       tipodoc: "34",
       emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
       receptor: {
