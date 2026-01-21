@@ -1,7 +1,7 @@
-'use client';
 import { FirebaseOptions, initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
 
-// Your web app's Firebase configuration
+// Configuración de Firebase
 export const firebaseConfig: FirebaseOptions = {
   apiKey: 'AIzaSyDSx_gjlw5TJgUDgvnowJDyWtid44TgrzE',
   authDomain: 'studio-4288557503-eb161.firebaseapp.com',
@@ -11,12 +11,8 @@ export const firebaseConfig: FirebaseOptions = {
   appId: '1:848859591437:web:d30ccd9d0461c3db2bf644',
 };
 
-// Initialize Firebase
-function initializeFirebase() {
-  if (getApps().length) {
-    return getApp();
-  }
-  return initializeApp(firebaseConfig);
-}
+// Singleton robusto para Client y Server
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const firestore = getFirestore(app);
 
-export const app = initializeFirebase();
+export { app, firestore };
