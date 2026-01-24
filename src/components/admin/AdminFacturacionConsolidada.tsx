@@ -5,7 +5,7 @@ import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -16,14 +16,17 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  Eye,
   User
 } from 'lucide-react';
 import { emitirDTEConsolidado } from '@/server/actions/facturacionActions';
+import { GeneradorPDF } from '../cotizacion/GeneradorPDF';
 
 export function AdminFacturacionConsolidada() {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [expandedRut, setExpandedRut] = useState<string | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState<string | null>(null);
 
   const pendingQuery = useMemoFirebase(() => 
     query(collection(firestore, 'cotizaciones'), 
@@ -56,6 +59,22 @@ export function AdminFacturacionConsolidada() {
         toast({ title: "Orden Anulada" });
     } catch (error: any) {
         toast({ variant: "destructive", title: "Error", description: error.message });
+    }
+  };
+
+  /**
+   * ACCIÓN: VER PDF DE LA ORDEN INDIVIDUAL
+   */
+  const handleVerPDF = async (quote: any) => {
+    setIsGeneratingPDF(quote.id);
+    try {
+        const blob = await GeneradorPDF.generar(quote);
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+    } catch (error) {
+        toast({ variant: "destructive", title: "Error al generar PDF" });
+    } finally {
+        setIsGeneratingPDF(null);
     }
   };
   
@@ -140,18 +159,40 @@ export function AdminFacturacionConsolidada() {
                                 {expandedRut === group.empresa?.rut && (
                                     <TableRow className="bg-slate-50/50">
                                         <TableCell colSpan={5} className="p-4">
-                                            <div className="border rounded bg-white p-2">
-                                                <div className="text-[10px] font-bold text-slate-400 mb-2 uppercase">Desglose de Órdenes</div>
+                                            <div className="border rounded bg-white p-2 shadow-inner">
+                                                <div className="text-[9px] font-bold text-slate-400 mb-2 uppercase px-2">Desglose de Órdenes Pendientes</div>
                                                 {group.quotes.map((q: any) => (
-                                                    <div key={q.id} className="flex items-center justify-between p-2 border-b last:border-0 text-xs">
-                                                        <div className="flex gap-4">
-                                                            <span className="font-mono text-slate-400">#{q.id.slice(-6).toUpperCase()}</span>
-                                                            <span className="font-bold">{q.solicitudesData?.[0]?.trabajador?.nombre || 'S/N'} {q.solicitudesData?.length > 1 ? `(+${q.solicitudesData.length - 1})` : ''}</span>
+                                                    <div key={q.id} className="flex items-center justify-between p-2 border-b last:border-0 hover:bg-slate-50 transition-colors">
+                                                        <div className="flex gap-4 items-center">
+                                                            <span className="font-mono text-[10px] text-slate-400">#{q.id.slice(-6).toUpperCase()}</span>
+                                                            <span className="font-bold text-xs text-slate-600">
+                                                                <User className="inline h-3 w-3 mr-1 text-slate-400"/>
+                                                                {q.solicitudesData?.[0]?.trabajador?.nombre || 'S/N'} 
+                                                                {q.solicitudesData?.length > 1 ? ` (+${q.solicitudesData.length - 1} más)` : ''}
+                                                            </span>
                                                         </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <span className="font-bold text-emerald-600">${(q.total || 0).toLocaleString('es-CL')}</span>
-                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-red-500" onClick={() => handleAnularOrden(q.id)}>
-                                                                <Trash2 className="h-3 w-3"/>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-emerald-600 text-xs mr-4">${(q.total || 0).toLocaleString('es-CL')}</span>
+                                                            
+                                                            {/* BOTÓN VER PDF */}
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-7 w-7 text-blue-500 hover:bg-blue-50" 
+                                                                onClick={() => handleVerPDF(q)}
+                                                                disabled={isGeneratingPDF === q.id}
+                                                            >
+                                                                {isGeneratingPDF === q.id ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Eye className="h-3.5 w-3.5"/>}
+                                                            </Button>
+
+                                                            {/* BOTÓN ANULAR */}
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-7 w-7 text-slate-300 hover:text-red-500 hover:bg-red-50" 
+                                                                onClick={() => handleAnularOrden(q.id)}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5"/>
                                                             </Button>
                                                         </div>
                                                     </div>
