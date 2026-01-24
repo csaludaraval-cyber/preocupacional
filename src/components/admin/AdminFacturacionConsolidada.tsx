@@ -5,7 +5,6 @@ import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
-import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -22,12 +21,10 @@ import {
 import { emitirDTEConsolidado } from '@/server/actions/facturacionActions';
 
 export function AdminFacturacionConsolidada() {
-  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [expandedRut, setExpandedRut] = useState<string | null>(null);
 
-  // QUERY: Buscamos órdenes PAGADAS (listas para facturar)
   const pendingQuery = useMemoFirebase(() => 
     query(collection(firestore, 'cotizaciones'), 
     where('status', '==', 'PAGADO')), []);
@@ -39,7 +36,6 @@ export function AdminFacturacionConsolidada() {
     const groups: Record<string, any> = {};
     
     quotesToBill.forEach(quote => {
-      // Solo consolidamos si es modalidad frecuente
       if (quote.empresaData?.modalidadFacturacion === 'frecuente') {
         const rut = quote.empresaData?.rut || 'S-RUT';
         if (!groups[rut]) groups[rut] = { empresa: quote.empresaData, quotes: [], totalAmount: 0 };
@@ -51,24 +47,20 @@ export function AdminFacturacionConsolidada() {
     return Object.values(groups).filter((g: any) => g.quotes.length > 0);
   }, [quotesToBill]);
 
-  /**
-   * ACCIÓN: ANULAR UNA ORDEN INDIVIDUAL
-   */
   const handleAnularOrden = async (id: string) => {
-    if (!confirm("¿Desea anular esta orden? Se quitará de la facturación consolidada.")) return;
+    if (!confirm("¿Desea anular esta orden? Se quitará de la facturación.")) return;
     try {
         await updateDoc(doc(firestore, 'cotizaciones', id), { 
-            status: 'ANULADA',
-            motivoAnulacion: 'Retirada de consolidación por admin'
+            status: 'ANULADA'
         });
-        toast({ title: "Orden Anulada", description: "La orden ha sido retirada del grupo." });
+        toast({ title: "Orden Anulada" });
     } catch (error: any) {
         toast({ variant: "destructive", title: "Error", description: error.message });
     }
   };
   
   const handleFacturarGrupo = async (rut: string) => {
-    if (!confirm("¿Confirma la emisión del DTE consolidado para este grupo?")) return;
+    if (!confirm("¿Confirma la facturación de estas órdenes?")) return;
     setIsProcessing(rut);
     try {
         const result = await emitirDTEConsolidado(rut);
@@ -82,7 +74,7 @@ export function AdminFacturacionConsolidada() {
     }
   };
 
-  if (authLoading || isLoadingPending) {
+  if (isLoadingPending) {
     return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-10 w-10 text-slate-300" /></div>;
   }
 
@@ -112,7 +104,7 @@ export function AdminFacturacionConsolidada() {
                     </TableHeader>
                     <TableBody>
                     {groupedData.length === 0 ? (
-                        <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-300 font-bold uppercase text-[10px]">No hay órdenes frecuentes pendientes de facturar</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-300 font-bold uppercase text-[10px]">No hay órdenes frecuentes pendientes</TableCell></TableRow>
                     ) : (
                         groupedData.map((group: any) => (
                             <React.Fragment key={group.empresa?.rut}>
@@ -130,7 +122,7 @@ export function AdminFacturacionConsolidada() {
                                         <span className="bg-slate-100 px-2 py-1 rounded text-xs font-bold">{group.quotes.length}</span>
                                     </TableCell>
                                     <TableCell className="text-right font-black text-emerald-600">
-                                        {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(group.totalAmount)}
+                                        ${group.totalAmount.toLocaleString('es-CL')}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Button 
@@ -139,51 +131,31 @@ export function AdminFacturacionConsolidada() {
                                             onClick={() => handleFacturarGrupo(group.empresa?.rut)}
                                             disabled={!!isProcessing}
                                         >
-                                            {isProcessing === group.empresa?.rut ? (
-                                                <Loader2 className="h-4 w-4 animate-spin mr-2"/>
-                                            ) : <CheckCircle2 className="h-4 w-4 mr-2"/>}
-                                            EMITIR DTE CONSOLIDADO
+                                            {isProcessing === group.empresa?.rut ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <CheckCircle2 className="h-4 w-4 mr-2"/>}
+                                            FACTURAR ORDENES
                                         </Button>
                                     </TableCell>
                                 </TableRow>
 
-                                {/* DESGLOSE DE ÓRDENES */}
                                 {expandedRut === group.empresa?.rut && (
                                     <TableRow className="bg-slate-50/50">
                                         <TableCell colSpan={5} className="p-4">
-                                            <div className="border rounded-lg bg-white overflow-hidden shadow-inner">
-                                                <Table>
-                                                    <TableHeader className="bg-slate-100">
-                                                        <TableRow>
-                                                            <TableHead className="text-[9px] font-bold">FECHA</TableHead>
-                                                            <TableHead className="text-[9px] font-bold">ID ORDEN</TableHead>
-                                                            <TableHead className="text-[9px] font-bold">TRABAJADORES</TableHead>
-                                                            <TableHead className="text-right text-[9px] font-bold">MONTO</TableHead>
-                                                            <TableHead className="text-right text-[9px] font-bold">QUITAR</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {group.quotes.map((q: any) => (
-                                                            <TableRow key={q.id}>
-                                                                <TableCell className="text-[10px]">{q.fechaCreacion?.seconds ? new Date(q.fechaCreacion.seconds * 1000).toLocaleDateString('es-CL') : 'N/A'}</TableCell>
-                                                                <TableCell className="font-mono text-[10px] font-bold">#{q.id.slice(-6).toUpperCase()}</TableCell>
-                                                                <TableCell>
-                                                                    <div className="flex gap-1">
-                                                                        {q.solicitudesData?.map((s: any, i: number) => (
-                                                                            <Badge key={i} variant="outline" className="text-[9px] py-0 h-4"><User className="w-2 h-2 mr-1"/>{s.trabajador.nombre.split(' ')[0]}</Badge>
-                                                                        ))}
-                                                                    </div>
-                                                                </TableCell>
-                                                                <TableCell className="text-right text-[10px] font-bold">${(q.total || 0).toLocaleString('es-CL')}</TableCell>
-                                                                <TableCell className="text-right">
-                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-red-500" onClick={() => handleAnularOrden(q.id)}>
-                                                                        <Trash2 className="h-3 w-3"/>
-                                                                    </Button>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
+                                            <div className="border rounded bg-white p-2">
+                                                <div className="text-[10px] font-bold text-slate-400 mb-2 uppercase">Desglose de Órdenes</div>
+                                                {group.quotes.map((q: any) => (
+                                                    <div key={q.id} className="flex items-center justify-between p-2 border-b last:border-0 text-xs">
+                                                        <div className="flex gap-4">
+                                                            <span className="font-mono text-slate-400">#{q.id.slice(-6).toUpperCase()}</span>
+                                                            <span className="font-bold">{q.solicitudesData?.[0]?.trabajador?.nombre || 'S/N'} {q.solicitudesData?.length > 1 ? `(+${q.solicitudesData.length - 1})` : ''}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-4">
+                                                            <span className="font-bold text-emerald-600">${(q.total || 0).toLocaleString('es-CL')}</span>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-red-500" onClick={() => handleAnularOrden(q.id)}>
+                                                                <Trash2 className="h-3 w-3"/>
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </TableCell>
                                     </TableRow>
