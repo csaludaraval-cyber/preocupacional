@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import Link from 'next/navigation'; // Corregido: next/link suele dar problemas en algunos setups de app router, next/navigation es más seguro para redirecciones
 import { collection, deleteDoc, doc } from 'firebase/firestore';
-import { Eye, Inbox, Loader2, Search, Shield, Trash2, XCircle, ArrowRight } from 'lucide-react';
+import { Eye, Inbox, Loader2, Search, Shield, Trash2, ArrowRight, Star } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { useCollection, type WithId } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
-// Importamos tipos base para construir la interfaz local
 import type { Empresa, Solicitante } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,20 +24,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { AlertDialogTrigger } from '@radix-ui/react-alert-dialog';
-import {
-  TooltipProvider,
-} from "@/components/ui/tooltip";
 
-// DEFINICIÓN LOCAL PARA SOLUCIONAR ERROR ts(2305)
 interface SolicitudPublica {
   id: string;
   empresa: Empresa;
   solicitante: Solicitante;
-  solicitudes: any[]; // Lista de trabajadores y exámenes
+  solicitudes: any[];
   estado: string;
   fechaCreacion: any;
+  isFrecuente?: boolean; // Campo clave para el flujo especial
 }
 
 export function AdminSolicitudes() {
@@ -49,13 +44,12 @@ export function AdminSolicitudes() {
   const [itemToDelete, setItemToDelete] = useState<WithId<SolicitudPublica> | null>(null);
 
   const solicitudesQuery = useMemoFirebase(() => collection(firestore, 'solicitudes_publicas'), []);
-  const { data: solicitudes, isLoading, error } = useCollection<SolicitudPublica>(solicitudesQuery);
+  const { data: solicitudes, isLoading } = useCollection<SolicitudPublica>(solicitudesQuery);
   
   const getMs = (ts: any): number => {
     if (!ts) return 0;
     if (typeof ts.toMillis === 'function') return ts.toMillis();
     if (ts.seconds) return ts.seconds * 1000;
-    if (ts instanceof Date) return ts.getTime();
     return 0;
   };
 
@@ -67,20 +61,22 @@ export function AdminSolicitudes() {
   const filteredSolicitudes = useMemo(() => {
     if (!solicitudes) return [];
     
-    const pendingOnly = solicitudes.filter(s => (s.estado || 'pendiente') === 'pendiente');
-    const sorted = [...pendingOnly].sort((a, b) => getMs(b.fechaCreacion) - getMs(a.fechaCreacion));
+    // CORRECCIÓN QUIRÚRGICA: Aceptamos 'pendiente' O 'orden_examen_enviada' 
+    // para que las de Clientes Frecuentes no desaparezcan.
+    const activeSolicitudes = solicitudes.filter(s => 
+      ['pendiente', 'orden_examen_enviada'].includes(s.estado || 'pendiente')
+    );
+
+    const sorted = [...activeSolicitudes].sort((a, b) => getMs(b.fechaCreacion) - getMs(a.fechaCreacion));
 
     if (!searchTerm) return sorted;
 
     const lower = searchTerm.toLowerCase().trim();
     return sorted.filter(req => {
         const empresaMatch = req.empresa?.razonSocial?.toLowerCase().includes(lower);
-        const solicitanteNombreMatch = req.solicitante?.nombre?.toLowerCase().includes(lower);
         const idMatch = req.id?.toLowerCase().includes(lower);
-        // FIX PARA ERROR ts(7006): Tipado explícito de 's' como any
         const trabajadorMatch = req.solicitudes?.some((s: any) => s.trabajador?.nombre?.toLowerCase().includes(lower));
-
-        return empresaMatch || solicitanteNombreMatch || idMatch || trabajadorMatch;
+        return empresaMatch || idMatch || trabajadorMatch;
     });
   }, [solicitudes, searchTerm]);
 
@@ -102,21 +98,14 @@ export function AdminSolicitudes() {
       empresa: request.empresa,
       solicitante: request.solicitante,
       solicitudes: request.solicitudes,
+      isFrecuente: request.isFrecuente || request.estado === 'orden_examen_enviada'
     };
     return encodeURIComponent(JSON.stringify(requestDataForQuote));
   };
 
   if (authLoading || isLoading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   
-  if (user?.role !== 'admin') {
-    return (
-        <Alert variant="destructive" className="max-w-2xl mx-auto mt-10">
-            <Shield className="h-4 w-4" />
-            <AlertTitle>Acceso Denegado</AlertTitle>
-            <AlertDescription>No tienes permisos de administrador para ver las solicitudes.</AlertDescription>
-        </Alert>
-    );
-  }
+  if (user?.role !== 'admin') return <Alert variant="destructive" className="max-w-2xl mx-auto mt-10"><Shield className="h-4 w-4" /><AlertTitle>Acceso Denegado</AlertTitle></Alert>;
 
   return (
     <Card className="border-none shadow-xl bg-white/50 backdrop-blur-sm">
@@ -136,16 +125,15 @@ export function AdminSolicitudes() {
         </div>
       </CardHeader>
       <CardContent>
-        <TooltipProvider>
           <Table>
               <TableHeader>
                   <TableRow className="bg-slate-50/50">
                       <TableHead className="font-bold">ID</TableHead>
                       <TableHead className="font-bold">Fecha</TableHead>
-                      <TableHead className="font-bold">Empresa</TableHead>
+                      <TableHead className="font-bold">Empresa / Tipo</TableHead>
                       <TableHead className="font-bold">Solicitante</TableHead>
-                      <TableHead className="text-center font-bold">Dotación</TableHead>
-                      <TableHead className="text-center font-bold">Acción</TableHead>
+                      <TableHead className="text-center font-bold">Pacientes</TableHead>
+                      <TableHead className="text-right font-bold">Acción</TableHead>
                   </TableRow>
               </TableHeader>
               <TableBody>
@@ -155,7 +143,18 @@ export function AdminSolicitudes() {
                               #{req.id.slice(-6).toUpperCase()}
                           </TableCell>
                           <TableCell className="text-sm font-medium">{formatDate(req.fechaCreacion)}</TableCell>
-                          <TableCell className="font-bold text-slate-700">{req.empresa?.razonSocial}</TableCell>
+                          <TableCell>
+                              <div className="flex flex-col gap-1">
+                                  <span className="font-bold text-slate-700">{req.empresa?.razonSocial}</span>
+                                  { (req.isFrecuente || req.estado === 'orden_examen_enviada') ? (
+                                      <Badge className="w-fit bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100 text-[9px] h-5">
+                                          <Star className="w-3 h-3 mr-1 fill-amber-700"/> CLIENTE FRECUENTE
+                                      </Badge>
+                                  ) : (
+                                      <Badge variant="outline" className="w-fit text-[9px] h-5">ESTÁNDAR</Badge>
+                                  )}
+                              </div>
+                          </TableCell>
                           <TableCell>
                               <div className="flex flex-col">
                                   <span className="text-sm font-semibold">{req.solicitante?.nombre}</span>
@@ -163,7 +162,7 @@ export function AdminSolicitudes() {
                               </div>
                           </TableCell>
                           <TableCell className="text-center font-black text-primary">{req.solicitudes?.length || 0}</TableCell>
-                          <TableCell className="text-center space-x-2">
+                          <TableCell className="text-right space-x-2">
                               <Button asChild variant="default" size="sm" className="bg-primary hover:bg-primary/90 font-bold">
                                 <a href={`/?solicitud=${prepareQuoteForProcessing(req)}`}>
                                   PROCESAR <ArrowRight className="ml-2 h-4 w-4"/>
@@ -172,20 +171,17 @@ export function AdminSolicitudes() {
                               
                               <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="text-slate-300 hover:text-destructive transition-colors">
+                                      <Button variant="ghost" size="icon" className="text-slate-300 hover:text-destructive">
                                           <Trash2 className="h-4 w-4" />
                                       </Button>
                                   </AlertDialogTrigger>
-                                  <AlertDialogContent className="rounded-2xl">
+                                  <AlertDialogContent>
                                       <AlertDialogHeader>
-                                          <AlertDialogTitle className="font-black uppercase tracking-tighter">¿Eliminar esta solicitud?</AlertDialogTitle>
-                                          <AlertDialogDescription>Esta acción no se puede deshacer y los datos se borrarán permanentemente.</AlertDialogDescription>
+                                          <AlertDialogTitle>¿Eliminar solicitud?</AlertDialogTitle>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
-                                          <AlertDialogCancel className="rounded-xl font-bold">CANCELAR</AlertDialogCancel>
-                                          <AlertDialogAction onClick={() => { setItemToDelete(req); handleDelete(); }} className="bg-destructive text-white hover:bg-destructive/90 rounded-xl font-bold">
-                                              ELIMINAR AHORA
-                                          </AlertDialogAction>
+                                          <AlertDialogCancel>CANCELAR</AlertDialogCancel>
+                                          <AlertDialogAction onClick={() => { setItemToDelete(req); handleDelete(); }} className="bg-destructive">ELIMINAR</AlertDialogAction>
                                       </AlertDialogFooter>
                                   </AlertDialogContent>
                               </AlertDialog>
@@ -194,7 +190,6 @@ export function AdminSolicitudes() {
                   ))}
               </TableBody>
           </Table>
-        </TooltipProvider>
       </CardContent>
     </Card>
   );
