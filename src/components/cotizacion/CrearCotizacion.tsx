@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge'; // <--- IMPORTACIÓN CORREGIDA
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -41,42 +41,17 @@ export function CrearCotizacion() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const allExams = useMemo(() => solicitudes.flatMap(s => s.examenes), [solicitudes]);
+  const allExams = useMemo(() => solicitudes.flatMap(s => s.examenes || []), [solicitudes]);
   const currentSolicitud = solicitudes[currentSolicitudIndex];
 
+  // 1. Inicialización de seguridad
   useEffect(() => {
     if (solicitudes.length === 0) {
         setSolicitudes([{ id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: [] }]);
     }
   }, []);
 
-  const buscarBateria = async (nombre: string) => {
-    const q = query(collection(firestore, 'examenes'), where('categoria', '==', 'Baterías y Exámenes Ocupacionales'));
-    const snap = await getDocs(q);
-    const matches = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as Examen))
-        .filter(ex => ex.nombre.toUpperCase().includes(nombre.split(' ')[0].toUpperCase()));
-    return matches.length > 0 ? [matches[0]] : [];
-  };
-
-  useEffect(() => {
-    if (empresa.rut) {
-        const checkFrecuente = async () => {
-            const cleanedRut = cleanRut(empresa.rut);
-            const docRef = doc(firestore, 'empresas', cleanedRut);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists() && docSnap.data().modalidadFacturacion === 'frecuente') {
-                setIsClienteFrecuente(true);
-                const bateria = await buscarBateria(docSnap.data().razonSocial);
-                setSolicitudes(prev => prev.map(s => ({ ...s, examenes: bateria })));
-            } else {
-                setIsClienteFrecuente(false);
-            }
-        };
-        checkFrecuente();
-    }
-  }, [empresa.rut]);
-
+  // 2. Carga de Solicitud Pública desde URL (Solución a exámenes en blanco)
   useEffect(() => {
     const solicitudData = searchParams.get('solicitud');
     if (solicitudData) {
@@ -85,27 +60,61 @@ export function CrearCotizacion() {
         setEmpresa(parsed.empresa || initialEmpresa);
         setSolicitante(parsed.solicitante || initialSolicitante);
         setOriginalRequestId(parsed.originalRequestId || null);
-        if (parsed.solicitudes) {
+        
+        if (parsed.solicitudes && parsed.solicitudes.length > 0) {
+            // CRÍTICO: Mapeamos los exámenes que el cliente ya seleccionó
             setSolicitudes(parsed.solicitudes.map((s: any) => ({
-                ...s, id: s.id || crypto.randomUUID(),
-                trabajador: { ...initialTrabajador, ...s.trabajador }
+                ...s,
+                id: s.id || crypto.randomUUID(),
+                trabajador: { ...initialTrabajador, ...s.trabajador },
+                examenes: s.examenes || [] // <--- CARGA LA SELECCIÓN DEL CLIENTE
             })));
+            setCurrentSolicitudIndex(0);
         }
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error("Error al decodificar solicitud:", e);
+      }
     }
   }, [searchParams]);
 
+  // 3. Detección de Cliente Frecuente
+  useEffect(() => {
+    if (empresa.rut) {
+        const checkFrecuente = async () => {
+            const cleanedRut = cleanRut(empresa.rut);
+            const docRef = doc(firestore, 'empresas', cleanedRut);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists() && docSnap.data().modalidadFacturacion === 'frecuente') {
+                setIsClienteFrecuente(true);
+            } else {
+                setIsClienteFrecuente(false);
+            }
+        };
+        checkFrecuente();
+    }
+  }, [empresa.rut]);
+
   const handleGenerateQuote = async () => {
     if (!user) return;
-    const total = allExams.reduce((acc, exam) => acc + exam.valor, 0);
+    if (!empresa.rut || !empresa.razonSocial) {
+        toast({ title: "Faltan datos", variant: "destructive" });
+        return;
+    }
+
+    const total = allExams.reduce((acc, exam) => acc + (exam.valor || 0), 0);
     const newQuoteFirestore = {
       empresaId: cleanRut(empresa.rut),
       solicitanteId: user.uid,
       fechaCreacion: serverTimestamp(),
       total: total,
-      empresaData: { ...empresa, rut: cleanRut(empresa.rut), modalidadFacturacion: isClienteFrecuente ? 'frecuente' : 'normal' },
+      empresaData: { 
+          ...empresa, 
+          rut: cleanRut(empresa.rut), 
+          modalidadFacturacion: isClienteFrecuente ? 'frecuente' : 'normal' 
+      },
       solicitanteData: solicitante,
       solicitudesData: solicitudes,
+      // Los frecuentes van a PAGADO para aparecer en consolidación
       status: isClienteFrecuente ? 'PAGADO' : 'CONFIRMADA',
       originalRequestId: originalRequestId || null,
       liorenConsolidado: false 
@@ -113,26 +122,38 @@ export function CrearCotizacion() {
 
     try {
         await addDoc(collection(firestore, 'cotizaciones'), newQuoteFirestore);
-        if (originalRequestId) await updateDoc(doc(firestore, 'solicitudes_publicas', originalRequestId), { estado: 'procesada' });
+        if (originalRequestId) {
+            await updateDoc(doc(firestore, 'solicitudes_publicas', originalRequestId), { estado: 'procesada' });
+        }
+        toast({ title: isClienteFrecuente ? "Orden en Consolidación" : "Cotización Generada" });
         router.push(isClienteFrecuente ? '/admin/facturacion-consolidada' : '/cotizaciones-guardadas');
-    } catch (error: any) { toast({ title: "Error", variant: "destructive" }); }
+    } catch (error: any) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, 2));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
-  /**
-   * FIX PARA ERROR ts(2322): Función de actualización de trabajador compatible con Paso1DatosGenerales
-   */
-  const handleSetTrabajador = (updatedTrabajador: Trabajador | ((prev: Trabajador) => Trabajador)) => {
+  // Manejo de trabajador compatible con Paso1
+  const handleSetTrabajador = (val: Trabajador | ((prev: Trabajador) => Trabajador)) => {
     setSolicitudes(prev => {
-      const news = [...prev];
-      const current = news[currentSolicitudIndex].trabajador;
-      news[currentSolicitudIndex].trabajador = typeof updatedTrabajador === 'function' 
-        ? updatedTrabajador(current) 
-        : updatedTrabajador;
-      return news;
+        const news = [...prev];
+        const current = news[currentSolicitudIndex].trabajador;
+        news[currentSolicitudIndex].trabajador = typeof val === 'function' ? val(current) : val;
+        return news;
     });
+  };
+
+  // Añadir trabajador (Solución a inconsistencia de selección)
+  const addTrabajador = () => {
+    setSolicitudes(prev => [...prev, { 
+        id: crypto.randomUUID(), 
+        trabajador: initialTrabajador, 
+        examenes: [] // SIEMPRE VACÍO
+    }]);
+    setCurrentSolicitudIndex(solicitudes.length);
+    setStep(1);
   };
 
   if (!currentSolicitud) return null;
@@ -148,12 +169,14 @@ export function CrearCotizacion() {
                     {isClienteFrecuente ? "MODO CLIENTE FRECUENTE" : "MODO ESTÁNDAR"}
                 </Badge>
             </div>
-            {originalRequestId && <Badge variant="secondary">Solicitud #{originalRequestId.slice(-4)}</Badge>}
+            {originalRequestId && (
+                <Badge variant="secondary" className="font-mono">SOLICITUD #{originalRequestId.slice(-6).toUpperCase()}</Badge>
+            )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="lg:col-span-3 space-y-6">
-                <Progress value={(step/2)*100} className="h-1" />
+                <Progress value={(step/2)*100} className="h-1 bg-slate-100" />
                 <AnimatePresence mode="wait">
                     <motion.div key={`${step}-${currentSolicitudIndex}`} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
                         {step === 1 ? (
@@ -165,10 +188,10 @@ export function CrearCotizacion() {
                             />
                         ) : (
                             <Paso2SeleccionExamenes 
-                                selectedExams={currentSolicitud.examenes} 
+                                selectedExams={currentSolicitud.examenes || []} 
                                 onExamToggle={(exam, checked) => {
                                     const news = [...solicitudes];
-                                    const curr = news[currentSolicitudIndex].examenes;
+                                    const curr = news[currentSolicitudIndex].examenes || [];
                                     news[currentSolicitudIndex].examenes = checked ? [...curr, exam] : curr.filter(e => e.id !== exam.id);
                                     setSolicitudes(news);
                                 }} 
@@ -177,10 +200,14 @@ export function CrearCotizacion() {
                         )}
                     </motion.div>
                 </AnimatePresence>
+
                 <div className="flex justify-between pt-6 border-t">
                     <Button variant="ghost" onClick={prevStep} disabled={step === 1}>Anterior</Button>
-                    <Button onClick={step === 1 ? nextStep : handleGenerateQuote} className={step === 1 ? "bg-blue-600 px-10" : "bg-emerald-600 px-10"}>
-                        {step === 1 ? "Siguiente" : (isClienteFrecuente ? "CONFIRMAR" : "GENERAR")}
+                    <Button 
+                        onClick={step === 1 ? nextStep : handleGenerateQuote} 
+                        className={step === 1 ? "bg-blue-600 px-10 text-white" : "bg-emerald-600 px-10 text-white font-bold"}
+                    >
+                        {step === 1 ? "Siguiente" : (isClienteFrecuente ? "CONFIRMAR PARA FACTURAR" : "GENERAR COTIZACIÓN")}
                     </Button>
                 </div>
             </div>
@@ -198,15 +225,31 @@ export function CrearCotizacion() {
                                 <button className="flex-grow text-left font-medium truncate" onClick={() => {setCurrentSolicitudIndex(i); setStep(1);}}>
                                     {s.trabajador.nombre || `Trabajador ${i+1}`}
                                 </button>
-                                <button onClick={() => setSolicitudes(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+                                <button 
+                                    onClick={() => {
+                                        if(solicitudes.length > 1) {
+                                            setSolicitudes(prev => prev.filter((_, idx) => idx !== i));
+                                            setCurrentSolicitudIndex(0);
+                                        }
+                                    }} 
+                                    className="text-slate-300 hover:text-red-500"
+                                >
+                                    <Trash2 className="w-4 h-4"/>
+                                </button>
                             </div>
                         ))}
-                        <Button variant="ghost" size="sm" className="w-full mt-2 text-blue-600" onClick={() => setSolicitudes(prev => [...prev, { id: crypto.randomUUID(), trabajador: initialTrabajador, examenes: isClienteFrecuente ? solicitudes[0].examenes : [] }])}>
-                            <PlusCircle className="w-4 h-4 mr-2"/> Añadir
+                        <Button variant="ghost" size="sm" className="w-full mt-2 text-blue-600" onClick={addTrabajador}>
+                            <PlusCircle className="w-4 h-4 mr-2"/> Añadir Trabajador
                         </Button>
                     </CardContent>
                 </Card>
-                <ResumenCotizacion selectedExams={allExams} onClear={() => setSolicitudes(prev => prev.map(s => ({...s, examenes: []})))} onGenerate={handleGenerateQuote} isStep1={step === 1} isFrecuente={isClienteFrecuente} />
+                <ResumenCotizacion 
+                    selectedExams={allExams} 
+                    onClear={() => setSolicitudes(prev => prev.map(s => ({...s, examenes: []})))} 
+                    onGenerate={handleGenerateQuote} 
+                    isStep1={step === 1} 
+                    isFrecuente={isClienteFrecuente} 
+                />
             </div>
         </div>
     </div>
