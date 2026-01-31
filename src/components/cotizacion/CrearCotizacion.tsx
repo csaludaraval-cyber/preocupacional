@@ -67,7 +67,7 @@ export function CrearCotizacion() {
                 ...s,
                 id: s.id || crypto.randomUUID(),
                 trabajador: { ...initialTrabajador, ...s.trabajador },
-                examenes: s.examenes || [] // <--- CARGA LA SELECCIÓN DEL CLIENTE
+                examenes: s.examenes || [] 
             })));
             setCurrentSolicitudIndex(0);
         }
@@ -114,7 +114,6 @@ export function CrearCotizacion() {
       },
       solicitanteData: solicitante,
       solicitudesData: solicitudes,
-      // Los frecuentes van a PAGADO para aparecer en consolidación
       status: isClienteFrecuente ? 'PAGADO' : 'CONFIRMADA',
       originalRequestId: originalRequestId || null,
       liorenConsolidado: false 
@@ -135,7 +134,6 @@ export function CrearCotizacion() {
   const nextStep = () => setStep(prev => Math.min(prev + 1, 2));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
-  // Manejo de trabajador compatible con Paso1
   const handleSetTrabajador = (val: Trabajador | ((prev: Trabajador) => Trabajador)) => {
     setSolicitudes(prev => {
         const news = [...prev];
@@ -145,12 +143,11 @@ export function CrearCotizacion() {
     });
   };
 
-  // Añadir trabajador (Solución a inconsistencia de selección)
   const addTrabajador = () => {
     setSolicitudes(prev => [...prev, { 
         id: crypto.randomUUID(), 
         trabajador: initialTrabajador, 
-        examenes: [] // SIEMPRE VACÍO
+        examenes: [] 
     }]);
     setCurrentSolicitudIndex(solicitudes.length);
     setStep(1);
@@ -162,10 +159,11 @@ export function CrearCotizacion() {
     <div className="space-y-8 p-6 bg-white rounded-xl shadow-sm border">
         <div className="flex items-center justify-between border-b pb-4">
             <div>
-                <h1 className="text-2xl font-black italic uppercase text-slate-800">
+                {/* TÍTULO CORREGIDO: SIN ITALIC Y TAMAÑO ESTÁNDAR */}
+                <h1 className="text-2xl font-bold uppercase text-slate-800 tracking-tight">
                     {isClienteFrecuente ? "Ingreso de Orden" : "Generar Cotización"}
                 </h1>
-                <Badge variant={isClienteFrecuente ? "default" : "outline"} className={isClienteFrecuente ? "bg-amber-500" : ""}>
+                <Badge variant={isClienteFrecuente ? "default" : "outline"} className={isClienteFrecuente ? "bg-amber-500 mt-1" : "mt-1"}>
                     {isClienteFrecuente ? "MODO CLIENTE FRECUENTE" : "MODO ESTÁNDAR"}
                 </Badge>
             </div>

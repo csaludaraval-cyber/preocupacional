@@ -2,8 +2,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import AppWrapper from './AppWrapper';
-import { Header } from '@/components/layout/Header';
-import { Sidebar } from '@/components/layout/Sidebar';
+import Providers from '../components/Providers';
 
 export const metadata: Metadata = {
   title: 'Araval Preocupacional',
@@ -20,17 +19,11 @@ export default function RootLayout({ children }: { children: React.ReactNode; })
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <AppWrapper>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <div className="flex-1 flex flex-col">
-              <Header />
-              <main className="flex-1 p-6 lg:p-8 bg-background overflow-y-auto">
-                {children}
-              </main>
-            </div>
-          </div>
-        </AppWrapper>
+        <Providers>
+          <AppWrapper>
+            {children}
+          </AppWrapper>
+        </Providers>
       </body>
     </html>
   );

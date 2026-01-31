@@ -81,7 +81,7 @@ const enviarCotizacionFlow = ai.defineFlow(
               <p><strong>Dirección de nuestra sucursal en TALTAL es:</strong><br/>
               Dirección: Juan Martínez Nº 235 - Taltal.<br/>
               (CENTRO DE SALUD ARAVAL)</p>
-              <p><strong>Horario de atención:</strong> 08:00 - 12:00, 15:00 - 17:00 Hrs</p>
+              <p><strong>Horario de atención:</strong> 09:00 h</p>
           </div>
 
           <div style="margin-top: 20px;">
