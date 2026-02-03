@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -13,15 +12,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, Tag, Search, XCircle, Trash2, ShieldAlert, PlusCircle, Pencil } from 'lucide-react';
+import { Loader2, Shield, Tag, Search, XCircle, Trash2, PlusCircle, Pencil } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,8 +42,8 @@ export function AdminCatalogo() {
   const { toast } = useToast();
   
   const [refetchTrigger] = useState(0);
-  const memoizedQueryWithRefetch = useMemoFirebase(() => collection(firestore, 'examenes'), [refetchTrigger]);
-  const { data: exams, isLoading, error, refetch: refetchExams } = useCollection<Examen>(memoizedQueryWithRefetch);
+  const memoizedQuery = useMemoFirebase(() => collection(firestore, 'examenes'), [refetchTrigger]);
+  const { data: exams, isLoading, error, refetch: refetchExams } = useCollection<Examen>(memoizedQuery);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showPinDialog, setShowPinDialog] = useState(false);
@@ -53,189 +53,177 @@ export function AdminCatalogo() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Examen | null>(null);
   const [examToDelete, setExamToDelete] = useState<Examen | null>(null);
-  
+
   const handleSuccess = () => {
     setIsFormOpen(false);
     setEditingExam(null);
     refetchExams();
   };
-  
+
   const handlePinSubmit = () => {
-      if (pinValue === DELETE_CATALOG_PIN) {
-          setShowPinDialog(false);
-          setPinValue('');
-          setShowDeleteConfirmation(true);
-      } else {
-          toast({ variant: 'destructive', title: 'PIN Incorrecto', description: 'El PIN no es válido.' });
-          setPinValue('');
-      }
+    if (pinValue === DELETE_CATALOG_PIN) {
+      setShowPinDialog(false);
+      setPinValue('');
+      setShowDeleteConfirmation(true);
+    } else {
+      toast({ variant: 'destructive', title: 'PIN Incorrecto' });
+      setPinValue('');
+    }
   };
 
   const handleDeleteExam = async () => {
     if (!examToDelete) return;
     try {
         await deleteDoc(doc(firestore, 'examenes', examToDelete.id));
-        toast({ title: 'Examen Eliminado', description: `Se eliminó "${examToDelete.nombre}" del catálogo.`});
+        toast({ title: 'Eliminado', description: `"${examToDelete.nombre}" fue borrado.`});
         refetchExams();
     } catch(err: any) {
-        toast({ variant: 'destructive', title: 'Error al Eliminar', description: err.message });
+        toast({ variant: 'destructive', title: 'Error', description: err.message });
     } finally {
         setExamToDelete(null);
     }
   };
-
-
-  const handleDeleteCatalog = async () => {
-      setIsDeletingCatalog(true);
-      try {
-          const querySnapshot = await getDocs(collection(firestore, 'examenes'));
-          if (querySnapshot.empty) return;
-          const batch = writeBatch(firestore);
-          querySnapshot.forEach(doc => batch.delete(doc.ref));
-          await batch.commit();
-          toast({ title: 'Catálogo Eliminado' });
-          refetchExams();
-      } catch (err: any) {
-          toast({ variant: 'destructive', title: 'Error', description: err.message });
-      } finally {
-          setIsDeletingCatalog(false);
-          setShowDeleteConfirmation(false);
-      }
-  };
-
-  // --- FILTRADO BLINDADO (Previene Error 500) ---
-  const filteredExams = useMemo(() => {
-    if (!exams) return [];
-    
-    const sortedExams = [...exams].sort((a, b) => 
-      (a?.codigo || '').localeCompare(b?.codigo || '')
-    );
-
-    if (!searchTerm) return sortedExams;
-    
-    const lowerSearch = searchTerm.toLowerCase();
-    
-    return sortedExams.filter(exam => {
-      const nombre = (exam?.nombre || '').toLowerCase();
-      const categoria = (exam?.categoria || '').toLowerCase();
-      const codigo = (exam?.codigo || '').toLowerCase();
-      return nombre.includes(lowerSearch) || categoria.includes(lowerSearch) || codigo.includes(lowerSearch);
-    });
-  }, [exams, searchTerm]);
 
   const formatPrice = (val: any) => {
     const num = Number(val) || 0;
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(num);
   };
 
-  if (isLoading || authLoading) {
-    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
-  
-  if (user?.role !== 'admin') {
-    return (
-        <Alert variant="destructive" className="max-w-2xl mx-auto mt-10">
-            <Shield className="h-4 w-4" />
-            <AlertTitle>Acceso Denegado</AlertTitle>
-            <AlertDescription>No tiene permisos administrativos.</AlertDescription>
-        </Alert>
-    );
-  }
+  const getFilteredData = (subtipo: string) => {
+    if (!exams) return [];
+    return exams.filter(exam => {
+      // @ts-ignore
+      const matchSubtipo = (exam.subtipo || 'examen') === subtipo;
+      const lowerSearch = searchTerm.toLowerCase();
+      const matchSearch = 
+        (exam?.nombre || '').toLowerCase().includes(lowerSearch) || 
+        (exam?.codigo || '').toLowerCase().includes(lowerSearch);
+      return matchSubtipo && matchSearch;
+    }).sort((a, b) => (a?.nombre || '').localeCompare(b?.nombre || ''));
+  };
 
-  if (error) {
-      return (
-          <Alert variant="destructive" className="max-w-2xl mx-auto mt-10">
-              <XCircle className="h-4 w-4" />
-              <AlertTitle>Error de Datos</AlertTitle>
-              <AlertDescription>No se pudo cargar el catálogo.</AlertDescription>
-          </Alert>
-      );
-  }
+  if (isLoading || authLoading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+  if (user?.role !== 'admin') return <Alert variant="destructive"><Shield className="h-4 w-4" /><AlertTitle>Acceso Denegado</AlertTitle></Alert>;
+
+  const RenderTable = ({ data }: { data: Examen[] }) => (
+    <ScrollArea className="h-[55vh] rounded-md border">
+      <Table>
+        <TableHeader className="sticky top-0 bg-slate-50 z-10">
+          <TableRow>
+            <TableHead className="w-[250px] font-bold uppercase text-[10px]">Nombre</TableHead>
+            <TableHead className="font-bold uppercase text-[10px]">Descripción / Componentes</TableHead>
+            <TableHead className="text-right font-bold uppercase text-[10px]">Valor</TableHead>
+            <TableHead className="text-center font-bold uppercase text-[10px]">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.length > 0 ? data.map((exam) => (
+            <TableRow key={exam.id} className="hover:bg-slate-50/50">
+              <TableCell>
+                <div className="flex flex-col">
+                  <span className="font-bold text-slate-700 text-xs uppercase">{exam.nombre}</span>
+                  <span className="text-[10px] font-mono text-slate-400">{exam.codigo}</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-xs text-slate-500 italic">
+                {/* @ts-ignore */}
+                {exam.descripcion || 'Sin descripción detallada.'}
+              </TableCell>
+              <TableCell className="font-bold text-right text-slate-700">
+                {formatPrice(exam.valor)}
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="flex justify-center gap-1">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditingExam(exam); setIsFormOpen(true); }}>
+                    <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setExamToDelete(exam)}>
+                    <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          )) : (
+            <TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-400 text-xs">No hay registros en esta categoría.</TableCell></TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </ScrollArea>
+  );
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-start gap-4">
+    <div className="space-y-6">
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-                <CardTitle className="font-headline text-2xl flex items-center gap-3 text-foreground uppercase font-bold">
-                    <Tag className="h-7 w-7"/> Catálogo de Exámenes
-                </CardTitle>
-                <CardDescription>Gestione los exámenes y baterías del sistema.</CardDescription>
+              <CardTitle className="text-2xl font-bold text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                <Tag className="h-6 w-6 text-blue-600"/> Catálogo de Exámenes
+              </CardTitle>
+              <CardDescription className="text-[10px] uppercase font-bold text-slate-400">Administración de Precios y Baterías</CardDescription>
             </div>
-             <div className="flex gap-2">
-                 <Button onClick={() => { setEditingExam(null); setIsFormOpen(true); }}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir
-                 </Button>
-                 <Button variant="destructive" onClick={() => setShowPinDialog(true)}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Limpiar Todo
-                </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => { setEditingExam(null); setIsFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 h-9 text-xs font-bold">
+                <PlusCircle className="mr-2 h-4 w-4" /> AÑADIR
+              </Button>
+              <Button variant="outline" onClick={() => setShowPinDialog(true)} className="h-9 text-xs font-bold border-red-200 text-red-500 hover:bg-red-50">
+                <Trash2 className="mr-2 h-4 w-4" /> LIMPIAR TODO
+              </Button>
             </div>
-        </div>
-         <div className="relative pt-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          </div>
+
+          <div className="relative mt-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
-                placeholder="Buscar por código, nombre..."
-                className="pl-10"
+                placeholder="Buscar por código o nombre..."
+                className="pl-10 bg-slate-50 border-none h-10 text-xs"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[60vh] rounded-md border">
-          <Table>
-            <TableHeader className="sticky top-0 bg-secondary">
-              <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Examen</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-center">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredExams.length > 0 ? filteredExams.map((exam) => (
-                <TableRow key={exam.id}>
-                  <TableCell className="font-mono text-xs">{exam?.codigo || 'S/C'}</TableCell>
-                  <TableCell className="font-medium">{exam?.nombre || 'Sin nombre'}</TableCell>
-                  <TableCell>{exam?.categoria || 'Sin categoría'}</TableCell>
-                  <TableCell className="font-semibold text-right">{formatPrice(exam?.valor)}</TableCell>
-                  <TableCell className="text-center">
-                    <Button size="icon" variant="ghost" onClick={() => { setEditingExam(exam); setIsFormOpen(true); }}>
-                       <Pencil className="h-4 w-4" />
-                    </Button>
-                     <Button size="icon" variant="ghost" onClick={() => setExamToDelete(exam)}>
-                       <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              )) : (
-                 <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">Catálogo vacío o sin coincidencias.</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-      </CardContent>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          <Tabs defaultValue="empresa" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-6 bg-[#0a0a4d] p-0 h-12 rounded-lg border-none shadow-md overflow-hidden">
+              <TabsTrigger 
+                value="empresa" 
+                className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+              >
+                Batería Empresa
+              </TabsTrigger>
+              <TabsTrigger 
+                value="bateria" 
+                className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+              >
+                Batería Preocupacional
+              </TabsTrigger>
+              <TabsTrigger 
+                value="examen" 
+                className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+              >
+                Examen Individual
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="empresa" className="mt-0 focus-visible:outline-none"><RenderTable data={getFilteredData('empresa')} /></TabsContent>
+            <TabsContent value="bateria" className="mt-0 focus-visible:outline-none"><RenderTable data={getFilteredData('bateria')} /></TabsContent>
+            <TabsContent value="examen" className="mt-0 focus-visible:outline-none"><RenderTable data={getFilteredData('examen')} /></TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-[625px]">
-            <DialogHeader><DialogTitle>{editingExam ? 'Editar' : 'Nuevo'} Examen</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="uppercase font-bold text-slate-800">{editingExam ? 'Editar' : 'Nuevo'} Registro</DialogTitle></DialogHeader>
             <ExamenForm examen={editingExam} onSuccess={handleSuccess} />
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={showPinDialog} onOpenChange={setShowPinDialog}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>PIN Requerido</AlertDialogTitle>
-            <AlertDialogDescription>Acción irreversible. Ingrese el PIN de seguridad.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-2">
-            <Label>PIN</Label>
-            <Input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()} />
-          </div>
+          <AlertDialogHeader><AlertDialogTitle>Seguridad</AlertDialogTitle><AlertDialogDescription>Ingrese el PIN para vaciar el catálogo.</AlertDialogDescription></AlertDialogHeader>
+          <div className="py-2"><Input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()} /></div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPinValue('')}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handlePinSubmit}>Verificar</AlertDialogAction>
@@ -245,37 +233,33 @@ export function AdminCatalogo() {
 
       <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
           <AlertDialogContent>
-              <AlertDialogHeader>
-                  <AlertDialogTitle>¿Confirmar eliminación total?</AlertDialogTitle>
-                  <AlertDialogDescription>Se borrarán TODOS los exámenes del sistema.</AlertDialogDescription>
-              </AlertDialogHeader>
+              <AlertDialogHeader><AlertDialogTitle>¿Confirmar eliminación total?</AlertDialogTitle></AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteCatalog} disabled={isDeletingCatalog} className="bg-destructive hover:bg-destructive/90">
-                      {isDeletingCatalog ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Eliminar Todo'}
-                  </AlertDialogAction>
+                  <AlertDialogAction onClick={async () => {
+                      setIsDeletingCatalog(true);
+                      const querySnapshot = await getDocs(collection(firestore, 'examenes'));
+                      const batch = writeBatch(firestore);
+                      querySnapshot.forEach(doc => batch.delete(doc.ref));
+                      await batch.commit();
+                      toast({ title: 'Catálogo Vaciado' });
+                      setIsDeletingCatalog(false);
+                      setShowDeleteConfirmation(false);
+                      refetchExams();
+                  }} className="bg-red-600 hover:bg-red-700">Eliminar Todo</AlertDialogAction>
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog open={!!examToDelete} onOpenChange={() => setExamToDelete(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar este examen?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se eliminará <span className='font-bold'>{examToDelete?.nombre}</span>. Esta acción es permanente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>¿Eliminar este registro?</AlertDialogTitle></AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteExam} className="bg-destructive hover:bg-destructive/90">
-              Eliminar
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteExam} className="bg-red-600 hover:bg-red-700">Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </div>
   );
 }
-
-    

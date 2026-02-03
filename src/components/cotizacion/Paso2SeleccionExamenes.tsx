@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import type { Examen } from '@/lib/types';
 import { getExams } from '@/lib/data';
-import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertCircle, SearchX } from 'lucide-react';
+import { Search, SearchX } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
 
 interface Props {
   selectedExams: Examen[];
@@ -17,9 +18,74 @@ interface Props {
   showPrice?: boolean;
 }
 
-export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, showPrice = true }: Props) {
+// COMPONENTE DE TABLA
+function ListaExamenes({ 
+  data, 
+  selectedIds, 
+  onToggle 
+}: { 
+  data: Examen[], 
+  selectedIds: Set<string>, 
+  onToggle: (exam: Examen, checked: boolean) => void 
+}) {
+  if (data.length === 0) {
+    return (
+      <Table>
+        <TableBody>
+          <TableRow>
+            {/* CORRECCIÓN DEFINITIVA: USANDO "3" COMO STRING PARA EVITAR LLAVES VACÍAS */}
+            <TableCell colSpan={3} className="text-center py-20 text-slate-400 text-xs">
+              <div className="flex flex-col items-center">
+                <SearchX className="h-8 w-8 mb-2 opacity-20" />
+                <span>No hay resultados en esta categoría.</span>
+              </div>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader className="bg-slate-50 sticky top-0 z-10">
+        <TableRow>
+          <TableHead className="font-bold uppercase text-[10px] py-4 text-slate-500 text-left">Examen / Batería</TableHead>
+          <TableHead className="font-bold uppercase text-[10px] text-slate-500 text-left">Descripción / Componentes</TableHead>
+          <TableHead className="text-center font-bold uppercase text-[10px] text-slate-500 w-24">Seleccionar</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {data.map((exam) => (
+          <TableRow key={exam.id} className="hover:bg-blue-50/30 transition-colors border-slate-100">
+            <TableCell className="py-4 text-left">
+              <div className="flex flex-col">
+                <span className="font-bold text-slate-700 text-xs uppercase">{exam.nombre}</span>
+                <span className="text-[9px] font-mono text-slate-400">{exam.codigo}</span>
+              </div>
+            </TableCell>
+            <TableCell className="text-[11px] text-slate-500 italic text-left">
+              {/* @ts-ignore */}
+              {exam.descripcion || "Sin descripción detallada."}
+            </TableCell>
+            <TableCell className="text-center">
+              <Checkbox 
+                checked={selectedIds.has(exam.id)}
+                onCheckedChange={(checked) => onToggle(exam, !!checked)}
+                className="h-5 w-5 border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+              />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, showPrice = false }: Props) {
   const [allExams, setAllExams] = useState<Examen[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -27,15 +93,9 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
       setLoading(true);
       try {
         const examsData = await getExams();
-        console.log("Exámenes cargados desde DB:", examsData.length); // Debug
         setAllExams(examsData);
       } catch (error) {
-        console.error("Failed to load exams:", error);
-        toast({
-          variant: "destructive",
-          title: "Error de Carga",
-          description: "No se pudo conectar con el catálogo de exámenes.",
-        });
+        toast({ variant: "destructive", title: "Error", description: "No se pudo cargar el catálogo." });
       } finally {
         setLoading(false);
       }
@@ -43,110 +103,71 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
     loadExams();
   }, [toast]);
 
- const { examsByCategory, mainCategories } = useMemo(() => {
-    const categoriesMap: Record<string, Record<string, Examen[]>> = {};
+  const selectedExamIds = useMemo(() => new Set(selectedExams.map(e => e.id)), [selectedExams]);
 
-    if (!allExams || allExams.length === 0) {
-        return { examsByCategory: {}, mainCategories: [] };
-    }
-
-    allExams.forEach(exam => {
-        // PROTECCIÓN: Si la categoría no existe, asignamos "Sin Categoría"
-        const catRaw = exam.categoria || "Otros / General";
-        const mainCategory = catRaw.split('/')[0].trim() || "General";
-        const fullCategory = catRaw;
-
-        if (!categoriesMap[mainCategory]) {
-            categoriesMap[mainCategory] = {};
-        }
-        if (!categoriesMap[mainCategory][fullCategory]) {
-            categoriesMap[mainCategory][fullCategory] = [];
-        }
-        categoriesMap[mainCategory][fullCategory].push(exam);
-    });
-    
-    const sortedMainCategories = Object.keys(categoriesMap).sort((a, b) => a.localeCompare(b));
-    
-    return { examsByCategory: categoriesMap, mainCategories: sortedMainCategories };
-  }, [allExams]);
-  
-  const selectedExamIds = new Set(selectedExams.map(e => e.id));
-
-  const handleCategoryToggle = (categoryExams: Examen[], checked: boolean) => {
-    categoryExams.forEach(exam => {
-        if (checked !== selectedExamIds.has(exam.id)) {
-            onExamToggle(exam, checked);
-        }
-    });
+  const getFilteredData = (subtipo: string) => {
+    return allExams.filter(exam => {
+      // @ts-ignore
+      const matchSubtipo = (exam.subtipo || "examen") === subtipo;
+      const lowerSearch = searchTerm.toLowerCase();
+      const matchSearch = 
+        (exam?.nombre || "").toLowerCase().includes(lowerSearch) || 
+        (exam?.codigo || "").toLowerCase().includes(lowerSearch);
+      return matchSubtipo && matchSearch;
+    }).sort((a, b) => (a?.nombre || "").localeCompare(b?.nombre || ""));
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
-  };
-  
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-1/4 mb-4" />
-        <Card><CardContent className="p-6 space-y-4">
-            {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
-        </CardContent></Card>
-      </div>
-    );
-  }
-
-  // MENSAJE DE ERROR SI NO HAY DATOS
-  if (mainCategories.length === 0) {
-    return (
-        <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-slate-50 text-slate-500">
-            <SearchX className="h-12 w-12 mb-4 opacity-20" />
-            <p className="text-lg font-medium">No se encontraron exámenes</p>
-            <p className="text-sm">Verifica que la colección 'examenes' en Firestore tenga datos.</p>
-        </div>
-    );
-  }
+  if (loading) return <div className="space-y-4"><Skeleton className="h-10 w-full" /><Skeleton className="h-[40vh] w-full" /></div>;
 
   return (
-    <div className="w-full">
-        <ScrollArea className="h-[60vh] pr-4">
-            <div className="space-y-6">
-                {mainCategories.map(mainCategory => (
-                    <div key={mainCategory}>
-                        <h3 className="text-sm font-bold text-primary mb-3 uppercase tracking-wider">{mainCategory}</h3>
-                        <Card className="border-slate-200 shadow-sm">
-                            <CardContent className="p-2 space-y-1">
-                                {Object.entries(examsByCategory[mainCategory]).map(([fullCategory, categoryExams]) => {
-                                    const totalCategoryValue = categoryExams.reduce((acc, exam) => acc + (Number(exam.valor) || 0), 0);
-                                    const isCategorySelected = categoryExams.every(exam => selectedExamIds.has(exam.id));
-                                    
-                                    return (
-                                        <div key={fullCategory} className="flex items-start space-x-3 rounded-md p-3 transition-colors hover:bg-slate-100">
-                                            <Checkbox
-                                                id={fullCategory}
-                                                checked={isCategorySelected}
-                                                onCheckedChange={(checked) => handleCategoryToggle(categoryExams, !!checked)}
-                                                className="mt-1"
-                                            />
-                                            <Label htmlFor={fullCategory} className="flex-grow font-normal cursor-pointer">
-                                                <div className="flex justify-between items-start">
-                                                    <div className="space-y-1">
-                                                        <p className="font-semibold text-slate-900 leading-tight">{fullCategory}</p>
-                                                        <p className="text-xs text-slate-500">{categoryExams.length} examen(es) en esta batería</p>
-                                                    </div>
-                                                    {showPrice && (
-                                                        <p className="font-bold text-primary whitespace-nowrap ml-4">{formatCurrency(totalCategoryValue)}</p>
-                                                    )}
-                                                </div>
-                                            </Label>
-                                        </div>
-                                    )
-                                })}
-                            </CardContent>
-                        </Card>
-                    </div>
-                ))}
-            </div>
-        </ScrollArea>
+    <div className="space-y-6">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Input 
+          placeholder="Filtrar por nombre o código..."
+          className="pl-10 bg-slate-50 border-slate-200 h-11 text-sm rounded-lg"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      <Tabs defaultValue="empresa" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-4 bg-[#0a0a4d] p-0 h-12 rounded-lg border-none shadow-md overflow-hidden">
+          <TabsTrigger 
+            value="empresa" 
+            className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+          >
+            Batería Empresa
+          </TabsTrigger>
+          <TabsTrigger 
+            value="bateria" 
+            className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+          >
+            Batería Preocupacional
+          </TabsTrigger>
+          <TabsTrigger 
+            value="examen" 
+            className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+          >
+            Examen Individual
+          </TabsTrigger>
+        </TabsList>
+        
+        {['empresa', 'bateria', 'examen'].map((tab) => (
+          <TabsContent key={tab} value={tab} className="mt-0 focus-visible:outline-none">
+            <ScrollArea className="h-[50vh] border rounded-md bg-white">
+              <ListaExamenes data={getFilteredData(tab)} selectedIds={selectedExamIds} onToggle={onExamToggle} />
+            </ScrollArea>
+          </TabsContent>
+        ))}
+      </Tabs>
+      
+      <div className="bg-slate-50 p-4 rounded-lg flex items-center justify-between border border-slate-200">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Resumen de selección</span>
+        <span className="text-xs font-black text-blue-600 uppercase italic">
+          {selectedExams.length} ítems añadidos
+        </span>
+      </div>
     </div>
   );
 }

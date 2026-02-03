@@ -66,13 +66,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUserWithRole(finalUser);
 
           // 🚀 REDIRECCIÓN INTELIGENTE POST-LOGIN
-          if (pathname === '/login') {
-              if (userRole === 'medico') {
-                  router.push('/medico');
-              } else if (userRole === 'admin' || userRole === 'superadmin') {
-                  router.push('/');
-              }
-          }
+          if (pathname === '/login' || pathname === '/') {
+            if (userRole === 'medico') {
+                router.push('/medico');
+            } else if (userRole === 'admin' || userRole === 'superadmin') {
+                if (pathname === '/login') router.push('/');
+            }
+        }
 
         } catch (error) {
           console.error("Error AuthProvider:", error);

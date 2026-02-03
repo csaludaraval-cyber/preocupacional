@@ -98,14 +98,23 @@ export default function SolicitudPage() {
 
   const handleExamToggle = (exam: Examen, checked: boolean) => {
     setSolicitudes(prev => {
-        const newSols = [...prev];
-        const currentExams = newSols[currentSolicitudIndex].examenes;
-        newSols[currentSolicitudIndex].examenes = checked
-          ? [...currentExams, exam]
-          : currentExams.filter(e => e.id !== exam.id);
-        return newSols;
+      const newSols = [...prev];
+      const currentExams = newSols[currentSolicitudIndex].examenes || [];
+  
+      if (checked) {
+        // EVITAR DUPLICADOS: Filtramos por si ya existe y luego agregamos
+        const exists = currentExams.some(e => e.id === exam.id);
+        if (!exists) {
+          newSols[currentSolicitudIndex].examenes = [...currentExams, exam];
+        }
+      } else {
+        // REMOVER: Filtramos todos los que coincidan con el ID
+        newSols[currentSolicitudIndex].examenes = currentExams.filter(e => e.id !== exam.id);
+      }
+      
+      return newSols;
     });
-  };
+  }
 
   /**
    * SOLUCIÓN A INCONSISTENCIA: Nuevo trabajador siempre viene con exámenes vacíos

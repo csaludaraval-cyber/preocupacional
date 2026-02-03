@@ -1,4 +1,3 @@
-
 "use client";
 
 import { type Dispatch, type SetStateAction, useState, useCallback, ChangeEvent, useMemo } from 'react';
@@ -13,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DatePicker } from '../ui/date-picker';
 import { formatRut, cleanRut } from '@/lib/utils';
-import { add, formatISO, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 
 interface Props {
   empresa: Empresa;
@@ -33,7 +32,6 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
     setEmpresa({ ...empresa, rut: formattedRut });
   };
 
-
   const handleRutBlur = useCallback(async () => {
     if (!empresa.rut) return;
 
@@ -49,7 +47,7 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
         const data = docSnap.data() as Empresa;
         setEmpresa({
           ...data,
-          rut: formatRut(data.rut), // Re-format for display
+          rut: formatRut(data.rut),
         });
         if(data.email && setSolicitante && solicitante && !solicitante.mail) {
           setSolicitante(prev => ({...prev, mail: data.email}));
@@ -71,21 +69,17 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
     }
   }, [empresa.rut, setEmpresa, setSolicitante, solicitante, toast]);
   
-    const handleDateSelect = (date: Date | undefined) => {
-      // Store date as ISO string to maintain a consistent serializable type in the state
-      setTrabajador({ ...trabajador, fechaAtencion: date ? date.toISOString() : '' });
-    };
+  const handleDateSelect = (date: Date | undefined) => {
+    setTrabajador({ ...trabajador, fechaAtencion: date ? date.toISOString() : '' });
+  };
 
   const selectedDate = useMemo(() => {
-    // Defensively handle invalid or empty date values
     if (!trabajador.fechaAtencion || typeof trabajador.fechaAtencion !== 'string') {
         return undefined;
     }
     const date = parseISO(trabajador.fechaAtencion);
-    // Check if the created date is valid
     return isNaN(date.getTime()) ? undefined : date;
   }, [trabajador.fechaAtencion]);
-
 
   return (
     <div className="space-y-6">
@@ -96,26 +90,29 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="razon-social">Razón Social</Label>
-              <Input id="razon-social" value={empresa.razonSocial} onChange={e => setEmpresa({...empresa, razonSocial: e.target.value})} />
-            </div>
+            {/* RUT PRIMERO PARA ACTIVAR BÚSQUEDA */}
             <div className="relative space-y-2">
               <Label htmlFor="rut-empresa">RUT</Label>
               <Input 
                 id="rut-empresa" 
                 value={empresa.rut} 
                 onChange={handleRutChange} 
-                onBlur={handleRutBlur} 
+                onBlur={handleRutBlur}
+                placeholder="Ej: 76.123.456-7"
               />
               {isSearching && <Loader2 className="absolute right-3 top-9 h-5 w-5 animate-spin text-muted-foreground" />}
+            </div>
+            {/* RAZÓN SOCIAL SEGUNDO */}
+            <div className="space-y-2">
+              <Label htmlFor="razon-social">Razón Social</Label>
+              <Input id="razon-social" value={empresa.razonSocial} onChange={e => setEmpresa({...empresa, razonSocial: e.target.value})} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="giro">Giro</Label>
               <Input id="giro" value={empresa.giro} onChange={e => setEmpresa({...empresa, giro: e.target.value})} />
             </div>
              <div className="space-y-2">
-              <Label htmlFor="email-empresa">Email Empresa (para cotización)</Label>
+              <Label htmlFor="email-empresa">Email Empresa</Label>
               <Input id="email-empresa" type="email" value={empresa.email} onChange={e => setEmpresa({...empresa, email: e.target.value})} />
             </div>
           </div>
@@ -153,7 +150,7 @@ export default function Paso1DatosGenerales({ empresa, setEmpresa, trabajador, s
                       <Input id="nombre-solicitante" value={solicitante.nombre} onChange={e => setSolicitante({...solicitante, nombre: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                      <Label htmlFor="mail-solicitante">Mail Contacto</Label>
+                      <Label htmlFor="mail-solicitante">Email Contacto (para cotización)</Label>
                       <Input id="mail-solicitante" type="email" value={solicitante.mail} onChange={e => setSolicitante({...solicitante, mail: e.target.value})} />
                   </div>
               </div>
