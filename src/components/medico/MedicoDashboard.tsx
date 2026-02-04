@@ -139,13 +139,13 @@ export function MedicoDashboard() {
         <CardContent className="p-0">
           <Tabs defaultValue="hoy" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6 bg-[#0a0a4d] p-0 h-12 rounded-lg border-none shadow-md overflow-hidden">
-              <TabsTrigger value="hoy" className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsTrigger value="hoy" className="h-full rounded-none text-[11px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                 Ords. Día ({filteredData.hoy.length})
               </TabsTrigger>
-              <TabsTrigger value="semana" className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsTrigger value="semana" className="h-full rounded-none text-[11px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                 Ords. Semana ({filteredData.semana.length})
               </TabsTrigger>
-              <TabsTrigger value="mes" className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsTrigger value="mes" className="h-full rounded-none text-[11px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                 Ords. Mes ({filteredData.mes.length})
               </TabsTrigger>
             </TabsList>

@@ -135,19 +135,19 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
         <TabsList className="grid w-full grid-cols-3 mb-4 bg-[#0a0a4d] p-0 h-12 rounded-lg border-none shadow-md overflow-hidden">
           <TabsTrigger 
             value="empresa" 
-            className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            className="h-full rounded-none text-[11px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
           >
             Batería Empresa
           </TabsTrigger>
           <TabsTrigger 
             value="bateria" 
-            className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            className="h-full rounded-none text-[11px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
           >
             Batería Preocupacional
           </TabsTrigger>
           <TabsTrigger 
             value="examen" 
-            className="h-full rounded-none text-[10px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            className="h-full rounded-none text-[11px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
           >
             Examen Individual
           </TabsTrigger>
