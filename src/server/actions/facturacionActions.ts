@@ -43,7 +43,8 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
       (sol.examenes || [])
         .filter((ex: any) => Number(ex.valor) > 0)
         .map((ex: any) => ({
-          nombre: (ex.nombre + " - " + (sol.trabajador?.nombre || 'S/N')).substring(0, 80).trim(),
+          // LIMPIEZA: Solo nombre del examen en mayúsculas, sin trabajador
+          nombre: ex.nombre.toUpperCase().substring(0, 80).trim(),
           cantidad: 1, 
           precio: Math.round(Number(ex.valor)), 
           exento: true
@@ -123,7 +124,8 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
         (sol.examenes || [])
           .filter((ex: any) => Number(ex.valor) > 0)
           .map((ex: any) => ({
-            nombre: (ex.nombre + " (Ref: " + docSnapshot.id.slice(-4) + ")").substring(0, 80).trim(),
+            // LIMPIEZA: Solo nombre del examen, opcionalmente podrías dejar la Ref de Orden
+            nombre: ex.nombre.toUpperCase().substring(0, 80).trim(),
             cantidad: 1, 
             precio: Math.round(Number(ex.valor)), 
             exento: true

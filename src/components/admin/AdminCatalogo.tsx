@@ -202,7 +202,7 @@ export function AdminCatalogo() {
                 value="examen" 
                 className="h-full rounded-none text-[11px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
               >
-                Examen Individual
+                Examen Complementario
               </TabsTrigger>
             </TabsList>
             

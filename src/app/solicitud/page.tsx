@@ -45,6 +45,9 @@ export default function SolicitudPage() {
 
   const currentSolicitud = solicitudes[currentSolicitudIndex];
 
+  // VALIDACIÓN DE PASO 1 PARA BLOQUEO
+  const isStep1Incomplete = !empresa.razonSocial || !solicitante.nombre || !solicitante.mail || !solicitante.mail.includes('@');
+
   const handleValidateRut = async () => {
     if (!rutEmpresa) return;
     setIsValidating(true);
@@ -76,7 +79,6 @@ export default function SolicitudPage() {
     });
   };
 
-  // FUNCIÓN RESTAURADA PARA EVITAR ERROR TS(2304)
   const handleSendRequest = async () => {
     setIsSubmitting(true);
     try {
@@ -89,36 +91,31 @@ export default function SolicitudPage() {
       };
       await addDoc(collection(firestore, 'solicitudes_publicas'), submissionData);
       setFormSubmitted(true);
-    } catch (e) {
-      toast({ title: "Error al enviar", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch (e) { toast({ title: "Error", variant: "destructive" }); }
+    finally { setIsSubmitting(false); }
   };
 
   if (solicitudes.length === 0) return null;
 
   if (formSubmitted) {
     return (
-        <div className="max-w-2xl mx-auto py-20 px-4">
-            <Alert className="border-emerald-500 bg-emerald-50 text-emerald-800 p-8 shadow-xl">
-                <CheckCircle2 className="h-8 w-8 text-emerald-600" />
-                <AlertTitle className="text-2xl font-black uppercase mb-2">¡Solicitud Recibida!</AlertTitle>
-                <AlertDescription className="text-sm font-bold opacity-70">Su requerimiento ha sido ingresado exitosamente.</AlertDescription>
-            </Alert>
+        <div className="max-w-2xl mx-auto py-20 px-4 text-center">
+            <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-6" />
+            <h1 className="text-3xl font-black uppercase italic mb-2">¡Solicitud Recibida!</h1>
+            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">El sistema Araval ha procesado su requerimiento.</p>
         </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f7fa] pb-20">
+    <div className="min-h-screen bg-[#f4f7fa] pb-20 font-sans">
       <header className="bg-[#0a0a4d] text-white pt-14 pb-20 px-4">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-6 md:gap-8">
           <div className="flex justify-center md:justify-start md:ml-6">
             <Image src="/images/logo2.png" alt="Araval Logo" width={120} height={60} priority className="object-contain" />
           </div>
           <div className="hidden md:block h-10 w-[1px] bg-white/20" />
-          <div className="flex flex-col items-center md:items-start space-y-0">
+          <div className="flex flex-col items-center md:items-start space-y-0 text-center md:text-left">
             <h1 className="text-[14px] font-black uppercase tracking-tighter opacity-80 leading-tight">Bienvenidos a</h1>
             <p className="text-[11px] font-bold text-blue-300 uppercase tracking-[0.3em] leading-none">Solicitud de Exámenes</p>
           </div>
@@ -159,8 +156,12 @@ export default function SolicitudPage() {
                       <Button variant="ghost" onClick={() => setStep(1)} disabled={step === 1} className="font-black uppercase text-[10px] tracking-widest">Anterior</Button>
                       <Button 
                         onClick={step === 1 ? () => setStep(2) : handleSendRequest} 
-                        disabled={isSubmitting} 
-                        className={`px-12 h-14 font-black uppercase tracking-widest text-[11px] shadow-xl transition-all ${step === 1 ? "bg-blue-600 hover:bg-blue-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
+                        disabled={isSubmitting || (step === 1 && isStep1Incomplete)} 
+                        className={`px-12 h-14 font-black uppercase tracking-widest text-[11px] shadow-xl transition-all duration-300 ${
+                            step === 1 
+                            ? (isStep1Incomplete ? "bg-slate-300 cursor-not-allowed text-slate-500" : "bg-blue-600 hover:bg-blue-700 hover:scale-105 text-white") 
+                            : "bg-emerald-600 hover:bg-emerald-700 hover:scale-105 text-white"
+                        }`}
                       >
                           {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : null}
                           {step === 1 ? "Siguiente Paso" : "Finalizar Solicitud"}
