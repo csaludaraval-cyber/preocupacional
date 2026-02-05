@@ -8,42 +8,20 @@ import type { CotizacionFirestore } from '@/lib/types';
 
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa";
 
-/**
- * 1. TEST DE CONEXIÓN
- */
-export async function probarConexionLioren() {
-  try {
-    await whoami();
-    const ubicacion = await normalizarUbicacionLioren("TALTAL", "TALTAL");
-    return { success: true, message: "Conexión OK. Taltal: C:" + ubicacion.comunaId + " CI:" + ubicacion.ciudadId };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * 2. FACTURACIÓN INDIVIDUAL
- */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
-  let trace = "INICIO";
   try {
-    if (!firestore) throw new Error("Firestore no inicializado.");
-    
     const docRef = doc(firestore, 'cotizaciones', cotizacionId);
     const snap = await getDoc(docRef);
-    
-    if (!snap.exists()) throw new Error("Cotización no encontrada.");
+    if (!snap.exists()) throw new Error("No existe la cotización.");
     const data = snap.data() as CotizacionFirestore;
 
-    trace = "Mapeo Ubicación";
     const ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna, data.empresaData?.ciudad);
 
-    trace = "Construyendo Payload";
     const detalles = (data.solicitudesData || []).flatMap((sol: any) =>
       (sol.examenes || [])
         .filter((ex: any) => Number(ex.valor) > 0)
         .map((ex: any) => ({
-          // LIMPIEZA: Solo nombre del examen en mayúsculas, sin trabajador
+          // LIMPIEZA DEFINITIVA: Solo nombre del examen, sin trabajador.
           nombre: ex.nombre.toUpperCase().substring(0, 80).trim(),
           cantidad: 1, 
           precio: Math.round(Number(ex.valor)), 
@@ -51,10 +29,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
         }))
     );
 
-    if (detalles.length === 0) throw new Error("No hay ítems con valor mayor a 0 para facturar.");
-
-    const payload = {
-      test: false, // <--- BANDERAZO DE PRODUCCIÓN REAL
+    const result = await createDTE({
       tipodoc: "34",
       emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
       receptor: {
@@ -68,20 +43,12 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
       },
       detalles,
       expect_all: true
-    };
+    });
 
-    trace = "Llamada a Lioren";
-    const result = await createDTE(payload);
-    
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
     const finalFolio = result.folio || (result.dte && result.dte.folio);
-
-    if (!finalId) throw new Error("Lioren no devolvió ID.");
-
-    // CONCATENACIÓN SIMPLE PARA EVITAR ERROR TS1109
     const finalPdfUrl = "https://cl.lioren.enterprises/empresas/" + LIOREN_SLUG + "/dte/getpdf/" + finalId;
 
-    trace = "Firestore Write";
     await setDoc(docRef, {
       status: 'FACTURADO',
       liorenId: String(finalId),
@@ -91,28 +58,14 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     }, { merge: true });
 
     return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
-  } catch (error: any) {
-    console.error("ERROR EN TRACE [" + trace + "]:", error.message);
-    throw new Error(error.message);
-  }
+  } catch (error: any) { throw new Error(error.message); }
 }
 
-/**
- * 3. FACTURACIÓN CONSOLIDADA
- */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
-  let trace = "INICIO CONSOLIDACIÓN";
   try {
-    if (!firestore) throw new Error("Firestore no inicializado.");
-
-    const q = query(
-      collection(firestore, 'cotizaciones'),
-      where('empresaData.rut', '==', rutEmpresa),
-      where('status', 'in', ['PAGADO', 'CORREO_ENVIADO', 'orden_examen_enviada'])
-    );
-
+    const q = query(collection(firestore, 'cotizaciones'), where('empresaData.rut', '==', rutEmpresa), where('status', 'in', ['PAGADO', 'CORREO_ENVIADO']));
     const snap = await getDocs(q);
-    if (snap.empty) throw new Error("No hay órdenes pendientes.");
+    if (snap.empty) throw new Error("Sin órdenes.");
 
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
@@ -124,7 +77,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
         (sol.examenes || [])
           .filter((ex: any) => Number(ex.valor) > 0)
           .map((ex: any) => ({
-            // LIMPIEZA: Solo nombre del examen, opcionalmente podrías dejar la Ref de Orden
+            // LIMPIEZA DEFINITIVA: Solo nombre del examen.
             nombre: ex.nombre.toUpperCase().substring(0, 80).trim(),
             cantidad: 1, 
             precio: Math.round(Number(ex.valor)), 
@@ -151,60 +104,33 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
     const finalFolio = result.folio || (result.dte && result.dte.folio);
-    
-    // CONCATENACIÓN SIMPLE PARA EVITAR ERROR TS1109
     const finalPdfUrl = "https://cl.lioren.enterprises/empresas/" + LIOREN_SLUG + "/dte/getpdf/" + finalId;
 
     const batch = writeBatch(firestore);
     docs.forEach(docSnapshot => {
-      batch.update(doc(firestore, 'cotizaciones', docSnapshot.id), { 
-        status: 'FACTURADO', 
-        liorenFolio: String(finalFolio), 
-        liorenId: String(finalId),
-        liorenPdfUrl: finalPdfUrl, 
-        liorenConsolidado: true,
-        liorenFechaEmision: new Date().toISOString()
-      });
+      batch.update(doc(firestore, 'cotizaciones', docSnapshot.id), { status: 'FACTURADO', liorenFolio: String(finalFolio), liorenId: String(finalId), liorenPdfUrl: finalPdfUrl });
     });
-    
     await batch.commit();
-    return { success: true, folio: finalFolio, count: docs.length, pdfUrl: finalPdfUrl };
-  } catch (error: any) { 
-    console.error("ERROR CONSOLIDADO:", error.message);
-    throw new Error(error.message); 
-  }
+    return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
+  } catch (error: any) { throw new Error(error.message); }
 }
 
-/**
- * 4. DESCARGAR MAESTRO
- */
 export async function descargarMaestroLocalidades() {
   try {
     const token = process.env.LIOREN_TOKEN || "";
-    const headers = { 
-      'Accept': 'application/json', 
-      'Authorization': 'Bearer ' + token.trim() 
-    };
-    
+    const headers = { 'Accept': 'application/json', 'Authorization': 'Bearer ' + token.trim() };
     const [resRegiones, resComunas, resCiudades] = await Promise.all([
-      fetch('https://www.lioren.cl/api/regiones', { method: 'GET', headers, cache: 'no-store' }),
-      fetch('https://www.lioren.cl/api/comunas', { method: 'GET', headers, cache: 'no-store' }),
-      fetch('https://www.lioren.cl/api/ciudades', { method: 'GET', headers, cache: 'no-store' })
+      fetch('https://www.lioren.cl/api/regiones', { method: 'GET', headers }),
+      fetch('https://www.lioren.cl/api/comunas', { method: 'GET', headers }),
+      fetch('https://www.lioren.cl/api/ciudades', { method: 'GET', headers })
     ]);
+    return { success: true, data: { regiones: await resRegiones.json(), comunas: await resComunas.json(), ciudades: await resCiudades.json() } };
+  } catch (error: any) { return { success: false, error: error.message }; }
+}
 
-    const regionesData = await resRegiones.json();
-    const comunasData = await resComunas.json();
-    const ciudadesData = await resCiudades.json();
-
-    return { 
-      success: true, 
-      data: { 
-        regiones: regionesData, 
-        comunas: comunasData, 
-        ciudades: ciudadesData 
-      } 
-    };
-  } catch (error: any) { 
-    return { success: false, error: error.message }; 
-  }
+export async function probarConexionLioren() {
+  try {
+    await whoami();
+    return { success: true, message: "Conexión con SII Lioren Exitosa." };
+  } catch (error: any) { return { success: false, error: error.message }; }
 }
