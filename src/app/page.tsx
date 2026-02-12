@@ -1,14 +1,15 @@
-// src/app/page.tsx
-import { Suspense } from 'react';
-import { CrearCotizacion } from '@/components/cotizacion/CrearCotizacion';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
+'use client';
 
-export default function Home() {
+import React from 'react';
+import { Loader2 } from 'lucide-react';
+
+export default function HomePage() {
   return (
-    <FirebaseClientProvider>
-      <Suspense fallback={<div>Cargando contenido...</div>}>
-        <CrearCotizacion />
-      </Suspense>
-    </FirebaseClientProvider>
+    <div className="flex h-screen items-center justify-center bg-white">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verificando acceso Araval...</p>
+      </div>
+    </div>
   );
 }

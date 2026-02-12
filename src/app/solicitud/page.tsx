@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react'; // useMemo agregado
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PlusCircle, Trash2, Users, Loader2, CheckCircle2 } from 'lucide-react';
@@ -45,8 +45,19 @@ export default function SolicitudPage() {
 
   const currentSolicitud = solicitudes[currentSolicitudIndex];
 
-  // VALIDACIÓN DE PASO 1 PARA BLOQUEO
-  const isStep1Incomplete = !empresa.razonSocial || !solicitante.nombre || !solicitante.mail || !solicitante.mail.includes('@');
+  // --- LÓGICA DE VALIDACIÓN ESTRICTA (100% OBLIGATORIO) ---
+  const isStep1Incomplete = useMemo(() => {
+    if (!currentSolicitud) return true;
+    
+    // Validación Empresa
+    const empresaOk = !!(empresa.rut && empresa.razonSocial && empresa.giro && empresa.email && empresa.direccion && empresa.ciudad && empresa.comuna && empresa.region);
+    // Validación Solicitante
+    const solicitanteOk = !!(solicitante.nombre && solicitante.mail && solicitante.mail.includes('@'));
+    // Validación Trabajador actual
+    const trabajadorOk = !!(currentSolicitud.trabajador.nombre && currentSolicitud.trabajador.rut && currentSolicitud.trabajador.cargo && currentSolicitud.trabajador.fechaNacimiento && currentSolicitud.trabajador.fechaAtencion);
+
+    return !(empresaOk && solicitanteOk && trabajadorOk);
+  }, [empresa, solicitante, currentSolicitud]);
 
   const handleValidateRut = async () => {
     if (!rutEmpresa) return;
@@ -58,7 +69,7 @@ export default function SolicitudPage() {
             setEmpresa(docSnap.data() as Empresa);
             toast({ title: 'Empresa Encontrada' });
         } else {
-             toast({ variant: 'destructive', title: 'No encontrado' });
+             toast({ variant: 'destructive', title: 'No registrado', description: 'Complete los datos manualmente.' });
         }
     } catch (e) { toast({ variant: 'destructive', title: 'Error' }); }
     finally { setIsValidating(false); }
@@ -91,7 +102,7 @@ export default function SolicitudPage() {
       };
       await addDoc(collection(firestore, 'solicitudes_publicas'), submissionData);
       setFormSubmitted(true);
-    } catch (e) { toast({ title: "Error", variant: "destructive" }); }
+    } catch (e) { toast({ title: "Error al enviar", variant: "destructive" }); }
     finally { setIsSubmitting(false); }
   };
 
@@ -102,37 +113,37 @@ export default function SolicitudPage() {
         <div className="max-w-2xl mx-auto py-20 px-4 text-center">
             <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-6" />
             <h1 className="text-3xl font-black uppercase italic mb-2">¡Solicitud Recibida!</h1>
-            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">El sistema Araval ha procesado su requerimiento.</p>
+            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest text-center">El sistema Araval ha procesado su requerimiento.</p>
         </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f7fa] pb-20 font-sans">
+    <div className="min-h-screen bg-[#f4f7fa] pb-20">
       <header className="bg-[#0a0a4d] text-white pt-14 pb-20 px-4">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-6 md:gap-8">
-          <div className="flex justify-center md:justify-start md:ml-6">
-            <Image src="/images/logo2.png" alt="Araval Logo" width={120} height={60} priority className="object-contain" />
+          <div className="flex justify-center md:justify-start md:ml-10">
+            <Image src="/images/logo2.png" alt="Araval Logo" width={115} height={55} priority className="object-contain" />
           </div>
-          <div className="hidden md:block h-10 w-[1px] bg-white/20" />
-          <div className="flex flex-col items-center md:items-start space-y-0 text-center md:text-left">
-            <h1 className="text-[14px] font-black uppercase tracking-tighter opacity-80 leading-tight">Bienvenidos a</h1>
-            <p className="text-[11px] font-bold text-blue-300 uppercase tracking-[0.3em] leading-none">Solicitud de Exámenes</p>
+          <div className="hidden md:block h-8 w-[1px] bg-white/20" />
+          <div className="flex flex-col items-center md:items-start space-y-0">
+            <h1 className="text-[13px] font-black uppercase tracking-tighter opacity-80 leading-none">Bienvenidos a</h1>
+            <p className="text-[10px] font-bold text-blue-300 uppercase tracking-[0.35em] leading-tight">Solicitud de Exámenes</p>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 -mt-10 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 -mt-7 relative z-10">
         <Card className="border-none shadow-2xl bg-white mb-8 overflow-hidden rounded-xl">
           <CardContent className="p-0">
             <div className="bg-white p-6 flex flex-col md:flex-row items-center gap-4">
                 <div className="flex w-full max-w-md items-center space-x-2">
-                    <Input placeholder="Ingrese RUT Empresa" value={rutEmpresa} onChange={(e) => setRutEmpresa(formatRut(e.target.value))} className="h-12 font-bold text-lg border-slate-200" />
-                    <Button onClick={handleValidateRut} disabled={isValidating} className="bg-[#0a0a4d] h-12 px-8 font-black uppercase text-[11px] tracking-widest shadow-lg">
+                    <Input placeholder="Ingrese RUT Empresa" value={rutEmpresa} onChange={(e) => setRutEmpresa(formatRut(e.target.value))} className="h-11 font-bold text-base border-slate-200 bg-slate-50/50" />
+                    <Button onClick={handleValidateRut} disabled={isValidating} className="bg-[#0a0a4d] h-11 px-8 font-black uppercase text-[10px] tracking-widest shadow-lg">
                         {isValidating ? <Loader2 className="h-4 w-4 animate-spin"/> : "Validar Cliente"} 
                     </Button>
                 </div>
-                <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest md:ml-auto hidden lg:block">Portal Oficial de Solicitudes Araval</div>
+                <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] md:ml-auto hidden lg:block">Sistema de Gestión Araval</div>
             </div>
           </CardContent>
         </Card>
@@ -145,7 +156,16 @@ export default function SolicitudPage() {
                   <AnimatePresence mode="wait">
                       <motion.div key={`${step}-${currentSolicitudIndex}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                           {step === 1 ? (
-                              <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={(val) => { const news = [...solicitudes]; news[currentSolicitudIndex].trabajador = typeof val === 'function' ? val(news[currentSolicitudIndex].trabajador) : val; setSolicitudes(news); }} />
+                              <Paso1DatosGenerales 
+                                empresa={empresa} setEmpresa={setEmpresa} 
+                                solicitante={solicitante} setSolicitante={setSolicitante} 
+                                trabajador={currentSolicitud.trabajador} 
+                                setTrabajador={(val) => { 
+                                    const news = [...solicitudes]; 
+                                    news[currentSolicitudIndex].trabajador = typeof val === 'function' ? val(news[currentSolicitudIndex].trabajador) : val; 
+                                    setSolicitudes(news); 
+                                }} 
+                              />
                           ) : (
                               <Paso2SeleccionExamenes selectedExams={currentSolicitud?.examenes || []} onExamToggle={handleExamToggle} showPrice={false} />
                           )}
@@ -157,16 +177,19 @@ export default function SolicitudPage() {
                       <Button 
                         onClick={step === 1 ? () => setStep(2) : handleSendRequest} 
                         disabled={isSubmitting || (step === 1 && isStep1Incomplete)} 
-                        className={`px-12 h-14 font-black uppercase tracking-widest text-[11px] shadow-xl transition-all duration-300 ${
+                        className={`px-12 h-12 font-black uppercase tracking-widest text-[10px] shadow-xl transition-all duration-300 ${
                             step === 1 
-                            ? (isStep1Incomplete ? "bg-slate-300 cursor-not-allowed text-slate-500" : "bg-blue-600 hover:bg-blue-700 hover:scale-105 text-white") 
-                            : "bg-emerald-600 hover:bg-emerald-700 hover:scale-105 text-white"
+                            ? (isStep1Incomplete ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700") 
+                            : "bg-emerald-600 hover:bg-emerald-700 hover:scale-105"
                         }`}
                       >
                           {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : null}
                           {step === 1 ? "Siguiente Paso" : "Finalizar Solicitud"}
                       </Button>
                   </div>
+                  {step === 1 && isStep1Incomplete && (
+                    <p className="text-[9px] text-red-400 font-bold uppercase mt-4 text-right tracking-widest">Complete todos los campos marcados con * para continuar</p>
+                  )}
                 </div>
             </Card>
           </div>
@@ -179,7 +202,7 @@ export default function SolicitudPage() {
               <CardContent className="p-3 space-y-2">
                 {solicitudes.map((s, index) => (
                   <div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${index === currentSolicitudIndex ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100 shadow-sm' : 'bg-slate-50 border-transparent hover:bg-slate-100'}`}>
-                    <button className="flex-grow text-left text-[11px] font-black uppercase truncate text-slate-700" onClick={() => { setCurrentSolicitudIndex(index); setStep(1); }}>{index + 1}. {s.trabajador.nombre || "S/N"}</button>
+                    <button className="flex-grow text-left text-[11px] font-black uppercase truncate text-slate-700" onClick={() => { setCurrentSolicitudIndex(index); setStep(1); }}>{index + 1}. {s.trabajador.rut || "S/R"}</button>
                     {solicitudes.length > 1 && <button className="text-slate-300 hover:text-red-500 transition-colors" onClick={() => { setSolicitudes(prev => prev.filter((_, i) => i !== index)); setCurrentSolicitudIndex(0); }}><Trash2 className="h-4 w-4"/></button>}
                   </div>
                 ))}

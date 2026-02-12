@@ -1,0 +1,9 @@
+import AdminBalance from "@/components/admin/AdminBalance";
+
+export default function BalancePage() {
+  return (
+    <main className="w-full">
+      <AdminBalance />
+    </main>
+  );
+}
