@@ -5,13 +5,11 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, PlusCircle, Trash2, ShieldCheck } from 'lucide-react';
+import { Loader2, Users, PlusCircle, Trash2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 
-// COMPONENTES DE PASOS
 import Paso1DatosGenerales from '@/components/cotizacion/Paso1DatosGenerales';
 import Paso2SeleccionExamenes from '@/components/cotizacion/Paso2SeleccionExamenes';
 
@@ -37,6 +35,7 @@ function CrearCotizacionContent() {
       try {
         const data = JSON.parse(decodeURIComponent(solicitudParam));
         if (data.empresa) setEmpresa(data.empresa);
+        if (data.solicitante) setSolicitante(data.solicitante);
         if (data.solicitudes) setSolicitudes(data.solicitudes);
         if (data.originalRequestId) setOriginalRequestId(data.originalRequestId);
       } catch (e) { console.error("Error importación"); }
@@ -45,21 +44,50 @@ function CrearCotizacionContent() {
     }
   }, [searchParams]);
 
+  const validateWorker = (sol: SolicitudTrabajador) => {
+    return sol.trabajador.nombre && sol.trabajador.rut && sol.examenes.length > 0;
+  };
+
   const handleSaveCotizacion = async () => {
-    if (!empresa.rut || solicitudes.some(s => !s.trabajador.rut)) {
-        toast({ variant: "destructive", title: "Datos incompletos", description: "Verifique RUT de empresa y trabajadores." });
+    if (solicitudes.some(s => !validateWorker(s))) {
+        toast({ variant: "destructive", title: "Inconsistencia", description: "Todos los trabajadores deben tener datos y exámenes." });
         return;
     }
     setIsSubmitting(true);
     try {
       const total = solicitudes.reduce((acc, s) => acc + s.examenes.reduce((sum, e) => sum + (Number(e.valor) || 0), 0), 0);
-      const docData = { empresaData: empresa, solicitanteData: solicitante, solicitudesData: solicitudes, total, status: 'CONFIRMADA', fechaCreacion: serverTimestamp(), originalRequestId };
+      
+      // REGLA DE NEGOCIO: Bypass para Clientes Frecuentes
+      const isFrecuente = empresa.modalidadFacturacion === 'frecuente';
+      const finalStatus = isFrecuente ? 'PAGADO' : 'CONFIRMADA';
+
+      const docData = { 
+        empresaData: empresa, 
+        solicitanteData: solicitante, 
+        solicitudesData: solicitudes, 
+        total, 
+        status: finalStatus, // <--- APLICADO: PAGADO si es frecuente
+        fechaCreacion: serverTimestamp(), 
+        originalRequestId 
+      };
+
       await addDoc(collection(firestore, 'cotizaciones'), docData);
       if (originalRequestId) await updateDoc(doc(firestore, 'solicitudes_publicas', originalRequestId), { estado: 'procesada' });
-      toast({ title: "Éxito", description: "Orden guardada." });
+      
+      toast({ title: isFrecuente ? "Orden Enviada a Consolidación" : "Cotización Creada" });
       router.push('/cotizaciones-guardadas');
     } catch (e: any) { toast({ variant: "destructive", title: "Error", description: e.message }); }
     finally { setIsSubmitting(false); }
+  };
+
+  const addTrabajador = () => {
+    if (!validateWorker(solicitudes[currentIndex])) {
+        toast({ variant: "destructive", title: "Bloqueado", description: "Complete al trabajador actual antes de añadir otro." });
+        return;
+    }
+    setSolicitudes(prev => [...prev, { id: crypto.randomUUID(), trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' }, examenes: [] }]);
+    setCurrentIndex(solicitudes.length);
+    setStep(1);
   };
 
   const currentSol = solicitudes[currentIndex];
@@ -95,14 +123,13 @@ function CrearCotizacionContent() {
                 <Button variant="ghost" onClick={() => setStep(1)} disabled={step === 1} className="font-black uppercase text-[10px]">Atrás</Button>
                 <Button onClick={step === 1 ? () => setStep(2) : handleSaveCotizacion} disabled={isSubmitting} className={`px-10 h-12 font-black uppercase text-[11px] ${step === 1 ? "bg-blue-600 hover:bg-blue-700" : "bg-emerald-600 hover:bg-emerald-700"}`}>
                   {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-                  {step === 1 ? "Siguiente" : "Guardar Cotización"}
+                  {step === 1 ? "Siguiente Paso" : "Generar Cotización"}
                 </Button>
               </div>
             </div>
           </Card>
         </div>
 
-        {/* NÓMINA LATERAL INTEGRADA (SOLUCIONA ERRORES DE TYPESCRIPT) */}
         <div className="lg:col-span-1 space-y-6">
           <Card className="border-none shadow-xl bg-white overflow-hidden rounded-xl">
             <CardHeader className="p-4 bg-[#0a0a4d] border-b text-left">
@@ -115,19 +142,7 @@ function CrearCotizacionContent() {
                   {solicitudes.length > 1 && <button className="text-slate-300 hover:text-red-500" onClick={() => { setSolicitudes(prev => prev.filter((_, i) => i !== index)); setCurrentIndex(0); }}><Trash2 className="h-4 w-4"/></button>}
                 </div>
               ))}
-              <Button onClick={() => { setSolicitudes(prev => [...prev, { id: crypto.randomUUID(), trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' }, examenes: [] }]); setCurrentIndex(solicitudes.length); setStep(1); }} className="w-full mt-4 h-11 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase shadow-md"><PlusCircle className="mr-2 h-4 w-4" /> Añadir Trabajador</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-xl bg-white overflow-hidden rounded-xl">
-            <CardHeader className="p-4 bg-slate-50 border-b text-left">
-              <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Resumen del Total</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 text-right">
-                <p className="text-[9px] font-black text-slate-400 uppercase">Total Neto Exento</p>
-                <p className="text-2xl font-black text-slate-900 tracking-tighter">
-                    ${solicitudes.reduce((acc, s) => acc + s.examenes.reduce((sum, e) => sum + (Number(e.valor) || 0), 0), 0).toLocaleString('es-CL')}
-                </p>
+              <Button onClick={addTrabajador} className="w-full mt-4 h-11 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase shadow-md"><PlusCircle className="mr-2 h-4 w-4" /> Añadir Nuevo Trabajador</Button>
             </CardContent>
           </Card>
         </div>

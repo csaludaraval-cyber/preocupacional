@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react'; // useMemo agregado
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PlusCircle, Trash2, Users, Loader2, CheckCircle2 } from 'lucide-react';
@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cleanRut, formatRut } from '@/lib/utils';
 import Paso1DatosGenerales from '@/components/cotizacion/Paso1DatosGenerales';
 import Paso2SeleccionExamenes from '@/components/cotizacion/Paso2SeleccionExamenes';
@@ -35,29 +34,18 @@ export default function SolicitudPage() {
   
   useEffect(() => {
     if (solicitudes.length === 0) {
-      setSolicitudes([{
-        id: crypto.randomUUID(),
-        trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' },
-        examenes: []
-      }]);
+      setSolicitudes([{ id: crypto.randomUUID(), trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' }, examenes: [] }]);
     }
   }, []);
 
   const currentSolicitud = solicitudes[currentSolicitudIndex];
 
-  // --- LÓGICA DE VALIDACIÓN ESTRICTA (100% OBLIGATORIO) ---
-  const isStep1Incomplete = useMemo(() => {
-    if (!currentSolicitud) return true;
-    
-    // Validación Empresa
-    const empresaOk = !!(empresa.rut && empresa.razonSocial && empresa.giro && empresa.email && empresa.direccion && empresa.ciudad && empresa.comuna && empresa.region);
-    // Validación Solicitante
-    const solicitanteOk = !!(solicitante.nombre && solicitante.mail && solicitante.mail.includes('@'));
-    // Validación Trabajador actual
-    const trabajadorOk = !!(currentSolicitud.trabajador.nombre && currentSolicitud.trabajador.rut && currentSolicitud.trabajador.cargo && currentSolicitud.trabajador.fechaNacimiento && currentSolicitud.trabajador.fechaAtencion);
+  // REGLA 1: BLOQUEO DE PASO 2 SI FALTAN DATOS CRÍTICOS
+  const isStep1Incomplete = !empresa.razonSocial || !solicitante.nombre || !solicitante.mail || !solicitante.mail.includes('@');
 
-    return !(empresaOk && solicitanteOk && trabajadorOk);
-  }, [empresa, solicitante, currentSolicitud]);
+  const validateWorker = (sol: SolicitudTrabajador) => {
+    return sol.trabajador.nombre && sol.trabajador.rut && sol.examenes.length > 0;
+  };
 
   const handleValidateRut = async () => {
     if (!rutEmpresa) return;
@@ -65,12 +53,8 @@ export default function SolicitudPage() {
     const cleaned = cleanRut(rutEmpresa);
     try {
         const docSnap = await getDoc(doc(firestore, 'empresas', cleaned));
-        if (docSnap.exists()) {
-            setEmpresa(docSnap.data() as Empresa);
-            toast({ title: 'Empresa Encontrada' });
-        } else {
-             toast({ variant: 'destructive', title: 'No registrado', description: 'Complete los datos manualmente.' });
-        }
+        if (docSnap.exists()) { setEmpresa(docSnap.data() as Empresa); toast({ title: 'Empresa Encontrada' }); }
+        else { toast({ variant: 'destructive', title: 'No encontrado' }); }
     } catch (e) { toast({ variant: 'destructive', title: 'Error' }); }
     finally { setIsValidating(false); }
   };
@@ -80,9 +64,7 @@ export default function SolicitudPage() {
       const newSols = [...prev];
       const currentExams = newSols[currentSolicitudIndex]?.examenes || [];
       if (checked) {
-        if (!currentExams.some(e => e.id === exam.id)) {
-          newSols[currentSolicitudIndex].examenes = [...currentExams, exam];
-        }
+        if (!currentExams.some(e => e.id === exam.id)) newSols[currentSolicitudIndex].examenes = [...currentExams, exam];
       } else {
         newSols[currentSolicitudIndex].examenes = currentExams.filter(e => e.id !== exam.id);
       }
@@ -90,7 +72,21 @@ export default function SolicitudPage() {
     });
   };
 
+  const addTrabajador = () => {
+    if (!validateWorker(currentSolicitud)) {
+        toast({ variant: "destructive", title: "Acción bloqueada", description: "Complete los datos y exámenes del trabajador actual." });
+        return;
+    }
+    setSolicitudes(prev => [...prev, { id: crypto.randomUUID(), trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' }, examenes: [] }]);
+    setCurrentSolicitudIndex(solicitudes.length);
+    setStep(1);
+  };
+
   const handleSendRequest = async () => {
+    if (solicitudes.some(s => !validateWorker(s))) {
+        toast({ variant: "destructive", title: "Nómina Incompleta", description: "Revise que todos los trabajadores tengan datos y exámenes seleccionados." });
+        return;
+    }
     setIsSubmitting(true);
     try {
       const submissionData = {
@@ -110,25 +106,23 @@ export default function SolicitudPage() {
 
   if (formSubmitted) {
     return (
-        <div className="max-w-2xl mx-auto py-20 px-4 text-center">
+        <div className="max-w-2xl mx-auto py-20 px-4 text-center text-left">
             <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-6" />
-            <h1 className="text-3xl font-black uppercase italic mb-2">¡Solicitud Recibida!</h1>
-            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest text-center">El sistema Araval ha procesado su requerimiento.</p>
+            <h1 className="text-2xl font-black uppercase italic mb-2">¡Solicitud Enviada!</h1>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Su requerimiento será procesado por nuestro equipo comercial.</p>
         </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f7fa] pb-20">
+    <div className="min-h-screen bg-[#f4f7fa] pb-20 font-sans text-left">
       <header className="bg-[#0a0a4d] text-white pt-14 pb-20 px-4">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-6 md:gap-8">
-          <div className="flex justify-center md:justify-start md:ml-10">
-            <Image src="/images/logo2.png" alt="Araval Logo" width={115} height={55} priority className="object-contain" />
-          </div>
+          <div className="flex justify-center md:justify-start md:ml-10"><Image src="/images/logo2.png" alt="Araval Logo" width={115} height={55} priority /></div>
           <div className="hidden md:block h-8 w-[1px] bg-white/20" />
-          <div className="flex flex-col items-center md:items-start space-y-0">
+          <div className="flex flex-col items-center md:items-start space-y-0 text-center md:text-left">
             <h1 className="text-[13px] font-black uppercase tracking-tighter opacity-80 leading-none">Bienvenidos a</h1>
-            <p className="text-[10px] font-bold text-blue-300 uppercase tracking-[0.35em] leading-tight">Solicitud de Exámenes</p>
+            <p className="text-[10px] font-bold text-blue-300 uppercase tracking-[0.3em] leading-tight">Solicitud de Exámenes</p>
           </div>
         </div>
       </header>
@@ -138,7 +132,7 @@ export default function SolicitudPage() {
           <CardContent className="p-0">
             <div className="bg-white p-6 flex flex-col md:flex-row items-center gap-4">
                 <div className="flex w-full max-w-md items-center space-x-2">
-                    <Input placeholder="Ingrese RUT Empresa" value={rutEmpresa} onChange={(e) => setRutEmpresa(formatRut(e.target.value))} className="h-11 font-bold text-base border-slate-200 bg-slate-50/50" />
+                    <Input placeholder="RUT Empresa" value={rutEmpresa} onChange={(e) => setRutEmpresa(formatRut(e.target.value))} className="h-11 font-bold border-slate-200" />
                     <Button onClick={handleValidateRut} disabled={isValidating} className="bg-[#0a0a4d] h-11 px-8 font-black uppercase text-[10px] tracking-widest shadow-lg">
                         {isValidating ? <Loader2 className="h-4 w-4 animate-spin"/> : "Validar Cliente"} 
                     </Button>
@@ -156,16 +150,7 @@ export default function SolicitudPage() {
                   <AnimatePresence mode="wait">
                       <motion.div key={`${step}-${currentSolicitudIndex}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                           {step === 1 ? (
-                              <Paso1DatosGenerales 
-                                empresa={empresa} setEmpresa={setEmpresa} 
-                                solicitante={solicitante} setSolicitante={setSolicitante} 
-                                trabajador={currentSolicitud.trabajador} 
-                                setTrabajador={(val) => { 
-                                    const news = [...solicitudes]; 
-                                    news[currentSolicitudIndex].trabajador = typeof val === 'function' ? val(news[currentSolicitudIndex].trabajador) : val; 
-                                    setSolicitudes(news); 
-                                }} 
-                              />
+                              <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={(val) => { const news = [...solicitudes]; news[currentSolicitudIndex].trabajador = typeof val === 'function' ? val(news[currentSolicitudIndex].trabajador) : val; setSolicitudes(news); }} />
                           ) : (
                               <Paso2SeleccionExamenes selectedExams={currentSolicitud?.examenes || []} onExamToggle={handleExamToggle} showPrice={false} />
                           )}
@@ -173,68 +158,27 @@ export default function SolicitudPage() {
                   </AnimatePresence>
 
                   <div className="mt-12 flex justify-between items-center border-t pt-8">
-                      <Button variant="ghost" onClick={() => setStep(1)} disabled={step === 1} className="font-black uppercase text-[10px] tracking-widest">Anterior</Button>
-                      <Button 
-                        onClick={step === 1 ? () => setStep(2) : handleSendRequest} 
-                        disabled={isSubmitting || (step === 1 && isStep1Incomplete)} 
-                        className={`px-12 h-12 font-black uppercase tracking-widest text-[10px] shadow-xl transition-all duration-300 ${
-                            step === 1 
-                            ? (isStep1Incomplete ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700") 
-                            : "bg-emerald-600 hover:bg-emerald-700 hover:scale-105"
-                        }`}
-                      >
+                      <Button variant="ghost" onClick={() => setStep(1)} disabled={step === 1} className="font-black uppercase text-[10px]">Atrás</Button>
+                      <Button onClick={step === 1 ? () => setStep(2) : handleSendRequest} disabled={isSubmitting || (step === 1 && isStep1Incomplete)} className={`px-12 h-12 font-black uppercase tracking-widest text-[10px] shadow-xl ${step === 1 ? (isStep1Incomplete ? "bg-slate-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700") : "bg-emerald-600 hover:bg-emerald-700"}`}>
                           {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : null}
                           {step === 1 ? "Siguiente Paso" : "Finalizar Solicitud"}
                       </Button>
                   </div>
-                  {step === 1 && isStep1Incomplete && (
-                    <p className="text-[9px] text-red-400 font-bold uppercase mt-4 text-right tracking-widest">Complete todos los campos marcados con * para continuar</p>
-                  )}
                 </div>
             </Card>
           </div>
 
           <div className="md:col-span-1 space-y-6">
-            <Card className="border-none shadow-xl bg-white overflow-hidden rounded-xl">
-              <CardHeader className="p-4 bg-[#0a0a4d] border-b">
-                  <CardTitle className="text-[10px] font-black uppercase text-white flex items-center gap-2 tracking-widest"><Users className="h-3 w-3 text-blue-400"/> Nómina de Atención</CardTitle>
-              </CardHeader>
+            <Card className="border-none shadow-xl bg-white overflow-hidden rounded-xl text-left">
+              <CardHeader className="p-4 bg-[#0a0a4d] border-b"><CardTitle className="text-[10px] font-black uppercase text-white flex items-center gap-2 tracking-widest"><Users className="h-3 w-3 text-blue-400"/> Nómina de Atención</CardTitle></CardHeader>
               <CardContent className="p-3 space-y-2">
                 {solicitudes.map((s, index) => (
-                  <div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${index === currentSolicitudIndex ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100 shadow-sm' : 'bg-slate-50 border-transparent hover:bg-slate-100'}`}>
-                    <button className="flex-grow text-left text-[11px] font-black uppercase truncate text-slate-700" onClick={() => { setCurrentSolicitudIndex(index); setStep(1); }}>{index + 1}. {s.trabajador.rut || "S/R"}</button>
-                    {solicitudes.length > 1 && <button className="text-slate-300 hover:text-red-500 transition-colors" onClick={() => { setSolicitudes(prev => prev.filter((_, i) => i !== index)); setCurrentSolicitudIndex(0); }}><Trash2 className="h-4 w-4"/></button>}
+                  <div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${index === currentSolicitudIndex ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-transparent'}`}>
+                    <button className="flex-grow text-left text-[11px] font-black uppercase truncate text-slate-700" onClick={() => { setCurrentSolicitudIndex(index); setStep(1); }}>{index + 1}. {s.trabajador.nombre || "S/N"}</button>
+                    {solicitudes.length > 1 && <button className="text-slate-300 hover:text-red-500" onClick={() => { setSolicitudes(prev => prev.filter((_, i) => i !== index)); setCurrentSolicitudIndex(0); }}><Trash2 className="h-4 w-4"/></button>}
                   </div>
                 ))}
-                <Button onClick={() => { setSolicitudes(prev => [...prev, { id: crypto.randomUUID(), trabajador: { nombre: '', rut: '', cargo: '', fechaNacimiento: '', fechaAtencion: '' }, examenes: [] }]); setCurrentSolicitudIndex(solicitudes.length); setStep(1); }} className="w-full mt-4 h-11 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-tighter shadow-md">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir Nuevo Trabajador
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-xl bg-white overflow-hidden rounded-xl">
-              <CardHeader className="p-4 bg-slate-50 border-b">
-                <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Resumen Selección</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  {currentSolicitud?.examenes && currentSolicitud.examenes.length > 0 ? (
-                    currentSolicitud.examenes.map((ex) => (
-                      <div key={ex.id} className="flex items-start gap-2">
-                          <div className="h-1.5 w-1.5 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                          <span className="text-[10px] font-bold text-slate-700 uppercase leading-tight">{ex.nombre}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-[10px] text-slate-400 font-bold uppercase italic text-center py-4">Paso 2: Elija exámenes</p>
-                  )}
-                </div>
-                {currentSolicitud?.examenes?.length > 0 && (
-                  <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Total Selección</span>
-                      <span className="text-sm font-black text-blue-600">{currentSolicitud.examenes.length}</span>
-                  </div>
-                )}
+                <Button onClick={addTrabajador} className="w-full mt-4 h-11 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase shadow-md"><PlusCircle className="mr-2 h-4 w-4" /> Añadir Nuevo Trabajador</Button>
               </CardContent>
             </Card>
           </div>

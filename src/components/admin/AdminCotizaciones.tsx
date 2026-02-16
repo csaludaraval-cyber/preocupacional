@@ -195,26 +195,35 @@ export default function AdminCotizaciones() {
       </Tabs>
 
       <Dialog open={!!quoteToManage} onOpenChange={() => setQuoteToManage(null)}>
-        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl bg-slate-100">
-          <div className="sr-only"><DialogHeader><DialogTitle>Auditoría Documental</DialogTitle></DialogHeader></div>
-          {quoteToManage && (
-            <div className="flex flex-col gap-6 pb-20">
-              <div className="p-6 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-50 shadow-xl">
-                <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em]">Gestión de Orden</span>
-                    <span className="text-xl font-black italic">#{quoteToManage.id.slice(-6).toUpperCase()}</span>
-                </div>
-                <div className="flex gap-3">
-                  {(() => {
-                    const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
-                    if (status === 'CONFIRMADA') return <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isProcessing === "email" ? <Loader2 className="animate-spin h-4 w-4" /> : "Enviar Cotización"}</Button>;
-                    if (status === 'CORREO_ENVIADO') return <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : "Subir Voucher"}</Button>;
-                    if (status === 'PAGADO') return <Button onClick={async () => { setIsProcessing("inv"); await ejecutarFacturacionSiiV2(quoteToManage.id); await refetchQuotes(); setQuoteToManage(null); setIsProcessing(null); }} disabled={isProcessing === "inv"} className="bg-emerald-600 hover:bg-emerald-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isProcessing === "inv" ? <Loader2 className="animate-spin h-4 w-4" /> : "Facturar SII"}</Button>;
-                    return null;
-                  })()}
-                </div>
-                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
-              </div>
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl bg-slate-100">
+  <div className="sr-only"><DialogHeader><DialogTitle>Auditoría</DialogTitle></DialogHeader></div>
+  
+  {quoteToManage && (
+    <div className="flex flex-col gap-6 pb-20">
+      <div className="p-6 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-50 shadow-xl">
+        <div className="flex flex-col text-left">
+            <span className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em]">Gestión Documental</span>
+            <span className="text-xl font-black italic">#{quoteToManage.id.slice(-6).toUpperCase()}</span>
+        </div>
+        <div className="flex gap-3">
+          {(() => {
+            const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
+            const isFrecuente = quoteToManage.empresaData?.modalidadFacturacion === 'frecuente';
+
+            // REGLA PARA FRECUENTES: Solo aviso, no acciones de pago individuales
+            if (isFrecuente && status === 'PAGADO') {
+                return <Badge className="bg-blue-600/20 text-blue-400 border border-blue-400/30 px-4 py-2 font-black text-[10px] uppercase tracking-widest">Lista para Consolidación Mensual</Badge>;
+            }
+
+            if (status === 'CONFIRMADA') return <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isProcessing === "email" ? <Loader2 className="animate-spin h-4 w-4" /> : "Enviar Cotización"}</Button>;
+            if (status === 'CORREO_ENVIADO') return <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : "Subir Voucher"}</Button>;
+            if (status === 'PAGADO') return <Button onClick={async () => { setIsProcessing("inv"); await ejecutarFacturacionSiiV2(quoteToManage.id); await refetchQuotes(); setQuoteToManage(null); setIsProcessing(null); }} disabled={isProcessing === "inv"} className="bg-emerald-600 hover:bg-emerald-700 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isProcessing === "inv" ? <Loader2 className="animate-spin h-4 w-4" /> : "Facturar SII"}</Button>;
+            
+            return null;
+          })()}
+        </div>
+        <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
+      </div>
               <div className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border border-slate-200"><DetalleCotizacion quote={quoteToManage} /></div>
               <div className="space-y-8">
                   <div className="max-w-4xl mx-auto px-10 text-left"><h3 className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] border-b pb-2">Anexos: Órdenes de Atención</h3></div>
