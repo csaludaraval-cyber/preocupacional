@@ -1,13 +1,40 @@
 'use server';
 
 import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { firestore } from '@/firebase/config'; 
+import { firestore } from '@/lib/firebase'; // Asegurada la ruta estándar
 import { createDTE, whoami } from '@/server/lioren';
 import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa";
 
+/**
+ * HELPER QUIRÚRGICO: Agrupa exámenes por nombre y suma cantidades
+ */
+function agruparDetallesFacturacion(examenesRaw: any[]) {
+  const resumen = examenesRaw.reduce((acc: any, ex: any) => {
+    const nombreLimpio = ex.nombre.toUpperCase().trim();
+    const precio = Math.round(Number(ex.valor));
+
+    if (acc[nombreLimpio]) {
+      acc[nombreLimpio].cantidad += 1;
+    } else {
+      acc[nombreLimpio] = {
+        nombre: nombreLimpio.substring(0, 80),
+        cantidad: 1,
+        precio: precio,
+        exento: true
+      };
+    }
+    return acc;
+  }, {});
+
+  return Object.values(resumen);
+}
+
+/**
+ * 1. FACTURACIÓN INDIVIDUAL
+ */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   try {
     const docRef = doc(firestore, 'cotizaciones', cotizacionId);
@@ -17,17 +44,13 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 
     const ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna, data.empresaData?.ciudad);
 
-    const detalles = (data.solicitudesData || []).flatMap((sol: any) =>
-      (sol.examenes || [])
-        .filter((ex: any) => Number(ex.valor) > 0)
-        .map((ex: any) => ({
-          // LIMPIEZA DEFINITIVA: Solo nombre del examen, sin trabajador.
-          nombre: ex.nombre.toUpperCase().substring(0, 80).trim(),
-          cantidad: 1, 
-          precio: Math.round(Number(ex.valor)), 
-          exento: true
-        }))
+    // 1. Extraemos todos los exámenes de todos los trabajadores de la orden
+    const todosLosExamenes = (data.solicitudesData || []).flatMap((sol: any) =>
+      (sol.examenes || []).filter((ex: any) => Number(ex.valor) > 0)
     );
+
+    // 2. Aplicamos el agrupamiento
+    const detallesFinales = agruparDetallesFacturacion(todosLosExamenes);
 
     const result = await createDTE({
       tipodoc: "34",
@@ -41,7 +64,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
         ciudad: Number(ubicacion.ciudadId),
         email: (data.empresaData?.email || data.solicitanteData?.mail || "soporte@araval.cl").trim()
       },
-      detalles,
+      detalles: detallesFinales,
       expect_all: true
     });
 
@@ -61,30 +84,32 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   } catch (error: any) { throw new Error(error.message); }
 }
 
+/**
+ * 2. FACTURACIÓN CONSOLIDADA (Múltiples Órdenes)
+ */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   try {
-    const q = query(collection(firestore, 'cotizaciones'), where('empresaData.rut', '==', rutEmpresa), where('status', 'in', ['PAGADO', 'CORREO_ENVIADO']));
+    const q = query(collection(firestore, 'cotizaciones'), 
+      where('empresaData.rut', '==', rutEmpresa), 
+      where('status', '==', 'PAGADO')
+    );
     const snap = await getDocs(q);
-    if (snap.empty) throw new Error("Sin órdenes.");
+    if (snap.empty) throw new Error("Sin órdenes pagadas para consolidar.");
 
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
     const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna, base.empresaData?.ciudad);
 
-    const todosLosDetalles = docs.flatMap(docSnapshot => {
+    // 1. Extraemos TODOS los exámenes de TODAS las cotizaciones encontradas
+    const examenPool = docs.flatMap(docSnapshot => {
       const d = docSnapshot.data() as CotizacionFirestore;
       return (d.solicitudesData || []).flatMap((sol: any) =>
-        (sol.examenes || [])
-          .filter((ex: any) => Number(ex.valor) > 0)
-          .map((ex: any) => ({
-            // LIMPIEZA DEFINITIVA: Solo nombre del examen.
-            nombre: ex.nombre.toUpperCase().substring(0, 80).trim(),
-            cantidad: 1, 
-            precio: Math.round(Number(ex.valor)), 
-            exento: true
-          }))
+        (sol.examenes || []).filter((ex: any) => Number(ex.valor) > 0)
       );
     });
+
+    // 2. Agrupamos por nombre para que si hay 50 alturas físicas, salga solo una línea con cantidad 50
+    const detallesAgrupados = agruparDetallesFacturacion(examenPool);
 
     const result = await createDTE({
       tipodoc: "34",
@@ -98,7 +123,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
         ciudad: Number(ubicacion.ciudadId),
         email: (base.empresaData?.email || "soporte@araval.cl").trim()
       },
-      detalles: todosLosDetalles,
+      detalles: detallesAgrupados,
       expect_all: true
     });
 
@@ -108,13 +133,23 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 
     const batch = writeBatch(firestore);
     docs.forEach(docSnapshot => {
-      batch.update(doc(firestore, 'cotizaciones', docSnapshot.id), { status: 'FACTURADO', liorenFolio: String(finalFolio), liorenId: String(finalId), liorenPdfUrl: finalPdfUrl });
+      batch.update(doc(firestore, 'cotizaciones', docSnapshot.id), { 
+        status: 'FACTURADO', 
+        liorenFolio: String(finalFolio), 
+        liorenId: String(finalId), 
+        liorenPdfUrl: finalPdfUrl,
+        liorenConsolidado: true 
+      });
     });
     await batch.commit();
+
     return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
   } catch (error: any) { throw new Error(error.message); }
 }
 
+/**
+ * 3. UTILITARIOS
+ */
 export async function descargarMaestroLocalidades() {
   try {
     const token = process.env.LIOREN_TOKEN || "";

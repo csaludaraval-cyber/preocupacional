@@ -113,8 +113,8 @@ export function AdminSolicitudes() {
                 </TableCell>
                 <TableCell className="text-right px-6">
                   <div className="flex justify-end items-center gap-2">
-                    <Button asChild size="sm" className="bg-[#0a0a4d] hover:bg-slate-800 font-black text-[10px] px-6 h-9 uppercase tracking-widest shadow-md transition-all">
-                      <a href={`/?solicitud=${encodeURIComponent(JSON.stringify({originalRequestId: req.id, empresa: req.empresa, solicitudes: req.solicitudes}))}`}>PROCESAR</a>
+                  <Button asChild size="sm" className="bg-[#0a0a4d] hover:bg-slate-800 font-black text-[10px] px-6 h-9 uppercase tracking-widest shadow-md">
+                  <a href={`/admin/crear-cotizacion?solicitud=${encodeURIComponent(JSON.stringify({originalRequestId: req.id, empresa: req.empresa, solicitudes: req.solicitudes}))}`}>PROCESAR</a>
                     </Button>
 
                     <AlertDialog>
