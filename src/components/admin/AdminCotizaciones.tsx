@@ -1,17 +1,10 @@
 "use client";
 
 import React, { useMemo, useState, useRef } from 'react';
-import { useCotizaciones } from '@/hooks/use-cotizaciones';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+
 import { Loader2, FileText, RefreshCw, Eye, FlaskConical, Download, ReceiptText, Trash2, Clock } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from '@/hooks/use-toast';
-import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
-import { OrdenDeExamen } from '@/components/cotizacion/GeneradorPDF';
-import { GeneradorPDF } from '../cotizacion/GeneradorPDF';
+im
 import { updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
