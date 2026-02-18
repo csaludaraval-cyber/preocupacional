@@ -9,22 +9,24 @@ import type { CotizacionFirestore } from '@/lib/types';
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa";
 
 function agruparDetallesFacturacion(examenesRaw: any[]) {
-  const resumen = examenesRaw.reduce((acc: any, ex: any) => {
-    const nombreLimpio = (ex.nombre || "SERVICIO MEDICO").toUpperCase().trim();
+  const resumen: Record<string, any> = {};
+  
+  examenesRaw.forEach((ex) => {
+    const nombreLimpio = String(ex.nombre || "SERVICIO").toUpperCase().trim();
     const precio = Math.round(Number(ex.valor) || 0);
 
-    if (acc[nombreLimpio]) {
-      acc[nombreLimpio].cantidad += 1;
+    if (resumen[nombreLimpio]) {
+      resumen[nombreLimpio].cantidad += 1;
     } else {
-      acc[nombreLimpio] = {
+      resumen[nombreLimpio] = {
         nombre: nombreLimpio.substring(0, 80),
         cantidad: 1,
         precio: precio,
         exento: true
       };
     }
-    return acc;
-  }, {});
+  });
+  
   return Object.values(resumen);
 }
 
@@ -32,9 +34,12 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   try {
     const docRef = doc(firestore, 'cotizaciones', cotizacionId);
     const snap = await getDoc(docRef);
-    if (!snap.exists()) throw new Error("Cotización no encontrada.");
+    
+    if (!snap.exists()) {
+      throw new Error("No existe cotizacion");
+    }
+    
     const data = snap.data() as CotizacionFirestore;
-
     const ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna, data.empresaData?.ciudad);
 
     const todosLosExamenes = (data.solicitudesData || []).flatMap((sol: any) =>
@@ -48,12 +53,12 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
       emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
       receptor: {
         rut: cleanRut(data.empresaData?.rut || ''),
-        rs: (data.empresaData?.razonSocial || '').toUpperCase().substring(0, 100).trim(),
-        giro: (data.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40).trim(),
-        direccion: (data.empresaData?.direccion || "DIRECCION").toUpperCase().substring(0, 70).trim(),
+        rs: String(data.empresaData?.razonSocial || '').toUpperCase().substring(0, 100).trim(),
+        giro: String(data.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40).trim(),
+        direccion: String(data.empresaData?.direccion || "DIRECCION").toUpperCase().substring(0, 70).trim(),
         comuna: Number(ubicacion.comunaId),
         ciudad: Number(ubicacion.ciudadId),
-        email: (data.empresaData?.email || data.solicitanteData?.mail || "soporte@araval.cl").trim()
+        email: String(data.empresaData?.email || data.solicitanteData?.mail || "soporte@araval.cl").trim()
       },
       detalles: detallesFinales,
       expect_all: true
@@ -62,8 +67,9 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
     const finalFolio = result.folio || (result.dte && result.dte.folio);
     
-    // CORRECCIÓN ts(1109): USANDO CONCATENACIÓN SIMPLE
-    const finalPdfUrl = "https://cl.lioren.enterprises/empresas/" + LIOREN_SLUG + "/dte/getpdf/" + finalId;
+    // URL SIN TEMPLATE LITERALS PARA EVITAR ERROR TS1109
+    const pdfBase = "https://cl.lioren.enterprises/empresas/";
+    const finalPdfUrl = pdfBase + LIOREN_SLUG + "/dte/getpdf/" + String(finalId);
 
     await setDoc(docRef, {
       status: 'FACTURADO',
@@ -75,7 +81,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 
     return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
   } catch (error: any) {
-    console.error("Error SII:", error.message);
+    console.error("Critical Facturacion Error:", error.message);
     throw new Error(error.message);
   }
 }
@@ -87,7 +93,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       where('status', '==', 'PAGADO')
     );
     const snap = await getDocs(q);
-    if (snap.empty) throw new Error("No hay órdenes pagadas.");
+    if (snap.empty) throw new Error("Sin ordenes");
 
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
@@ -107,12 +113,12 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
       receptor: {
         rut: cleanRut(rutEmpresa),
-        rs: (base.empresaData?.razonSocial || "CONSOLIDADO").toUpperCase().substring(0, 100).trim(),
-        giro: (base.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40).trim(),
-        direccion: (base.empresaData?.direccion || "DIRECCION").toUpperCase().substring(0, 70).trim(),
+        rs: String(base.empresaData?.razonSocial || "CONSOLIDADO").toUpperCase().substring(0, 100).trim(),
+        giro: String(base.empresaData?.giro || "SERVICIOS MEDICOS").toUpperCase().substring(0, 40).trim(),
+        direccion: String(base.empresaData?.direccion || "DIRECCION").toUpperCase().substring(0, 70).trim(),
         comuna: Number(ubicacion.comunaId),
         ciudad: Number(ubicacion.ciudadId),
-        email: (base.empresaData?.email || "soporte@araval.cl").trim()
+        email: String(base.empresaData?.email || "soporte@araval.cl").trim()
       },
       detalles: detallesAgrupados,
       expect_all: true
@@ -121,8 +127,8 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
     const finalFolio = result.folio || (result.dte && result.dte.folio);
     
-    // CORRECCIÓN ts(1109): USANDO CONCATENACIÓN SIMPLE
-    const finalPdfUrl = "https://cl.lioren.enterprises/empresas/" + LIOREN_SLUG + "/dte/getpdf/" + finalId;
+    const pdfBase = "https://cl.lioren.enterprises/empresas/";
+    const finalPdfUrl = pdfBase + LIOREN_SLUG + "/dte/getpdf/" + String(finalId);
 
     const batch = writeBatch(firestore);
     docs.forEach(docSnapshot => {
@@ -143,6 +149,6 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 export async function probarConexionLioren() {
   try {
     await whoami();
-    return { success: true, message: "Conexión con SII Lioren Exitosa." };
+    return { success: true, message: "Conexion SII Exitosa" };
   } catch (error: any) { return { success: false, error: error.message }; }
 }

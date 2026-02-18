@@ -10,9 +10,8 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
-} from '@/components/ui/dialog'; // Corregido: Importación añadida
+  DialogTitle 
+} from '@/components/ui/dialog'; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
@@ -55,14 +54,11 @@ export default function AdminCotizaciones() {
     if (!quotes) return [];
     return quotes.filter(q => {
       const status = mapLegacyStatus(q.status).toUpperCase();
-      const matchStatus = status === statusKey;
-      const lowerSearch = searchTerm.toLowerCase();
-      const matchSearch = q.empresaData?.razonSocial?.toLowerCase().includes(lowerSearch) || q.id.toLowerCase().includes(lowerSearch);
-      return matchStatus && matchSearch;
+      return status === statusKey && (q.empresaData?.razonSocial?.toLowerCase().includes(searchTerm.toLowerCase()) || q.id.toLowerCase().includes(searchTerm.toLowerCase()));
     }).sort((a:any, b:any) => {
-      const dateA = a.solicitudesData?.[0]?.trabajador?.fechaAtencion;
-      const dateB = b.solicitudesData?.[0]?.trabajador?.fechaAtencion;
-      return (dateB ? new Date(dateB).getTime() : 0) - (dateA ? new Date(dateA).getTime() : 0);
+      const tA = a.solicitudesData?.[0]?.trabajador?.fechaAtencion ? new Date(a.solicitudesData[0].trabajador.fechaAtencion).getTime() : 0;
+      const tB = b.solicitudesData?.[0]?.trabajador?.fechaAtencion ? new Date(b.solicitudesData[0].trabajador.fechaAtencion).getTime() : 0;
+      return tB - tA;
     });
   };
 
@@ -79,24 +75,8 @@ export default function AdminCotizaciones() {
       toast({ title: "Pago registrado" });
       await refetchQuotes();
       setQuoteToManage(null);
-    } catch (err: any) { toast({ title: "Error al subir", variant: "destructive" }); }
+    } catch (err: any) { toast({ title: "Error", variant: "destructive" }); }
     finally { setIsUploading(false); }
-  };
-
-  const handleSendEmail = async (quote: any) => {
-    setIsProcessing("email");
-    try {
-      const pdfBlob = await GeneradorPDF.generar(quote);
-      const pdfBase64 = await blobToBase64(pdfBlob);
-      const result = await enviarCotizacion({ clienteEmail: quote.solicitanteData?.mail, cotizacionId: quote.id.slice(-6).toUpperCase(), pdfBase64 });
-      if (result.status === 'success') {
-        await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO' });
-        toast({ title: "Cotización enviada" });
-        await refetchQuotes();
-        setQuoteToManage(null);
-      }
-    } catch (err: any) { toast({ title: "Error al enviar", variant: "destructive" }); }
-    finally { setIsProcessing(null); }
   };
 
   const RenderTable = ({ data, allowDelete }: { data: any[], allowDelete: boolean }) => (
@@ -104,16 +84,15 @@ export default function AdminCotizaciones() {
       <Table>
         <TableHeader className="bg-slate-900">
           <TableRow>
-            <TableHead className="py-4 px-6 text-[10px] uppercase font-black text-white tracking-widest text-left">ID Orden / Atención</TableHead>
-            <TableHead className="text-[10px] uppercase font-black text-white tracking-widest text-left">Empresa Cliente</TableHead>
-            <TableHead className="text-center text-[10px] uppercase font-black text-white tracking-widest w-[300px]">Estado / Auditoría</TableHead>
-            <TableHead className="text-right px-6 text-[10px] uppercase font-black text-white tracking-widest text-right">Acción</TableHead>
+            <TableHead className="py-4 px-6 text-[10px] uppercase font-black text-white tracking-widest text-left">ID / Atención</TableHead>
+            <TableHead className="text-[10px] uppercase font-black text-white tracking-widest text-left">Empresa</TableHead>
+            <TableHead className="text-center text-[10px] uppercase font-black text-white tracking-widest w-[300px]">Estado</TableHead>
+            <TableHead className="text-right px-6 text-[10px] uppercase font-black text-white tracking-widest">Acción</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.length > 0 ? data.map((quote) => {
+          {data.map((quote) => {
             const status = mapLegacyStatus(quote.status).toUpperCase();
-            const isFrecuente = quote.empresaData?.modalidadFacturacion === 'frecuente';
             return (
               <TableRow key={quote.id} className="text-xs hover:bg-slate-50 transition-colors border-slate-100">
                 <TableCell className="px-6 text-left">
@@ -125,16 +104,14 @@ export default function AdminCotizaciones() {
                 <TableCell className="text-left">
                   <div className="flex flex-col">
                       <span className="font-black text-slate-700 uppercase tracking-tighter leading-tight">{quote.empresaData?.razonSocial}</span>
-                      <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">
-                        {quote.empresaData?.rut} | <span className={isFrecuente ? "text-blue-600 font-black" : "text-slate-400"}>{isFrecuente ? 'FRECUENTE' : 'NORMAL'}</span>
-                      </span>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase">{quote.empresaData?.rut}</span>
                   </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-center gap-6">
                     <Badge className={`min-w-[115px] justify-center font-black text-[9px] uppercase border-none py-1.5 ${status === 'FACTURADO' ? 'bg-[#0a0a4d]' : status === 'PAGADO' ? 'bg-blue-600' : status === 'CORREO_ENVIADO' ? 'bg-amber-500' : 'bg-slate-300'} text-white`}>{status}</Badge>
                     <div className="flex items-center gap-3 border-l pl-6 border-slate-100">
-                      <FileText className="h-5 w-5 text-emerald-500 opacity-80" />
+                      <FileText className="h-5 w-5 text-emerald-500" />
                       <Download className={`h-5 w-5 ${!!quote.pagoVoucherUrl ? 'text-emerald-500 cursor-pointer' : 'text-slate-200'}`} onClick={() => quote.pagoVoucherUrl && window.open(quote.pagoVoucherUrl, '_blank')} />
                       <ReceiptText className={`h-5 w-5 ${status === 'FACTURADO' ? 'text-emerald-500 cursor-pointer' : 'text-slate-200'}`} onClick={() => quote.liorenPdfUrl && window.open(quote.liorenPdfUrl, '_blank')} />
                     </div>
@@ -142,15 +119,13 @@ export default function AdminCotizaciones() {
                 </TableCell>
                 <TableCell className="text-right px-6">
                   <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" className="hover:bg-blue-50" onClick={() => setQuoteToManage(quote)}><Eye className="h-4 w-4 text-blue-600" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => setQuoteToManage(quote)}><Eye className="h-4 w-4 text-blue-600" /></Button>
                     {allowDelete && <Button variant="ghost" size="icon" className="text-slate-200 hover:text-red-500" onClick={async () => { if(confirm("Eliminar?")) { await deleteDoc(doc(firestore, 'cotizaciones', quote.id)); refetchQuotes(); } }}><Trash2 className="h-4 w-4" /></Button>}
                   </div>
                 </TableCell>
               </TableRow>
             );
-          }) : (
-            <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 text-[10px] uppercase font-bold tracking-widest italic opacity-50">No hay registros</TableCell></TableRow>
-          )}
+          })}
         </TableBody>
       </Table>
     </div>
@@ -163,12 +138,12 @@ export default function AdminCotizaciones() {
       <div className="flex justify-between items-end mb-10 text-left">
         <div className="space-y-1">
             <h1 className="text-2xl font-black uppercase text-slate-800 tracking-tighter">Administración</h1>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em]">Gestión de Ordenes Araval</p>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em]">Gestión Documental Araval</p>
         </div>
         <div className="flex items-center gap-3">
           <Button onClick={async () => { const res = await probarConexionLioren(); alert(res.message || res.error); }} className="bg-[#0a0a4d] hover:bg-slate-800 text-white font-black h-10 text-[10px] tracking-widest px-6 italic">TEST SII</Button>
           <Button onClick={() => refetchQuotes()} variant="outline" size="sm" className="h-10 w-10 border-slate-200 bg-white"><RefreshCw className="h-4 w-4 text-slate-400" /></Button>
-          <Input placeholder="Buscar empresa..." className="w-64 h-10 text-xs font-bold bg-white border-slate-200" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <Input placeholder="Buscar..." className="w-64 h-10 text-xs font-bold bg-white border-slate-200" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
@@ -189,32 +164,30 @@ export default function AdminCotizaciones() {
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl bg-slate-100">
           <div className="sr-only">
             <DialogHeader>
-              <DialogTitle>Auditoría Documental</DialogTitle>
-              <DialogDescription>Detalle de la orden y documentos asociados.</DialogDescription>
+              <DialogTitle>Auditoría Documental Araval</DialogTitle>
+              {/* SOLUCIÓN ts(2304): Usamos p tag al no tener DialogDescription */}
+              <p className="text-xs text-slate-500">Gestión de documentos.</p>
             </DialogHeader>
           </div>
           {quoteToManage && (
             <div className="flex flex-col gap-6 pb-20">
               <div className="p-6 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-50 shadow-xl">
                 <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em]">Gestión de Orden</span>
+                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em]">Gestión Documental</span>
                     <span className="text-xl font-black italic">#{quoteToManage.id.slice(-6).toUpperCase()}</span>
                 </div>
                 <div className="flex gap-3">
                   {(() => {
                     const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
-                    const isFrecuente = quoteToManage.empresaData?.modalidadFacturacion === 'frecuente';
-                    if (isFrecuente && status === 'PAGADO') return <Badge className="bg-blue-600/20 text-blue-400 border border-blue-400/30 px-4 py-2 font-black text-[10px] uppercase tracking-widest">Cartera Frecuente</Badge>;
-                    if (status === 'CONFIRMADA') return <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest">{isProcessing === "email" ? <Loader2 className="animate-spin h-4 w-4" /> : "Enviar Cotización"}</Button>;
-                    if (status === 'CORREO_ENVIADO') return <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest">{isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : "Subir Voucher"}</Button>;
-                    if (status === 'PAGADO') return <Button onClick={async () => { setIsProcessing("inv"); await ejecutarFacturacionSiiV2(quoteToManage.id); await refetchQuotes(); setQuoteToManage(null); setIsProcessing(null); }} disabled={isProcessing === "inv"} className="bg-emerald-600 hover:bg-emerald-700 font-black text-[10px] h-10 px-6 uppercase tracking-widest">{isProcessing === "inv" ? <Loader2 className="animate-spin h-4 w-4" /> : "Facturar SII"}</Button>;
+                    if (status === 'PAGADO') return <Button onClick={async () => { setIsProcessing("inv"); await ejecutarFacturacionSiiV2(quoteToManage.id); await refetchQuotes(); setQuoteToManage(null); setIsProcessing(null); }} disabled={isProcessing === "inv"} className="bg-emerald-600 hover:bg-emerald-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isProcessing === "inv" ? <Loader2 className="animate-spin h-4 w-4" /> : "Facturar SII"}</Button>;
+                    if (status === 'CORREO_ENVIADO') return <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : "Subir Voucher"}</Button>;
                     return null;
                   })()}
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
               </div>
               <div className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border border-slate-200"><DetalleCotizacion quote={quoteToManage} /></div>
-              <div className="space-y-8">
+              <div className="space-y-8 pb-10">
                   <div className="max-w-4xl mx-auto px-10 text-left"><h3 className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] border-b pb-2">Anexos: Órdenes de Atención</h3></div>
                   {quoteToManage.solicitudesData?.map((sol: any, i: number) => (
                       <div key={i} className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border-2 border-dashed border-slate-200"><OrdenDeExamen solicitud={sol} empresa={quoteToManage.empresaData} fechaCotizacion={format(new Date(), 'dd/MM/yyyy')} /></div>
