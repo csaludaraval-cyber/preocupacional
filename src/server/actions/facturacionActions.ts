@@ -1,20 +1,17 @@
 'use server';
 
 import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase'; // Asegurada la ruta estándar
+import { firestore } from '@/lib/firebase'; 
 import { createDTE, whoami } from '@/server/lioren';
 import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa";
 
-/**
- * HELPER QUIRÚRGICO: Agrupa exámenes por nombre y suma cantidades
- */
 function agruparDetallesFacturacion(examenesRaw: any[]) {
   const resumen = examenesRaw.reduce((acc: any, ex: any) => {
-    const nombreLimpio = ex.nombre.toUpperCase().trim();
-    const precio = Math.round(Number(ex.valor));
+    const nombreLimpio = (ex.nombre || "SERVICIO MEDICO").toUpperCase().trim();
+    const precio = Math.round(Number(ex.valor) || 0);
 
     if (acc[nombreLimpio]) {
       acc[nombreLimpio].cantidad += 1;
@@ -28,28 +25,22 @@ function agruparDetallesFacturacion(examenesRaw: any[]) {
     }
     return acc;
   }, {});
-
   return Object.values(resumen);
 }
 
-/**
- * 1. FACTURACIÓN INDIVIDUAL
- */
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   try {
     const docRef = doc(firestore, 'cotizaciones', cotizacionId);
     const snap = await getDoc(docRef);
-    if (!snap.exists()) throw new Error("No existe la cotización.");
+    if (!snap.exists()) throw new Error("Cotización no encontrada.");
     const data = snap.data() as CotizacionFirestore;
 
     const ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna, data.empresaData?.ciudad);
 
-    // 1. Extraemos todos los exámenes de todos los trabajadores de la orden
     const todosLosExamenes = (data.solicitudesData || []).flatMap((sol: any) =>
       (sol.examenes || []).filter((ex: any) => Number(ex.valor) > 0)
     );
 
-    // 2. Aplicamos el agrupamiento
     const detallesFinales = agruparDetallesFacturacion(todosLosExamenes);
 
     const result = await createDTE({
@@ -70,6 +61,8 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
     const finalFolio = result.folio || (result.dte && result.dte.folio);
+    
+    // CORRECCIÓN ts(1109): USANDO CONCATENACIÓN SIMPLE
     const finalPdfUrl = "https://cl.lioren.enterprises/empresas/" + LIOREN_SLUG + "/dte/getpdf/" + finalId;
 
     await setDoc(docRef, {
@@ -81,12 +74,12 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     }, { merge: true });
 
     return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
-  } catch (error: any) { throw new Error(error.message); }
+  } catch (error: any) {
+    console.error("Error SII:", error.message);
+    throw new Error(error.message);
+  }
 }
 
-/**
- * 2. FACTURACIÓN CONSOLIDADA (Múltiples Órdenes)
- */
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   try {
     const q = query(collection(firestore, 'cotizaciones'), 
@@ -94,13 +87,12 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       where('status', '==', 'PAGADO')
     );
     const snap = await getDocs(q);
-    if (snap.empty) throw new Error("Sin órdenes pagadas para consolidar.");
+    if (snap.empty) throw new Error("No hay órdenes pagadas.");
 
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
     const ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna, base.empresaData?.ciudad);
 
-    // 1. Extraemos TODOS los exámenes de TODAS las cotizaciones encontradas
     const examenPool = docs.flatMap(docSnapshot => {
       const d = docSnapshot.data() as CotizacionFirestore;
       return (d.solicitudesData || []).flatMap((sol: any) =>
@@ -108,7 +100,6 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       );
     });
 
-    // 2. Agrupamos por nombre para que si hay 50 alturas físicas, salga solo una línea con cantidad 50
     const detallesAgrupados = agruparDetallesFacturacion(examenPool);
 
     const result = await createDTE({
@@ -129,6 +120,8 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
     const finalFolio = result.folio || (result.dte && result.dte.folio);
+    
+    // CORRECCIÓN ts(1109): USANDO CONCATENACIÓN SIMPLE
     const finalPdfUrl = "https://cl.lioren.enterprises/empresas/" + LIOREN_SLUG + "/dte/getpdf/" + finalId;
 
     const batch = writeBatch(firestore);
@@ -145,22 +138,6 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 
     return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
   } catch (error: any) { throw new Error(error.message); }
-}
-
-/**
- * 3. UTILITARIOS
- */
-export async function descargarMaestroLocalidades() {
-  try {
-    const token = process.env.LIOREN_TOKEN || "";
-    const headers = { 'Accept': 'application/json', 'Authorization': 'Bearer ' + token.trim() };
-    const [resRegiones, resComunas, resCiudades] = await Promise.all([
-      fetch('https://www.lioren.cl/api/regiones', { method: 'GET', headers }),
-      fetch('https://www.lioren.cl/api/comunas', { method: 'GET', headers }),
-      fetch('https://www.lioren.cl/api/ciudades', { method: 'GET', headers })
-    ]);
-    return { success: true, data: { regiones: await resRegiones.json(), comunas: await resComunas.json(), ciudades: await resCiudades.json() } };
-  } catch (error: any) { return { success: false, error: error.message }; }
 }
 
 export async function probarConexionLioren() {

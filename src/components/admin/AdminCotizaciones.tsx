@@ -5,8 +5,14 @@ import { useCotizaciones } from '@/hooks/use-cotizaciones';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, RefreshCw, Eye, FlaskConical, Download, ReceiptText, Trash2, Clock } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Loader2, FileText, Send, RefreshCw, Eye, FlaskConical, Download, ReceiptText, Trash2, Clock } from 'lucide-react';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription 
+} from '@/components/ui/dialog'; // Corregido: Importación añadida
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
@@ -47,20 +53,16 @@ export default function AdminCotizaciones() {
 
   const getFilteredData = (statusKey: string) => {
     if (!quotes) return [];
-    
     return quotes.filter(q => {
       const status = mapLegacyStatus(q.status).toUpperCase();
       const matchStatus = status === statusKey;
       const lowerSearch = searchTerm.toLowerCase();
       const matchSearch = q.empresaData?.razonSocial?.toLowerCase().includes(lowerSearch) || q.id.toLowerCase().includes(lowerSearch);
       return matchStatus && matchSearch;
-    }).sort((a: any, b: any) => {
-      // ORDENAMIENTO DESCENDENTE POR FECHA DE ATENCIÓN (EL FUTURO MÁS LEJANO PRIMERO)
+    }).sort((a:any, b:any) => {
       const dateA = a.solicitudesData?.[0]?.trabajador?.fechaAtencion;
       const dateB = b.solicitudesData?.[0]?.trabajador?.fechaAtencion;
-      const timeA = dateA ? new Date(dateA).getTime() : 0;
-      const timeB = dateB ? new Date(dateB).getTime() : 0;
-      return timeB - timeA;
+      return (dateB ? new Date(dateB).getTime() : 0) - (dateA ? new Date(dateA).getTime() : 0);
     });
   };
 
@@ -69,7 +71,7 @@ export default function AdminCotizaciones() {
     setIsUploading(true);
     try {
       const storage = getStorage();
-      const fileRef = storageRef(storage, `vouchers/${quoteToManage.id}_${Date.now()}`);
+      const fileRef = storageRef(storage, "vouchers/" + quoteToManage.id + "_" + Date.now());
       await uploadBytes(fileRef, event.target.files[0]);
       const url = await getDownloadURL(fileRef);
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
@@ -93,31 +95,19 @@ export default function AdminCotizaciones() {
         await refetchQuotes();
         setQuoteToManage(null);
       }
-    } catch (err: any) { toast({ title: "Error", variant: "destructive" }); }
+    } catch (err: any) { toast({ title: "Error al enviar", variant: "destructive" }); }
     finally { setIsProcessing(null); }
   };
-
-  const handleDelete = async (id: string) => {
-    if(confirm("¿Eliminar orden permanentemente?")) {
-        try {
-            await deleteDoc(doc(firestore, 'cotizaciones', id));
-            toast({ title: "Orden eliminada" });
-            refetchQuotes();
-        } catch (e) { toast({ title: "Error", variant: "destructive" }); }
-    }
-  };
-
-  if (isLoading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-6 w-6 text-slate-300" /></div>;
 
   const RenderTable = ({ data, allowDelete }: { data: any[], allowDelete: boolean }) => (
     <div className="bg-white border shadow-2xl rounded-xl overflow-hidden">
       <Table>
         <TableHeader className="bg-slate-900">
           <TableRow>
-            <TableHead className="py-4 px-6 text-[10px] uppercase font-black text-white tracking-widest">ID Orden / Atención</TableHead>
-            <TableHead className="text-[10px] uppercase font-black text-white tracking-widest">Empresa Cliente</TableHead>
+            <TableHead className="py-4 px-6 text-[10px] uppercase font-black text-white tracking-widest text-left">ID Orden / Atención</TableHead>
+            <TableHead className="text-[10px] uppercase font-black text-white tracking-widest text-left">Empresa Cliente</TableHead>
             <TableHead className="text-center text-[10px] uppercase font-black text-white tracking-widest w-[300px]">Estado / Auditoría</TableHead>
-            <TableHead className="text-right px-6 text-[10px] uppercase font-black text-white tracking-widest">Acción</TableHead>
+            <TableHead className="text-right px-6 text-[10px] uppercase font-black text-white tracking-widest text-right">Acción</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -126,14 +116,14 @@ export default function AdminCotizaciones() {
             const isFrecuente = quote.empresaData?.modalidadFacturacion === 'frecuente';
             return (
               <TableRow key={quote.id} className="text-xs hover:bg-slate-50 transition-colors border-slate-100">
-                <TableCell className="px-6">
-                    <div className="flex flex-col text-left">
+                <TableCell className="px-6 text-left">
+                    <div className="flex flex-col">
                         <span className="font-mono font-black text-blue-600 uppercase">#{quote.id.slice(-6).toUpperCase()}</span>
                         <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1"><Clock className="h-2.5 w-2.5"/> {getAtencionDate(quote)}</span>
                     </div>
                 </TableCell>
-                <TableCell>
-                  <div className="flex flex-col text-left">
+                <TableCell className="text-left">
+                  <div className="flex flex-col">
                       <span className="font-black text-slate-700 uppercase tracking-tighter leading-tight">{quote.empresaData?.razonSocial}</span>
                       <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">
                         {quote.empresaData?.rut} | <span className={isFrecuente ? "text-blue-600 font-black" : "text-slate-400"}>{isFrecuente ? 'FRECUENTE' : 'NORMAL'}</span>
@@ -153,18 +143,20 @@ export default function AdminCotizaciones() {
                 <TableCell className="text-right px-6">
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="icon" className="hover:bg-blue-50" onClick={() => setQuoteToManage(quote)}><Eye className="h-4 w-4 text-blue-600" /></Button>
-                    {allowDelete && <Button variant="ghost" size="icon" className="text-slate-200 hover:text-red-500" onClick={() => handleDelete(quote.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    {allowDelete && <Button variant="ghost" size="icon" className="text-slate-200 hover:text-red-500" onClick={async () => { if(confirm("Eliminar?")) { await deleteDoc(doc(firestore, 'cotizaciones', quote.id)); refetchQuotes(); } }}><Trash2 className="h-4 w-4" /></Button>}
                   </div>
                 </TableCell>
               </TableRow>
             );
           }) : (
-            <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 text-[10px] uppercase font-bold tracking-widest italic opacity-50">No hay registros para mostrar</TableCell></TableRow>
+            <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 text-[10px] uppercase font-bold tracking-widest italic opacity-50">No hay registros</TableCell></TableRow>
           )}
         </TableBody>
       </Table>
     </div>
   );
+
+  if (isLoading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-6 w-6 text-slate-300" /></div>;
 
   return (
     <div className="container mx-auto p-4 max-w-7xl font-sans pb-20">
@@ -187,7 +179,6 @@ export default function AdminCotizaciones() {
           <TabsTrigger value="PAGADO" className="h-12 md:h-full rounded-none text-[11px] font-black uppercase border-b border-white/5 md:border-none text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">Pagadas</TabsTrigger>
           <TabsTrigger value="FACTURADO" className="h-12 md:h-full rounded-none text-[11px] font-black uppercase text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">Facturadas</TabsTrigger>
         </TabsList>
-        
         <TabsContent value="CONFIRMADA"><RenderTable data={getFilteredData('CONFIRMADA')} allowDelete={true} /></TabsContent>
         <TabsContent value="CORREO_ENVIADO"><RenderTable data={getFilteredData('CORREO_ENVIADO')} allowDelete={true} /></TabsContent>
         <TabsContent value="PAGADO"><RenderTable data={getFilteredData('PAGADO')} allowDelete={false} /></TabsContent>
@@ -195,42 +186,38 @@ export default function AdminCotizaciones() {
       </Tabs>
 
       <Dialog open={!!quoteToManage} onOpenChange={() => setQuoteToManage(null)}>
-      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl bg-slate-100">
-  <div className="sr-only"><DialogHeader><DialogTitle>Auditoría</DialogTitle></DialogHeader></div>
-  
-  {quoteToManage && (
-    <div className="flex flex-col gap-6 pb-20">
-      <div className="p-6 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-50 shadow-xl">
-        <div className="flex flex-col text-left">
-            <span className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em]">Gestión Documental</span>
-            <span className="text-xl font-black italic">#{quoteToManage.id.slice(-6).toUpperCase()}</span>
-        </div>
-        <div className="flex gap-3">
-          {(() => {
-            const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
-            const isFrecuente = quoteToManage.empresaData?.modalidadFacturacion === 'frecuente';
-
-            // REGLA PARA FRECUENTES: Solo aviso, no acciones de pago individuales
-            if (isFrecuente && status === 'PAGADO') {
-                return <Badge className="bg-blue-600/20 text-blue-400 border border-blue-400/30 px-4 py-2 font-black text-[10px] uppercase tracking-widest">Lista para Consolidación Mensual</Badge>;
-            }
-
-            if (status === 'CONFIRMADA') return <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isProcessing === "email" ? <Loader2 className="animate-spin h-4 w-4" /> : "Enviar Cotización"}</Button>;
-            if (status === 'CORREO_ENVIADO') return <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : "Subir Voucher"}</Button>;
-            if (status === 'PAGADO') return <Button onClick={async () => { setIsProcessing("inv"); await ejecutarFacturacionSiiV2(quoteToManage.id); await refetchQuotes(); setQuoteToManage(null); setIsProcessing(null); }} disabled={isProcessing === "inv"} className="bg-emerald-600 hover:bg-emerald-700 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">{isProcessing === "inv" ? <Loader2 className="animate-spin h-4 w-4" /> : "Facturar SII"}</Button>;
-            
-            return null;
-          })()}
-        </div>
-        <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
-      </div>
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl bg-slate-100">
+          <div className="sr-only">
+            <DialogHeader>
+              <DialogTitle>Auditoría Documental</DialogTitle>
+              <DialogDescription>Detalle de la orden y documentos asociados.</DialogDescription>
+            </DialogHeader>
+          </div>
+          {quoteToManage && (
+            <div className="flex flex-col gap-6 pb-20">
+              <div className="p-6 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-50 shadow-xl">
+                <div className="flex flex-col text-left">
+                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em]">Gestión de Orden</span>
+                    <span className="text-xl font-black italic">#{quoteToManage.id.slice(-6).toUpperCase()}</span>
+                </div>
+                <div className="flex gap-3">
+                  {(() => {
+                    const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
+                    const isFrecuente = quoteToManage.empresaData?.modalidadFacturacion === 'frecuente';
+                    if (isFrecuente && status === 'PAGADO') return <Badge className="bg-blue-600/20 text-blue-400 border border-blue-400/30 px-4 py-2 font-black text-[10px] uppercase tracking-widest">Cartera Frecuente</Badge>;
+                    if (status === 'CONFIRMADA') return <Button onClick={() => handleSendEmail(quoteToManage)} disabled={isProcessing === "email"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest">{isProcessing === "email" ? <Loader2 className="animate-spin h-4 w-4" /> : "Enviar Cotización"}</Button>;
+                    if (status === 'CORREO_ENVIADO') return <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest">{isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : "Subir Voucher"}</Button>;
+                    if (status === 'PAGADO') return <Button onClick={async () => { setIsProcessing("inv"); await ejecutarFacturacionSiiV2(quoteToManage.id); await refetchQuotes(); setQuoteToManage(null); setIsProcessing(null); }} disabled={isProcessing === "inv"} className="bg-emerald-600 hover:bg-emerald-700 font-black text-[10px] h-10 px-6 uppercase tracking-widest">{isProcessing === "inv" ? <Loader2 className="animate-spin h-4 w-4" /> : "Facturar SII"}</Button>;
+                    return null;
+                  })()}
+                </div>
+                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
+              </div>
               <div className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border border-slate-200"><DetalleCotizacion quote={quoteToManage} /></div>
               <div className="space-y-8">
                   <div className="max-w-4xl mx-auto px-10 text-left"><h3 className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] border-b pb-2">Anexos: Órdenes de Atención</h3></div>
                   {quoteToManage.solicitudesData?.map((sol: any, i: number) => (
-                      <div key={i} className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border-2 border-dashed border-slate-200">
-                          <OrdenDeExamen solicitud={sol} empresa={quoteToManage.empresaData} fechaCotizacion={format(new Date(), 'dd/MM/yyyy')} />
-                      </div>
+                      <div key={i} className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border-2 border-dashed border-slate-200"><OrdenDeExamen solicitud={sol} empresa={quoteToManage.empresaData} fechaCotizacion={format(new Date(), 'dd/MM/yyyy')} /></div>
                   ))}
               </div>
             </div>
