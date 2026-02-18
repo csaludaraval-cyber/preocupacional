@@ -6,12 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, FileText, Send, RefreshCw, Eye, FlaskConical, Download, ReceiptText, Trash2, Clock } from 'lucide-react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog'; 
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
@@ -21,9 +16,7 @@ import { updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { mapLegacyStatus } from '@/lib/status-mapper';
-import { ejecutarFacturacionSiiV2, probarConexionLioren } from '@/server/actions/facturacionActions';
-import { enviarConfirmacionPago } from '@/server/actions/emailActions'; 
-import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
+import { ejecutarFacturacionSiiV2, probarConexionLioren, descargarMaestroLocalidades } from '@/server/actions/facturacionActions';
 import { Input } from '@/components/ui/input';
 import { format, parseISO } from 'date-fns';
 
@@ -71,12 +64,21 @@ export default function AdminCotizaciones() {
       await uploadBytes(fileRef, event.target.files[0]);
       const url = await getDownloadURL(fileRef);
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO' });
-      await enviarConfirmacionPago(quoteToManage);
-      toast({ title: "Pago registrado" });
+      toast({ title: "Voucher guardado" });
       await refetchQuotes();
       setQuoteToManage(null);
     } catch (err: any) { toast({ title: "Error", variant: "destructive" }); }
     finally { setIsUploading(false); }
+  };
+
+  const handleDownloadMaestro = async () => {
+    const res = await descargarMaestroLocalidades();
+    if (res.success) {
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'maestro_lioren.json'; a.click();
+      toast({ title: "Maestro descargado" });
+    }
   };
 
   const RenderTable = ({ data, allowDelete }: { data: any[], allowDelete: boolean }) => (
@@ -87,7 +89,7 @@ export default function AdminCotizaciones() {
             <TableHead className="py-4 px-6 text-[10px] uppercase font-black text-white tracking-widest text-left">ID / Atención</TableHead>
             <TableHead className="text-[10px] uppercase font-black text-white tracking-widest text-left">Empresa</TableHead>
             <TableHead className="text-center text-[10px] uppercase font-black text-white tracking-widest w-[300px]">Estado</TableHead>
-            <TableHead className="text-right px-6 text-[10px] uppercase font-black text-white tracking-widest">Acción</TableHead>
+            <TableHead className="text-right px-6 text-[10px] uppercase font-black text-white tracking-widest text-right">Acción</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -96,17 +98,12 @@ export default function AdminCotizaciones() {
             return (
               <TableRow key={quote.id} className="text-xs hover:bg-slate-50 transition-colors border-slate-100">
                 <TableCell className="px-6 text-left">
-                    <div className="flex flex-col">
+                    <div className="flex flex-col text-left">
                         <span className="font-mono font-black text-blue-600 uppercase">#{quote.id.slice(-6).toUpperCase()}</span>
                         <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1"><Clock className="h-2.5 w-2.5"/> {getAtencionDate(quote)}</span>
                     </div>
                 </TableCell>
-                <TableCell className="text-left">
-                  <div className="flex flex-col">
-                      <span className="font-black text-slate-700 uppercase tracking-tighter leading-tight">{quote.empresaData?.razonSocial}</span>
-                      <span className="text-[9px] text-slate-400 font-bold uppercase">{quote.empresaData?.rut}</span>
-                  </div>
-                </TableCell>
+                <TableCell className="text-left"><div className="flex flex-col text-left"><span className="font-black text-slate-700 uppercase tracking-tighter leading-tight">{quote.empresaData?.razonSocial}</span><span className="text-[9px] text-slate-400 font-bold uppercase">{quote.empresaData?.rut}</span></div></TableCell>
                 <TableCell>
                   <div className="flex items-center justify-center gap-6">
                     <Badge className={`min-w-[115px] justify-center font-black text-[9px] uppercase border-none py-1.5 ${status === 'FACTURADO' ? 'bg-[#0a0a4d]' : status === 'PAGADO' ? 'bg-blue-600' : status === 'CORREO_ENVIADO' ? 'bg-amber-500' : 'bg-slate-300'} text-white`}>{status}</Badge>
@@ -136,14 +133,15 @@ export default function AdminCotizaciones() {
   return (
     <div className="container mx-auto p-4 max-w-7xl font-sans pb-20">
       <div className="flex justify-between items-end mb-10 text-left">
-        <div className="space-y-1">
+        <div className="space-y-1 text-left">
             <h1 className="text-2xl font-black uppercase text-slate-800 tracking-tighter">Administración</h1>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em]">Gestión Documental Araval</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button onClick={async () => { const res = await probarConexionLioren(); alert(res.message || res.error); }} className="bg-[#0a0a4d] hover:bg-slate-800 text-white font-black h-10 text-[10px] tracking-widest px-6 italic">TEST SII</Button>
-          <Button onClick={() => refetchQuotes()} variant="outline" size="sm" className="h-10 w-10 border-slate-200 bg-white"><RefreshCw className="h-4 w-4 text-slate-400" /></Button>
-          <Input placeholder="Buscar..." className="w-64 h-10 text-xs font-bold bg-white border-slate-200" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        <div className="flex items-center gap-3 text-left">
+          <Button onClick={handleDownloadMaestro} variant="outline" size="sm" className="h-10 border-slate-300 text-slate-600 font-bold text-[10px] uppercase bg-white"><Download className="h-3.5 w-3.5 mr-2" /> MAESTRO</Button>
+          <Button onClick={async () => { const res = await probarConexionLioren(); alert(res.message || res.error); }} className="bg-[#0a0a4d] hover:bg-slate-800 text-white font-black h-10 text-[10px] tracking-widest px-6 italic shadow-lg">TEST SII</Button>
+          <Button onClick={() => refetchQuotes()} variant="outline" size="sm" className="h-10 w-10 border-slate-200 bg-white shadow-sm"><RefreshCw className="h-4 w-4 text-slate-400" /></Button>
+          <Input placeholder="Buscar..." className="w-64 h-10 text-xs font-bold bg-white border-slate-200 shadow-sm text-left" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
@@ -162,20 +160,16 @@ export default function AdminCotizaciones() {
 
       <Dialog open={!!quoteToManage} onOpenChange={() => setQuoteToManage(null)}>
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl bg-slate-100">
-          <div className="sr-only">
+          <div className="sr-only text-left">
             <DialogHeader>
               <DialogTitle>Auditoría Documental Araval</DialogTitle>
-              {/* SOLUCIÓN ts(2304): Usamos p tag al no tener DialogDescription */}
-              <p className="text-xs text-slate-500">Gestión de documentos.</p>
+              <p className="text-[10px] uppercase font-bold text-slate-400">Control</p>
             </DialogHeader>
           </div>
           {quoteToManage && (
             <div className="flex flex-col gap-6 pb-20">
               <div className="p-6 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-50 shadow-xl">
-                <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em]">Gestión Documental</span>
-                    <span className="text-xl font-black italic">#{quoteToManage.id.slice(-6).toUpperCase()}</span>
-                </div>
+                <div className="flex flex-col text-left"><span className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em]">Gestión de Orden</span><span className="text-xl font-black italic">#{quoteToManage.id.slice(-6).toUpperCase()}</span></div>
                 <div className="flex gap-3">
                   {(() => {
                     const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
@@ -186,11 +180,11 @@ export default function AdminCotizaciones() {
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
               </div>
-              <div className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border border-slate-200"><DetalleCotizacion quote={quoteToManage} /></div>
+              <div className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border border-slate-200 shadow-2xl"><DetalleCotizacion quote={quoteToManage} /></div>
               <div className="space-y-8 pb-10">
-                  <div className="max-w-4xl mx-auto px-10 text-left"><h3 className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] border-b pb-2">Anexos: Órdenes de Atención</h3></div>
+                  <div className="max-w-4xl mx-auto px-10 text-left"><h3 className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] border-b pb-2 text-left">Anexos: Órdenes de Atención</h3></div>
                   {quoteToManage.solicitudesData?.map((sol: any, i: number) => (
-                      <div key={i} className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border-2 border-dashed border-slate-200"><OrdenDeExamen solicitud={sol} empresa={quoteToManage.empresaData} fechaCotizacion={format(new Date(), 'dd/MM/yyyy')} /></div>
+                      <div key={i} className="bg-white shadow-2xl mx-auto w-full max-w-4xl rounded-lg overflow-hidden border-2 border-dashed border-slate-200"><OrdenDeExamen solicitud={sol} empresa={quoteToManage.empresaData} fechaCotizacion={format(new Date(), 'dd/MM/yyyy')} /></div>
                   ))}
               </div>
             </div>
