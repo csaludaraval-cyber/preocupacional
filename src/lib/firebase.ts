@@ -1,16 +1,22 @@
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
-// This file is a central export point for client-side Firebase services.
-// It ensures that Firebase is initialized only once using the 'use client' context.
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
 
-'use client';
+// Singleton: Inicializa solo si no hay apps activas. 
+// Funciona en Cliente y en Servidor (Node.js).
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const firestore = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
 
-import { initializeFirebase } from '@/firebase';
-
-// The initializeFirebase function is marked as 'use client' and handles client-side initialization.
-// We call it here and then export the returned instances.
-// This file itself is marked 'use client' to ensure it's never bundled in server-side code by mistake.
-const { firebaseApp: app, auth, firestore } = initializeFirebase();
-
-// Export the initialized client-side services.
-// Any server-side logic must use a separate initialization (e.g., Firebase Admin SDK).
-export { app, auth, firestore };
+export { app, auth, firestore, storage };

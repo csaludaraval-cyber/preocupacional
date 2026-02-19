@@ -1,16 +1,14 @@
 'use server';
 
 import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase'; // IMPORTACIÓN ÚNICA Y CORRECTA
+import { firestore } from '@/lib/firebase'; 
 import { createDTE, whoami } from '@/server/lioren';
 import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
 import type { CotizacionFirestore } from '@/lib/types';
 
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa";
 
-/**
- * AGRUPADOR: Suma cantidades de exámenes iguales para un DTE limpio
- */
+// Función de agrupamiento interna
 function agruparDetallesFacturacion(examenesRaw: any[]) {
   const resumen: Record<string, any> = {};
   examenesRaw.forEach((ex) => {
@@ -32,20 +30,26 @@ function agruparDetallesFacturacion(examenesRaw: any[]) {
 
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   try {
-    if (!firestore) throw new Error("Error de inicializacion Firebase");
+    // 1. VALIDACIÓN DE INFRAESTRUCTURA
+    if (!firestore || !firestore.type) {
+        throw new Error("Instancia de base de datos no disponible en el servidor.");
+    }
+
     const docRef = doc(firestore, 'cotizaciones', cotizacionId);
     const snap = await getDoc(docRef);
-    if (!snap.exists()) throw new Error("Cotizacion no encontrada");
+    
+    if (!snap.exists()) throw new Error("Orden #" + cotizacionId + " no encontrada.");
+    
     const data = snap.data() as CotizacionFirestore;
-
     const ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna, data.empresaData?.ciudad);
+
     const todosLosExamenes = (data.solicitudesData || []).flatMap((sol: any) =>
       (sol.examenes || []).filter((ex: any) => Number(ex.valor) > 0)
     );
 
     const detallesFinales = agruparDetallesFacturacion(todosLosExamenes);
 
-    const result = await createDTE({
+    const payload = {
       tipodoc: "34",
       emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
       receptor: {
@@ -59,10 +63,15 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
       },
       detalles: detallesFinales,
       expect_all: true
-    });
+    };
 
+    const result = await createDTE(payload);
+    
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
     const finalFolio = result.folio || (result.dte && result.dte.folio);
+    
+    if (!finalId) throw new Error("Lioren no devolvio un ID de documento valido.");
+
     const finalPdfUrl = "https://cl.lioren.enterprises/empresas/" + LIOREN_SLUG + "/dte/getpdf/" + String(finalId);
 
     await setDoc(docRef, {
@@ -75,16 +84,21 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 
     return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
   } catch (error: any) {
+    console.error("LOG_FACTURACION_FAIL:", error.message);
     throw new Error(error.message);
   }
 }
 
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   try {
-    if (!firestore) throw new Error("Error Firebase");
-    const q = query(collection(firestore, 'cotizaciones'), where('empresaData.rut', '==', rutEmpresa), where('status', '==', 'PAGADO'));
+    if (!firestore) throw new Error("Instancia DB invalida");
+    
+    const q = query(collection(firestore, 'cotizaciones'), 
+      where('empresaData.rut', '==', rutEmpresa), 
+      where('status', '==', 'PAGADO')
+    );
     const snap = await getDocs(q);
-    if (snap.empty) throw new Error("Sin ordenes pagadas");
+    if (snap.empty) throw new Error("No hay ordenes para consolidar");
 
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
@@ -126,6 +140,7 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
       });
     });
     await batch.commit();
+
     return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
   } catch (error: any) { throw new Error(error.message); }
 }
@@ -144,6 +159,6 @@ export async function descargarMaestroLocalidades() {
 }
 
 export async function probarConexionLioren() {
-  try { await whoami(); return { success: true, message: "SII Lioren OK" }; } 
+  try { await whoami(); return { success: true, message: "Conexion SII Lioren OK" }; } 
   catch (error: any) { return { success: false, error: error.message }; }
 }
