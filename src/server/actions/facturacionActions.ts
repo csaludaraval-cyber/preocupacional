@@ -8,7 +8,6 @@ import type { CotizacionFirestore } from '@/lib/types';
 
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa";
 
-// Función de agrupamiento interna
 function agruparDetallesFacturacion(examenesRaw: any[]) {
   const resumen: Record<string, any> = {};
   examenesRaw.forEach((ex) => {
@@ -30,15 +29,14 @@ function agruparDetallesFacturacion(examenesRaw: any[]) {
 
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   try {
-    // 1. VALIDACIÓN DE INFRAESTRUCTURA
-    if (!firestore || !firestore.type) {
-        throw new Error("Instancia de base de datos no disponible en el servidor.");
+    // 🛡️ VALIDACIÓN DE PRE-VUELO (Evita el Error 500)
+    if (!firestore || !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+      throw new Error("ERROR_INFRAESTRUCTURA: Las credenciales de Firebase no están configuradas en el servidor.");
     }
 
     const docRef = doc(firestore, 'cotizaciones', cotizacionId);
     const snap = await getDoc(docRef);
-    
-    if (!snap.exists()) throw new Error("Orden #" + cotizacionId + " no encontrada.");
+    if (!snap.exists()) throw new Error("Orden no encontrada");
     
     const data = snap.data() as CotizacionFirestore;
     const ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna, data.empresaData?.ciudad);
@@ -49,7 +47,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 
     const detallesFinales = agruparDetallesFacturacion(todosLosExamenes);
 
-    const payload = {
+    const result = await createDTE({
       tipodoc: "34",
       emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
       receptor: {
@@ -63,15 +61,10 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
       },
       detalles: detallesFinales,
       expect_all: true
-    };
+    });
 
-    const result = await createDTE(payload);
-    
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
     const finalFolio = result.folio || (result.dte && result.dte.folio);
-    
-    if (!finalId) throw new Error("Lioren no devolvio un ID de documento valido.");
-
     const finalPdfUrl = "https://cl.lioren.enterprises/empresas/" + LIOREN_SLUG + "/dte/getpdf/" + String(finalId);
 
     await setDoc(docRef, {
@@ -84,21 +77,17 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
 
     return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
   } catch (error: any) {
-    console.error("LOG_FACTURACION_FAIL:", error.message);
+    console.error("CRITICAL_BILLING_FAILURE:", error.message);
     throw new Error(error.message);
   }
 }
 
 export async function emitirDTEConsolidado(rutEmpresa: string) {
   try {
-    if (!firestore) throw new Error("Instancia DB invalida");
-    
-    const q = query(collection(firestore, 'cotizaciones'), 
-      where('empresaData.rut', '==', rutEmpresa), 
-      where('status', '==', 'PAGADO')
-    );
+    if (!firestore) throw new Error("Firebase inalcanzable");
+    const q = query(collection(firestore, 'cotizaciones'), where('empresaData.rut', '==', rutEmpresa), where('status', '==', 'PAGADO'));
     const snap = await getDocs(q);
-    if (snap.empty) throw new Error("No hay ordenes para consolidar");
+    if (snap.empty) throw new Error("Sin órdenes pagadas.");
 
     const docs = snap.docs;
     const base = docs[0].data() as CotizacionFirestore;
@@ -106,13 +95,10 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 
     const examenPool = docs.flatMap(docSnapshot => {
       const d = docSnapshot.data() as CotizacionFirestore;
-      return (d.solicitudesData || []).flatMap((sol: any) =>
-        (sol.examenes || []).filter((ex: any) => Number(ex.valor) > 0)
-      );
+      return (d.solicitudesData || []).flatMap((sol: any) => (sol.examenes || []).filter((ex: any) => Number(ex.valor) > 0));
     });
 
     const detallesAgrupados = agruparDetallesFacturacion(examenPool);
-
     const result = await createDTE({
       tipodoc: "34",
       emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
@@ -135,12 +121,9 @@ export async function emitirDTEConsolidado(rutEmpresa: string) {
 
     const batch = writeBatch(firestore);
     docs.forEach(docSnapshot => {
-      batch.update(doc(firestore, 'cotizaciones', docSnapshot.id), { 
-        status: 'FACTURADO', liorenFolio: String(finalFolio), liorenId: String(finalId), liorenPdfUrl: finalPdfUrl, liorenConsolidado: true 
-      });
+      batch.update(doc(firestore, 'cotizaciones', docSnapshot.id), { status: 'FACTURADO', liorenFolio: String(finalFolio), liorenId: String(finalId), liorenPdfUrl: finalPdfUrl, liorenConsolidado: true });
     });
     await batch.commit();
-
     return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
   } catch (error: any) { throw new Error(error.message); }
 }
@@ -159,6 +142,6 @@ export async function descargarMaestroLocalidades() {
 }
 
 export async function probarConexionLioren() {
-  try { await whoami(); return { success: true, message: "Conexion SII Lioren OK" }; } 
+  try { await whoami(); return { success: true, message: "SII Lioren OK" }; } 
   catch (error: any) { return { success: false, error: error.message }; }
 }

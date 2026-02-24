@@ -57,8 +57,12 @@ function CrearCotizacionContent() {
     try {
       const total = solicitudes.reduce((acc, s) => acc + s.examenes.reduce((sum, e) => sum + (Number(e.valor) || 0), 0), 0);
       
-      // REGLA DE NEGOCIO: Bypass para Clientes Frecuentes
-      const isFrecuente = empresa.modalidadFacturacion === 'frecuente';
+      // ------------------------------------------------------------------
+      // REGLA DE NEGOCIO CORREGIDA: Bypass robusto para Clientes Frecuentes
+      // ------------------------------------------------------------------
+      const modalidad = (empresa.modalidadFacturacion || '').toLowerCase();
+      // Detecta si dice frecuente sin importar mayúsculas/minúsculas, o si tiene un boolean true
+      const isFrecuente = modalidad === 'frecuente' || (empresa as any).isFrecuente === true;
       const finalStatus = isFrecuente ? 'PAGADO' : 'CONFIRMADA';
 
       const docData = { 
@@ -66,18 +70,28 @@ function CrearCotizacionContent() {
         solicitanteData: solicitante, 
         solicitudesData: solicitudes, 
         total, 
-        status: finalStatus, // <--- APLICADO: PAGADO si es frecuente
+        status: finalStatus, 
         fechaCreacion: serverTimestamp(), 
         originalRequestId 
       };
 
       await addDoc(collection(firestore, 'cotizaciones'), docData);
-      if (originalRequestId) await updateDoc(doc(firestore, 'solicitudes_publicas', originalRequestId), { estado: 'procesada' });
       
-      toast({ title: isFrecuente ? "Orden Enviada a Consolidación" : "Cotización Creada" });
+      if (originalRequestId) {
+        await updateDoc(doc(firestore, 'solicitudes_publicas', originalRequestId), { estado: 'procesada' });
+      }
+      
+      toast({ 
+        title: isFrecuente ? "Orden Enviada a Consolidación" : "Cotización Creada",
+        description: isFrecuente ? "Bypass aplicado. Movido a Pagados." : "Esperando envío de correo."
+      });
+      
       router.push('/cotizaciones-guardadas');
-    } catch (e: any) { toast({ variant: "destructive", title: "Error", description: e.message }); }
-    finally { setIsSubmitting(false); }
+    } catch (e: any) { 
+      toast({ variant: "destructive", title: "Error", description: e.message }); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const addTrabajador = () => {
