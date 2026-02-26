@@ -10,21 +10,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 import { DetalleCotizacion } from '@/components/cotizacion/DetalleCotizacion';
-import { OrdenDeExamen, GeneradorPDF } from '@/components/cotizacion/GeneradorPDF'; // RECONECTADO
+import { OrdenDeExamen, GeneradorPDF } from '@/components/cotizacion/GeneradorPDF';
 import { updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { mapLegacyStatus } from '@/lib/status-mapper';
-
-// RECONEXIÓN DE RUTAS CORREGIDAS
 import { ejecutarFacturacionSiiV2, probarConexionLioren } from '@/server/actions/facturacionActions';
 import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
-import { enviarConfirmacionPago } from '@/server/actions/emailActions'; // RUTA CORREGIDA
-
+import { enviarConfirmacionPago } from '@/server/actions/emailActions';
 import { Input } from '@/components/ui/input';
 import { format, parseISO } from 'date-fns';
 
-// Utilidad original para conversión de formatos
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -43,11 +39,6 @@ export default function AdminCotizaciones() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const getAtencionDate = (q: any) => {
-    const fechaStr = q.solicitudesData?.[0]?.trabajador?.fechaAtencion;
-    return fechaStr ? format(parseISO(fechaStr), 'dd/MM/yyyy') : 'S/F';
-  };
-
   const getFilteredData = (statusKey: string) => {
     if (!quotes) return [];
     return quotes.filter(q => {
@@ -60,41 +51,26 @@ export default function AdminCotizaciones() {
     });
   };
 
-  // ACCIÓN 1: ENVIAR COTIZACIÓN (CONFIRMADA -> ENVIADA)
   const handleSendQuoteEmail = async (quote: any) => {
     setIsProcessing("sending");
     try {
-      const emailDestino = quote.solicitanteData?.mail || quote.empresaData?.email;
-      if (!emailDestino) throw new Error("No hay correo de destino.");
-
-      // USANDO EL GENERADOR ORIGINAL DEL PROYECTO
       const pdfBlob = await GeneradorPDF.generar(quote);
       const pdfBase64 = await blobToBase64(pdfBlob);
-
       const res = await enviarCotizacion({
-        clienteEmail: emailDestino,
+        clienteEmail: quote.solicitanteData?.mail || quote.empresaData?.email,
         cotizacionId: quote.id.slice(-6).toUpperCase(),
         pdfBase64
       });
-
       if (res.status === 'error') throw new Error(res.message);
-
-      await updateDoc(doc(firestore, 'cotizaciones', quote.id), { 
-        status: 'CORREO_ENVIADO',
-        fechaEnvio: serverTimestamp() 
-      } as any);
-
+      await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvio: serverTimestamp() } as any);
       toast({ title: "Correo enviado correctamente" });
       await refetchQuotes();
       setQuoteToManage(null);
     } catch (err: any) {
       toast({ title: "Error al enviar", variant: "destructive", description: err.message });
-    } finally {
-      setIsProcessing(null);
-    }
+    } finally { setIsProcessing(null); }
   };
 
-  // ACCIÓN 2: SUBIR VOUCHER Y CONFIRMAR PAGO (ENVIADA -> PAGADA)
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files?.[0] || !quoteToManage) return;
     setIsUploading(true);
@@ -103,24 +79,13 @@ export default function AdminCotizaciones() {
       const fileRef = storageRef(storage, "vouchers/" + quoteToManage.id + "_" + Date.now());
       await uploadBytes(fileRef, event.target.files[0]);
       const url = await getDownloadURL(fileRef);
-
-      await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { 
-        pagoVoucherUrl: url, 
-        status: 'PAGADO',
-        fechaPago: serverTimestamp()
-      } as any);
-
-      // LLAMADA ORIGINAL: Enviar correo de Pago Confirmado
+      await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO', fechaPago: serverTimestamp() } as any);
       await enviarConfirmacionPago({ ...quoteToManage, status: 'PAGADO' });
-
       toast({ title: "Pago confirmado y notificado" });
       await refetchQuotes();
       setQuoteToManage(null);
-    } catch (err: any) { 
-      toast({ title: "Error", variant: "destructive" }); 
-    } finally { 
-      setIsUploading(false); 
-    }
+    } catch (err: any) { toast({ title: "Error", variant: "destructive" }); }
+    finally { setIsUploading(false); }
   };
 
   const RenderTable = ({ data, allowDelete }: { data: any[], allowDelete: boolean }) => (
@@ -138,33 +103,22 @@ export default function AdminCotizaciones() {
           {data.map((quote) => {
             const status = mapLegacyStatus(quote.status).toUpperCase();
             const esFrecuente = (quote.empresaData?.modalidadFacturacion || '').toLowerCase() === 'frecuente';
-
             return (
               <TableRow key={quote.id} className="text-xs hover:bg-slate-50 transition-colors border-slate-100">
                 <TableCell className="px-6 text-left">
-                    <div className="flex flex-col text-left">
-                        <span className="font-mono font-black text-blue-600 uppercase">#{quote.id.slice(-6).toUpperCase()}</span>
-                        <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1"><Clock className="h-2.5 w-2.5"/> {getAtencionDate(quote)}</span>
-                    </div>
+                  <span className="font-mono font-black text-blue-600 uppercase">#{quote.id.slice(-6).toUpperCase()}</span>
                 </TableCell>
                 <TableCell className="text-left">
                     <div className="flex flex-col text-left">
                         <div className="flex items-center gap-2">
-                            <span className="font-black text-slate-700 uppercase tracking-tighter leading-tight">{quote.empresaData?.razonSocial}</span>
-                            {esFrecuente && <Badge className="bg-emerald-500 text-white text-[8px] font-black h-4 px-1.5 border-none tracking-widest rounded-sm">FRECUENTE</Badge>}
+                            <span className="font-black text-slate-700 uppercase leading-tight">{quote.empresaData?.razonSocial}</span>
+                            {esFrecuente ? <Badge className="bg-emerald-500 text-white text-[8px] font-black h-4 px-1.5 border-none rounded-sm">FRECUENTE</Badge> : <Badge variant="outline" className="text-slate-400 text-[8px] font-bold h-4 px-1.5 rounded-sm">NORMAL</Badge>}
                         </div>
                         <span className="text-[9px] text-slate-400 font-bold uppercase">{quote.empresaData?.rut}</span>
                     </div>
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-center gap-6">
+                <TableCell className="text-center">
                     <Badge className={`min-w-[115px] justify-center font-black text-[9px] uppercase border-none py-1.5 ${status === 'FACTURADO' ? 'bg-[#0a0a4d]' : status === 'PAGADO' ? 'bg-blue-600' : status === 'CORREO_ENVIADO' ? 'bg-amber-500' : 'bg-slate-300'} text-white`}>{status}</Badge>
-                    <div className="flex items-center gap-3 border-l pl-6 border-slate-100">
-                      <FileText className="h-5 w-5 text-emerald-500" />
-                      <Download className={`h-5 w-5 ${!!quote.pagoVoucherUrl ? 'text-emerald-500 cursor-pointer' : 'text-slate-200'}`} onClick={() => quote.pagoVoucherUrl && window.open(quote.pagoVoucherUrl, '_blank')} />
-                      <ReceiptText className={`h-5 w-5 ${status === 'FACTURADO' ? 'text-emerald-500 cursor-pointer' : 'text-slate-200'}`} onClick={() => quote.liorenPdfUrl && window.open(quote.liorenPdfUrl, '_blank')} />
-                    </div>
-                  </div>
                 </TableCell>
                 <TableCell className="text-right px-6">
                   <div className="flex justify-end gap-2">
@@ -184,7 +138,7 @@ export default function AdminCotizaciones() {
     <div className="container mx-auto p-4 max-w-7xl font-sans pb-20 text-left">
       <div className="flex justify-between items-end mb-10 text-left">
         <div className="space-y-1 text-left">
-            <h1 className="text-2xl font-black uppercase text-slate-800 tracking-tighter italic">Administración Araval</h1>
+            <h1 className="text-2xl font-black uppercase text-slate-800 tracking-tighter italic leading-none">Administración Araval</h1>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em]">Gestión Documental Operativa</p>
         </div>
         <div className="flex items-center gap-3">
@@ -208,7 +162,7 @@ export default function AdminCotizaciones() {
       </Tabs>
 
       <Dialog open={!!quoteToManage} onOpenChange={() => setQuoteToManage(null)}>
-        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl bg-slate-100">
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl bg-slate-100 text-left">
           <DialogTitle className="sr-only">Gestión Documental</DialogTitle>
           {quoteToManage && (
             <div className="flex flex-col gap-6 pb-20">
@@ -217,22 +171,20 @@ export default function AdminCotizaciones() {
                 <div className="flex gap-3">
                   {(() => {
                     const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
-                    
-                    if (status === 'CONFIRMADA') return (
-                      <Button onClick={() => handleSendQuoteEmail(quoteToManage)} disabled={isProcessing === "sending"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">
-                        {isProcessing === "sending" ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                        Enviar Correo
-                      </Button>
-                    );
-
-                    if (status === 'CORREO_ENVIADO') return (
-                      <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">
-                        {isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : "Subir Voucher"}
-                      </Button>
-                    );
-
+                    if (status === 'CONFIRMADA') return <Button onClick={() => handleSendQuoteEmail(quoteToManage)} disabled={isProcessing === "sending"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest text-white">{isProcessing === "sending" ? <Loader2 className="animate-spin h-4 w-4" /> : "Enviar Correo"}</Button>;
+                    if (status === 'CORREO_ENVIADO') return <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest text-white">{isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : "Subir Voucher"}</Button>;
                     if (status === 'PAGADO') return (
-                      <Button onClick={async () => { setIsProcessing("inv"); await ejecutarFacturacionSiiV2(quoteToManage.id); await refetchQuotes(); setQuoteToManage(null); setIsProcessing(null); }} disabled={isProcessing === "inv"} className="bg-emerald-600 hover:bg-emerald-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest shadow-md">
+                      <Button 
+                        onClick={async () => { 
+                          setIsProcessing("inv"); 
+                          const res = await ejecutarFacturacionSiiV2(quoteToManage.id); 
+                          if (res.success) { toast({ title: "Factura Exitosa", description: `Folio: ${res.folio}` }); await refetchQuotes(); setQuoteToManage(null); }
+                          else { toast({ variant: "destructive", title: "Error Facturación", description: res.error }); }
+                          setIsProcessing(null); 
+                        }} 
+                        disabled={isProcessing === "inv"} 
+                        className="bg-emerald-600 hover:bg-emerald-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest text-white"
+                      >
                         {isProcessing === "inv" ? <Loader2 className="animate-spin h-4 w-4" /> : "Facturar SII"}
                       </Button>
                     );
@@ -241,11 +193,9 @@ export default function AdminCotizaciones() {
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,.pdf"/>
               </div>
-
               <div className="bg-white shadow-sm mx-auto w-full max-w-4xl rounded-lg overflow-hidden border border-slate-200 shadow-2xl">
                 <DetalleCotizacion quote={quoteToManage} />
               </div>
-
               <div className="space-y-8 pb-10">
                   {quoteToManage.solicitudesData?.map((sol: any, i: number) => (
                       <div key={i} className="bg-white shadow-2xl mx-auto w-full max-w-4xl rounded-lg overflow-hidden border-2 border-dashed border-slate-200">

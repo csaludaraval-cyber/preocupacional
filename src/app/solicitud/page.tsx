@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PlusCircle, Trash2, Users, Loader2, CheckCircle2 } from 'lucide-react';
@@ -40,8 +40,14 @@ export default function SolicitudPage() {
 
   const currentSolicitud = solicitudes[currentSolicitudIndex];
 
-  // REGLA 1: BLOQUEO DE PASO 2 SI FALTAN DATOS CRÍTICOS
-  const isStep1Incomplete = !empresa.razonSocial || !solicitante.nombre || !solicitante.mail || !solicitante.mail.includes('@');
+  // REGLA DE VALIDACION ESTRICTA (PASO 1): Revisa empresa, solicitante y trabajador
+  const isStep1Incomplete = useMemo(() => {
+    const empOk = !!(empresa.rut && empresa.razonSocial && empresa.giro && empresa.direccion && empresa.ciudad && empresa.comuna);
+    const solOk = !!(solicitante.nombre && solicitante.mail && solicitante.mail.includes('@'));
+    const tra = currentSolicitud?.trabajador;
+    const traOk = !!(tra?.nombre && tra?.rut && tra?.cargo && tra?.fechaNacimiento && tra?.fechaAtencion);
+    return !empOk || !solOk || !traOk;
+  }, [empresa, solicitante, currentSolicitud]);
 
   const validateWorker = (sol: SolicitudTrabajador) => {
     return sol.trabajador.nombre && sol.trabajador.rut && sol.examenes.length > 0;
@@ -106,7 +112,7 @@ export default function SolicitudPage() {
 
   if (formSubmitted) {
     return (
-        <div className="max-w-2xl mx-auto py-20 px-4 text-center text-left">
+        <div className="max-w-2xl mx-auto py-20 px-4 text-center">
             <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-6" />
             <h1 className="text-2xl font-black uppercase italic mb-2">¡Solicitud Enviada!</h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Su requerimiento será procesado por nuestro equipo comercial.</p>
@@ -144,9 +150,9 @@ export default function SolicitudPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-3">
-            <Card className="border-none shadow-2xl overflow-hidden bg-white min-h-[650px] rounded-xl">
+            <Card className="border-none shadow-2xl overflow-hidden bg-white min-h-[650px] rounded-xl text-left">
                 <Progress value={(step/2)*100} className="h-1.5 rounded-none bg-slate-100" />
-                <div className="p-8">
+                <div className="p-8 text-left">
                   <AnimatePresence mode="wait">
                       <motion.div key={`${step}-${currentSolicitudIndex}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                           {step === 1 ? (
@@ -159,7 +165,7 @@ export default function SolicitudPage() {
 
                   <div className="mt-12 flex justify-between items-center border-t pt-8">
                       <Button variant="ghost" onClick={() => setStep(1)} disabled={step === 1} className="font-black uppercase text-[10px]">Atrás</Button>
-                      <Button onClick={step === 1 ? () => setStep(2) : handleSendRequest} disabled={isSubmitting || (step === 1 && isStep1Incomplete)} className={`px-12 h-12 font-black uppercase tracking-widest text-[10px] shadow-xl ${step === 1 ? (isStep1Incomplete ? "bg-slate-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700") : "bg-emerald-600 hover:bg-emerald-700"}`}>
+                      <Button onClick={step === 1 ? () => setStep(2) : handleSendRequest} disabled={isSubmitting || (step === 1 && isStep1Incomplete)} className={`px-12 h-12 font-black uppercase tracking-widest text-[10px] shadow-xl ${step === 1 ? (isStep1Incomplete ? "bg-slate-300 cursor-not-allowed text-slate-500" : "bg-blue-600 hover:bg-blue-700 text-white") : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
                           {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : null}
                           {step === 1 ? "Siguiente Paso" : "Finalizar Solicitud"}
                       </Button>
@@ -171,7 +177,7 @@ export default function SolicitudPage() {
           <div className="md:col-span-1 space-y-6">
             <Card className="border-none shadow-xl bg-white overflow-hidden rounded-xl text-left">
               <CardHeader className="p-4 bg-[#0a0a4d] border-b"><CardTitle className="text-[10px] font-black uppercase text-white flex items-center gap-2 tracking-widest"><Users className="h-3 w-3 text-blue-400"/> Nómina de Atención</CardTitle></CardHeader>
-              <CardContent className="p-3 space-y-2">
+              <CardContent className="p-3 space-y-2 text-left">
                 {solicitudes.map((s, index) => (
                   <div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${index === currentSolicitudIndex ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-transparent'}`}>
                     <button className="flex-grow text-left text-[11px] font-black uppercase truncate text-slate-700" onClick={() => { setCurrentSolicitudIndex(index); setStep(1); }}>{index + 1}. {s.trabajador.nombre || "S/N"}</button>
