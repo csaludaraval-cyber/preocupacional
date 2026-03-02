@@ -40,12 +40,18 @@ export default function SolicitudPage() {
 
   const currentSolicitud = solicitudes[currentSolicitudIndex];
 
-  // REGLA DE VALIDACION ESTRICTA (PASO 1): Revisa empresa, solicitante y trabajador
+  // REGLA DE VALIDACION ESTRICTA MEJORADA: Revisa los 13 campos obligatorios de la UI
   const isStep1Incomplete = useMemo(() => {
-    const empOk = !!(empresa.rut && empresa.razonSocial && empresa.giro && empresa.direccion && empresa.ciudad && empresa.comuna);
+    // 1. Validar Empresa (Incluyendo Región y Email)
+    const empOk = !!(empresa.rut && empresa.razonSocial && empresa.giro && empresa.direccion && empresa.ciudad && empresa.comuna && empresa.region && empresa.email);
+    
+    // 2. Validar Solicitante
     const solOk = !!(solicitante.nombre && solicitante.mail && solicitante.mail.includes('@'));
+    
+    // 3. Validar Trabajador Actual
     const tra = currentSolicitud?.trabajador;
     const traOk = !!(tra?.nombre && tra?.rut && tra?.cargo && tra?.fechaNacimiento && tra?.fechaAtencion);
+
     return !empOk || !solOk || !traOk;
   }, [empresa, solicitante, currentSolicitud]);
 
@@ -59,9 +65,13 @@ export default function SolicitudPage() {
     const cleaned = cleanRut(rutEmpresa);
     try {
         const docSnap = await getDoc(doc(firestore, 'empresas', cleaned));
-        if (docSnap.exists()) { setEmpresa(docSnap.data() as Empresa); toast({ title: 'Empresa Encontrada' }); }
-        else { toast({ variant: 'destructive', title: 'No encontrado' }); }
-    } catch (e) { toast({ variant: 'destructive', title: 'Error' }); }
+        if (docSnap.exists()) { 
+            const data = docSnap.data() as Empresa;
+            setEmpresa({ ...data, rut: formatRut(data.rut) }); 
+            toast({ title: 'Empresa Encontrada' }); 
+        }
+        else { toast({ variant: 'destructive', title: 'No encontrado', description: 'Por favor complete los datos manualmente.' }); }
+    } catch (e) { toast({ variant: 'destructive', title: 'Error de red' }); }
     finally { setIsValidating(false); }
   };
 
@@ -156,7 +166,25 @@ export default function SolicitudPage() {
                   <AnimatePresence mode="wait">
                       <motion.div key={`${step}-${currentSolicitudIndex}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                           {step === 1 ? (
-                              <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} solicitante={solicitante} setSolicitante={setSolicitante} trabajador={currentSolicitud.trabajador} setTrabajador={(val) => { const news = [...solicitudes]; news[currentSolicitudIndex].trabajador = typeof val === 'function' ? val(news[currentSolicitudIndex].trabajador) : val; setSolicitudes(news); }} />
+                              <Paso1DatosGenerales 
+                                empresa={empresa} 
+                                setEmpresa={setEmpresa} 
+                                solicitante={solicitante} 
+                                setSolicitante={setSolicitante} 
+                                trabajador={currentSolicitud.trabajador} 
+                                // CORRECCIÓN: Actualización inmutable para disparar el re-renderizado del botón
+                                setTrabajador={(val) => { 
+                                    setSolicitudes(prev => {
+                                        const newSols = [...prev];
+                                        const updatedWorker = typeof val === 'function' ? val(newSols[currentSolicitudIndex].trabajador) : val;
+                                        newSols[currentSolicitudIndex] = {
+                                            ...newSols[currentSolicitudIndex],
+                                            trabajador: updatedWorker
+                                        };
+                                        return newSols;
+                                    });
+                                }} 
+                              />
                           ) : (
                               <Paso2SeleccionExamenes selectedExams={currentSolicitud?.examenes || []} onExamToggle={handleExamToggle} showPrice={false} />
                           )}
@@ -165,7 +193,11 @@ export default function SolicitudPage() {
 
                   <div className="mt-12 flex justify-between items-center border-t pt-8">
                       <Button variant="ghost" onClick={() => setStep(1)} disabled={step === 1} className="font-black uppercase text-[10px]">Atrás</Button>
-                      <Button onClick={step === 1 ? () => setStep(2) : handleSendRequest} disabled={isSubmitting || (step === 1 && isStep1Incomplete)} className={`px-12 h-12 font-black uppercase tracking-widest text-[10px] shadow-xl ${step === 1 ? (isStep1Incomplete ? "bg-slate-300 cursor-not-allowed text-slate-500" : "bg-blue-600 hover:bg-blue-700 text-white") : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
+                      <Button 
+                        onClick={step === 1 ? () => setStep(2) : handleSendRequest} 
+                        disabled={isSubmitting || (step === 1 && isStep1Incomplete)} 
+                        className={`px-12 h-12 font-black uppercase tracking-widest text-[10px] shadow-xl transition-all ${step === 1 ? (isStep1Incomplete ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white") : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}
+                      >
                           {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : null}
                           {step === 1 ? "Siguiente Paso" : "Finalizar Solicitud"}
                       </Button>
