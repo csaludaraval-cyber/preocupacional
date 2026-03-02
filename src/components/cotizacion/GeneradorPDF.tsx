@@ -4,17 +4,14 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import type { Cotizacion } from '@/lib/types';
 import { DetalleCotizacion } from './DetalleCotizacion';
 import { format, differenceInYears } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 const calcularEdad = (fechaNac: string) => {
     if (!fechaNac) return 'N/A';
     try {
         const d = new Date(fechaNac);
-        if (isNaN(d.getTime())) return 'N/A';
-        return differenceInYears(new Date(), d) + " años";
+        return isNaN(d.getTime()) ? 'N/A' : differenceInYears(new Date(), d) + " años";
     } catch (e) { return 'N/A'; }
 };
 
@@ -37,42 +34,25 @@ export const OrdenDeExamen = ({ solicitud, empresa, fechaCotizacion }: { solicit
                     </div>
                      <img src="/images/logo.png" alt="Araval Logo" className="h-14 w-auto object-contain" />
                 </header>
-
                 <main className="space-y-10">
                     <section className="grid grid-cols-2 gap-10">
-                        {/* DATOS EMPRESA */}
                         <div className="bg-slate-100 border border-slate-300 p-6 rounded-sm relative text-left">
                             <span className="absolute -top-2.5 left-4 bg-white px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Datos de Empresa</span>
                             <p className="font-black text-slate-900 text-sm mt-2 uppercase leading-tight">{empresa?.razonSocial || 'N/A'}</p>
                             <p className="text-xs text-slate-600 font-bold">RUT: {empresa?.rut || 'N/A'}</p>
                         </div>
-
-                        {/* DATOS TRABAJADOR (ALINEACIÓN IZQUIERDA CORREGIDA) */}
                         <div className="bg-slate-100 border border-slate-300 p-6 rounded-sm relative text-left">
                             <span className="absolute -top-2.5 left-4 bg-white px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Datos del Trabajador</span>
                             <div className="space-y-1.5 mt-2">
-                                <div className="flex items-center text-xs">
-                                    <span className="font-bold text-slate-500 uppercase text-[9px] w-20">Fecha Eval:</span>
-                                    <span className="font-black text-slate-800">{formatFechaSafe(trabajador.fechaAtencion)}</span>
-                                </div>
-                                <div className="flex items-center text-xs">
-                                    <span className="font-bold text-slate-500 uppercase text-[9px] w-20">Nombre:</span>
-                                    <span className="font-black text-slate-800 uppercase">{trabajador.nombre || 'N/A'}</span>
-                                </div>
-                                <div className="flex items-center text-xs">
-                                    <span className="font-bold text-slate-500 uppercase text-[9px] w-20">RUT:</span>
-                                    <span className="font-black text-slate-800">{trabajador.rut || 'N/A'}</span>
-                                </div>
-                                <div className="flex items-center text-xs">
-                                    <span className="font-bold text-slate-500 uppercase text-[9px] w-20">Edad:</span>
-                                    <span className="font-black text-slate-800">{calcularEdad(trabajador.fechaNacimiento)}</span>
-                                </div>
+                                <div className="flex items-center text-xs"><span className="font-bold text-slate-500 uppercase text-[9px] w-20">Fecha Eval:</span><span className="font-black text-slate-800">{formatFechaSafe(trabajador.fechaAtencion)}</span></div>
+                                <div className="flex items-center text-xs"><span className="font-bold text-slate-500 uppercase text-[9px] w-20">Nombre:</span><span className="font-black text-slate-800 uppercase">{trabajador.nombre || 'N/A'}</span></div>
+                                <div className="flex items-center text-xs"><span className="font-bold text-slate-500 uppercase text-[9px] w-20">RUT:</span><span className="font-black text-slate-800">{trabajador.rut || 'N/A'}</span></div>
+                                <div className="flex items-center text-xs"><span className="font-bold text-slate-500 uppercase text-[9px] w-20">Edad:</span><span className="font-black text-slate-800">{calcularEdad(trabajador.fechaNacimiento)}</span></div>
                             </div>
                         </div>
                     </section>
-                    
                     <section className="space-y-4">
-                        <h3 className="font-black text-[10px] uppercase text-slate-500 tracking-widest border-l-4 border-slate-900 pl-3">Prestaciones a realizar</h3>
+                        <h3 className="font-black text-[10px] uppercase text-slate-500 tracking-widest border-l-4 border-slate-900 pl-3 text-left">Prestaciones a realizar</h3>
                         <div className="border border-slate-300 rounded-sm overflow-hidden shadow-sm">
                             {(solicitud.examenes || []).map((exam: any, idx: number) => (
                                 <div key={idx} className="p-5 text-xs border-b border-slate-200 last:border-none bg-white text-left">
@@ -82,13 +62,9 @@ export const OrdenDeExamen = ({ solicitud, empresa, fechaCotizacion }: { solicit
                             ))}
                         </div>
                     </section>
-
                     <footer className="pt-32">
                         <div className="border-t-2 border-slate-200 pt-6 flex justify-between items-center opacity-70">
-                            <div className="text-left text-[9px] text-slate-500 uppercase font-black tracking-widest space-y-1">
-                                <p>Fecha de emisión: {fechaCotizacion}</p>
-                                <p>Documento electrónico Araval B2B</p>
-                            </div>
+                            <div className="text-left text-[9px] text-slate-500 uppercase font-black tracking-widest space-y-1"><p>Fecha emisión: {fechaCotizacion}</p><p>Documento Araval B2B</p></div>
                             <p className="text-[9px] font-black text-slate-900 uppercase tracking-tighter">Válido para atención en Centros Araval</p>
                         </div>
                     </footer>
@@ -99,7 +75,7 @@ export const OrdenDeExamen = ({ solicitud, empresa, fechaCotizacion }: { solicit
 };
 
 export class GeneradorPDF {
-  static async generar(quote: Cotizacion, includeAnnexes = true): Promise<Blob> {
+  static async generar(quote: any, includeAnnexes = true, soloOrdenes = false): Promise<Blob> {
     const container = document.createElement('div');
     container.style.position = 'absolute'; container.style.left = '-9999px'; container.style.width = '800px'; 
     document.body.appendChild(container);
@@ -109,7 +85,7 @@ export class GeneradorPDF {
 
     const content = (
         <React.Fragment>
-            <div id="pdf-main-content"><DetalleCotizacion quote={quote} /></div>
+            {!soloOrdenes && <div id="pdf-main-content"><DetalleCotizacion quote={quote} /></div>}
             {includeAnnexes && (quote.solicitudesData || []).map((sol: any, i: number) => (
                 <OrdenDeExamen key={i} solicitud={sol} empresa={quote.empresaData || {}} fechaCotizacion={fechaStr} />
             ))}
@@ -121,6 +97,7 @@ export class GeneradorPDF {
         await new Promise(r => setTimeout(r, 1000));
         const pdf = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
         const pdfWidth = pdf.internal.pageSize.getWidth();
+        
         const process = async (el: HTMLElement, isNext = false) => {
             if (isNext) pdf.addPage();
             const canvas = await html2canvas(el, { scale: 2, useCORS: true });
@@ -128,11 +105,16 @@ export class GeneradorPDF {
             const height = (canvas.height * pdfWidth) / canvas.width;
             pdf.addImage(data, 'JPEG', 0, 0, pdfWidth, height, undefined, 'FAST');
         };
+
         const main = container.querySelector<HTMLElement>('#pdf-main-content');
-        if (main) await process(main);
+        if (!soloOrdenes && main) await process(main);
+
         if (includeAnnexes) {
             const annexes = container.querySelectorAll<HTMLElement>('.order-page-container');
-            for (let i = 0; i < annexes.length; i++) await process(annexes[i] as HTMLElement, true);
+            for (let i = 0; i < annexes.length; i++) {
+                const needsNewPage = soloOrdenes ? (i > 0) : true;
+                await process(annexes[i] as HTMLElement, needsNewPage);
+            }
         }
         return pdf.output('blob');
     } finally { root.unmount(); document.body.removeChild(container); }
