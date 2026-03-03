@@ -8,6 +8,17 @@ import type { CotizacionFirestore } from '@/lib/types';
 
 const LIOREN_SLUG = "araval-fisioterapia-y-medicina-spa";
 
+// Utilidad para normalizar textos según reglas estrictas de Lioren/SII
+function limpiarTextoDTE(texto: string, min: number, max: number): string {
+  let limpio = String(texto || "").toUpperCase().trim();
+  // Si es muy corto (ej: HSM), rellenamos para cumplir el mínimo de 5 caracteres
+  if (limpio.length < min) {
+    limpio = limpio.padEnd(min, "."); 
+  }
+  // Si es muy largo (ej: Giro), cortamos para cumplir el máximo de 40 caracteres
+  return limpio.substring(0, max);
+}
+
 function agruparDetallesFacturacion(examenesRaw: any[]) {
   const resumen: Record<string, any> = {};
   examenesRaw.forEach((ex) => {
@@ -27,15 +38,11 @@ function agruparDetallesFacturacion(examenesRaw: any[]) {
   return Object.values(resumen);
 }
 
-// VERSIÓN BLINDADA: Filtra por código para evitar errores de índice en Firebase
 export async function emitirDTEConsolidado(rutEmpresa: string, mes: number, anio: number) {
-  console.log(`Iniciando Facturación Consolidada: RUT ${rutEmpresa} | Periodo ${mes + 1}/${anio}`);
-  
   try {
     const token = process.env.LIOREN_TOKEN;
-    if (!token) return { success: false, error: "LIOREN_TOKEN no configurado en Secret Manager." };
+    if (!token) return { success: false, error: "LIOREN_TOKEN no configurado." };
 
-    // 1. Consulta base por RUT y Estado (Filtro seguro que no requiere índices complejos)
     const q = query(
       collection(firestore, 'cotizaciones'), 
       where('empresaData.rut', '==', rutEmpresa), 
@@ -43,45 +50,39 @@ export async function emitirDTEConsolidado(rutEmpresa: string, mes: number, anio
     );
 
     const snap = await getDocs(q);
-    if (snap.empty) return { success: false, error: "No hay órdenes pendientes para esta empresa." };
+    if (snap.empty) return { success: false, error: "No hay órdenes pendientes." };
 
-    // 2. Filtrado por Periodo en Memoria (Más robusto y rápido)
     const filteredDocs = snap.docs.filter(docSnap => {
       const data = docSnap.data();
       const fecha = data.fechaCreacion?.toDate ? data.fechaCreacion.toDate() : new Date();
       return fecha.getMonth() === mes && fecha.getFullYear() === anio;
     });
 
-    if (filteredDocs.length === 0) return { success: false, error: "No hay órdenes que coincidan con el mes seleccionado." };
-
-    console.log(`Procesando ${filteredDocs.length} órdenes para el DTE.`);
+    if (filteredDocs.length === 0) return { success: false, error: "No hay órdenes para el mes seleccionado." };
 
     const base = filteredDocs[0].data() as CotizacionFirestore;
-    
-    // 3. Ubicación con Fallback Taltal
     let ubicacion;
     try {
       ubicacion = await normalizarUbicacionLioren(base.empresaData?.comuna, base.empresaData?.ciudad);
       if (!ubicacion.comunaId) ubicacion = { comunaId: 15, ciudadId: 8 };
     } catch (e) { ubicacion = { comunaId: 15, ciudadId: 8 }; }
 
-    // 4. Agrupación de Ítems
     const examenPool = filteredDocs.flatMap(docSnapshot => {
       const d = docSnapshot.data() as CotizacionFirestore;
       return (d.solicitudesData || []).flatMap((sol: any) => (sol.examenes || []).filter((ex: any) => Number(ex.valor) > 0));
     });
 
-    if (examenPool.length === 0) return { success: false, error: "Las órdenes no contienen exámenes con valor mayor a $0." };
-
-    // 5. Llamada a Lioren
+    // LLAMADA A LIOREN CON DATOS LIMPIOS Y VALIDADOS
     const result = await createDTE({
       tipodoc: "34",
       emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
       receptor: {
         rut: cleanRut(rutEmpresa),
-        rs: String(base.empresaData?.razonSocial || "CONSOLIDADO").toUpperCase().trim(),
-        giro: String(base.empresaData?.giro || "SERVICIOS MÉDICOS").toUpperCase().trim(),
-        direccion: String(base.empresaData?.direccion || "DIRECCIÓN").toUpperCase().trim(),
+        // REGLA: Mínimo 5 caracteres para Razón Social
+        rs: limpiarTextoDTE(base.empresaData?.razonSocial || "CONSOLIDADO", 5, 100),
+        // REGLA: Máximo 40 caracteres para Giro
+        giro: limpiarTextoDTE(base.empresaData?.giro || "SERVICIOS MÉDICOS", 5, 40),
+        direccion: limpiarTextoDTE(base.empresaData?.direccion || "DIRECCIÓN", 1, 70),
         comuna: Number(ubicacion.comunaId),
         ciudad: Number(ubicacion.ciudadId),
         email: String(base.empresaData?.email || "pagos@aravalcsalud.cl").trim()
@@ -91,12 +92,11 @@ export async function emitirDTEConsolidado(rutEmpresa: string, mes: number, anio
     });
 
     const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
-    if (!finalId) return { success: false, error: result.message || "Lioren rechazó los datos del envío." };
+    if (!finalId) return { success: false, error: `Error SII: ${result.message || JSON.stringify(result)}` };
 
     const finalFolio = result.folio || (result.dte && result.dte.folio);
     const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
 
-    // 6. Actualización Firestore en Batch (Todo o nada)
     const batch = writeBatch(firestore);
     filteredDocs.forEach(docSnapshot => {
       batch.update(doc(firestore, 'cotizaciones', docSnapshot.id), { 
@@ -113,56 +113,48 @@ export async function emitirDTEConsolidado(rutEmpresa: string, mes: number, anio
     return { success: true, folio: finalFolio };
 
   } catch (error: any) { 
-    console.error("CRITICAL_CONSOLIDATED_ERROR:", error.message);
-    return { success: false, error: "Error en el servidor de facturación: " + error.message }; 
+    return { success: false, error: error.message }; 
   }
 }
 
-// ... (Las demás funciones se mantienen igual que en el bloque anterior)
 export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
     try {
       const token = process.env.LIOREN_TOKEN;
-      if (!token) return { success: false, error: "Token de Lioren no configurado en el servidor." };
+      if (!token) return { success: false, error: "Token no configurado." };
   
       const docRef = doc(firestore, 'cotizaciones', cotizacionId);
       const snap = await getDoc(docRef);
       if (!snap.exists()) return { success: false, error: "Cotización no encontrada." };
       
       const data = snap.data() as CotizacionFirestore;
-  
       let ubicacion;
       try {
         ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna, data.empresaData?.ciudad);
-        if (!ubicacion.comunaId || ubicacion.comunaId === 0) ubicacion = { comunaId: 15, ciudadId: 8 };
-      } catch (e) {
-        ubicacion = { comunaId: 15, ciudadId: 8 };
-      }
+        if (!ubicacion.comunaId) ubicacion = { comunaId: 15, ciudadId: 8 };
+      } catch (e) { ubicacion = { comunaId: 15, ciudadId: 8 }; }
   
       const todosLosExamenes = (data.solicitudesData || []).flatMap((sol: any) =>
         (sol.examenes || []).filter((ex: any) => Number(ex.valor) > 0)
       );
-  
-      if (todosLosExamenes.length === 0) return { success: false, error: "No hay ítems valorizados para facturar." };
-      const detallesFinales = agruparDetallesFacturacion(todosLosExamenes);
   
       const result = await createDTE({
         tipodoc: "34",
         emisor: { tipodoc: "34", fecha: new Date().toISOString().split('T')[0], casilla: 0 },
         receptor: {
           rut: cleanRut(data.empresaData?.rut || ''),
-          rs: String(data.empresaData?.razonSocial || '').toUpperCase().trim(),
-          giro: String(data.empresaData?.giro || "SERVICIOS MÉDICOS").toUpperCase().trim(),
-          direccion: String(data.empresaData?.direccion || "DIRECCIÓN").toUpperCase().trim(),
+          rs: limpiarTextoDTE(data.empresaData?.razonSocial || "EMPRESA", 5, 100),
+          giro: limpiarTextoDTE(data.empresaData?.giro || "SERVICIOS MÉDICOS", 5, 40),
+          direccion: limpiarTextoDTE(data.empresaData?.direccion || "DIRECCIÓN", 1, 70),
           comuna: Number(ubicacion.comunaId),
           ciudad: Number(ubicacion.ciudadId),
           email: String(data.empresaData?.email || data.solicitanteData?.mail || "soporte@araval.cl").trim()
         },
-        detalles: detallesFinales,
+        detalles: agruparDetallesFacturacion(todosLosExamenes),
         expect_all: true
       });
   
       const finalId = result.id || result.dte_id || (result.dte && result.dte.id);
-      if (!finalId) return { success: false, error: result.message || "Lioren rechazó el DTE." };
+      if (!finalId) return { success: false, error: result.message || "Error SII" };
   
       const finalFolio = result.folio || (result.dte && result.dte.folio);
       const finalPdfUrl = `https://cl.lioren.enterprises/empresas/${LIOREN_SLUG}/dte/getpdf/${finalId}`;
@@ -177,7 +169,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
   
       return { success: true, folio: finalFolio, pdfUrl: finalPdfUrl };
     } catch (error: any) {
-      return { success: false, error: error.message || "Fallo en el servidor de facturación." };
+      return { success: false, error: error.message };
     }
 }
 
