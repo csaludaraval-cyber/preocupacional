@@ -26,46 +26,57 @@ const formatFechaSafe = (fecha: string) => {
 export const OrdenDeExamen = ({ solicitud, empresa, fechaCotizacion }: { solicitud: any, empresa: any, fechaCotizacion: string }) => {
     const trabajador = solicitud.trabajador || {};
     return (
-        <div className="order-page-container bg-white text-black p-12 mx-auto" style={{ width: '800px' }}>
-            <div className="max-w-4xl mx-auto text-sm space-y-8 font-sans">
-                <header className="flex justify-between items-center mb-10 border-b-4 border-slate-900 pb-6">
-                     <div className="bg-slate-900 text-white py-2 px-8 rounded-sm">
-                        <h2 className="font-black text-lg uppercase tracking-[0.2em] italic">Orden de Examen</h2>
+        <div className="order-page-container bg-white text-black p-10 mx-auto" style={{ width: '800px' }}>
+            <div className="max-w-4xl mx-auto text-sm space-y-4 font-sans antialiased">
+                
+                {/* HEADER CLÍNICO COMPACTO */}
+                <header className="flex justify-between items-center mb-2 border-b-2 border-slate-900 pb-3 text-left">
+                     <div className="bg-slate-900 text-white py-1 px-5 rounded-sm">
+                        <h2 className="font-black text-xs uppercase tracking-[0.2em] italic">Orden de Examen</h2>
                     </div>
-                     <img src="/images/logo.png" alt="Araval Logo" className="h-14 w-auto object-contain" />
+                     <img src="/images/logo.png" alt="Araval Logo" className="h-8 w-auto object-contain" />
                 </header>
-                <main className="space-y-10">
-                    <section className="grid grid-cols-2 gap-10">
-                        <div className="bg-slate-100 border border-slate-300 p-6 rounded-sm relative text-left">
-                            <span className="absolute -top-2.5 left-4 bg-white px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Datos de Empresa</span>
-                            <p className="font-black text-slate-900 text-sm mt-2 uppercase leading-tight">{empresa?.razonSocial || 'N/A'}</p>
-                            <p className="text-xs text-slate-600 font-bold">RUT: {empresa?.rut || 'N/A'}</p>
+
+                <main className="space-y-4 text-left">
+                    <section className="grid grid-cols-2 gap-4 text-left">
+                        <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-sm text-left">
+                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Empresa Solicitante</span>
+                            <p className="font-black text-slate-900 text-[10px] uppercase leading-tight tracking-tighter">{empresa?.razonSocial || 'N/A'}</p>
+                            <p className="text-[9px] text-slate-600 font-bold">RUT: {empresa?.rut || 'N/A'}</p>
                         </div>
-                        <div className="bg-slate-100 border border-slate-300 p-6 rounded-sm relative text-left">
-                            <span className="absolute -top-2.5 left-4 bg-white px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Datos del Trabajador</span>
-                            <div className="space-y-1.5 mt-2">
-                                <div className="flex items-center text-xs"><span className="font-bold text-slate-500 uppercase text-[9px] w-20">Fecha Eval:</span><span className="font-black text-slate-800">{formatFechaSafe(trabajador.fechaAtencion)}</span></div>
-                                <div className="flex items-center text-xs"><span className="font-bold text-slate-500 uppercase text-[9px] w-20">Nombre:</span><span className="font-black text-slate-800 uppercase">{trabajador.nombre || 'N/A'}</span></div>
-                                <div className="flex items-center text-xs"><span className="font-bold text-slate-500 uppercase text-[9px] w-20">RUT:</span><span className="font-black text-slate-800">{trabajador.rut || 'N/A'}</span></div>
-                                <div className="flex items-center text-xs"><span className="font-bold text-slate-500 uppercase text-[9px] w-20">Edad:</span><span className="font-black text-slate-800">{calcularEdad(trabajador.fechaNacimiento)}</span></div>
+                        <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-sm text-left">
+                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Datos del Paciente</span>
+                            <div className="space-y-0">
+                                <p className="text-[10px] font-black uppercase text-slate-800 tracking-tighter">{trabajador.nombre || 'N/A'}</p>
+                                <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
+                                    <span>RUT: {trabajador.rut}</span>
+                                    <span>Edad: {calcularEdad(trabajador.fechaNacimiento)}</span>
+                                </div>
+                                <p className="text-[8px] font-black text-blue-600 uppercase border-t border-slate-200 mt-1 pt-0.5 tracking-tighter italic">Atención: {formatFechaSafe(trabajador.fechaAtencion)}</p>
                             </div>
                         </div>
                     </section>
-                    <section className="space-y-4">
-                        <h3 className="font-black text-[10px] uppercase text-slate-500 tracking-widest border-l-4 border-slate-900 pl-3 text-left">Prestaciones a realizar</h3>
-                        <div className="border border-slate-300 rounded-sm overflow-hidden shadow-sm">
+
+                    <section className="space-y-2">
+                        <h3 className="font-black text-[8px] uppercase text-slate-500 tracking-widest border-l-4 border-slate-900 pl-2">Prestaciones Autorizadas</h3>
+                        <div className="border border-slate-200 rounded-sm divide-y divide-slate-100">
                             {(solicitud.examenes || []).map((exam: any, idx: number) => (
-                                <div key={idx} className="p-5 text-xs border-b border-slate-200 last:border-none bg-white text-left">
-                                    <p className="font-black text-slate-900 uppercase tracking-tight">• {exam.nombre}</p>
-                                    {exam.descripcion && <p className="text-[10px] text-slate-500 mt-1 ml-4 italic uppercase leading-relaxed font-medium">{exam.descripcion}</p>}
+                                <div key={idx} className="py-1 px-3 bg-white text-left">
+                                    <p className="font-black text-slate-900 uppercase text-[9px] tracking-tighter leading-tight">• {exam.nombre}</p>
+                                    {exam.descripcion && (
+                                        <p className="text-[8px] text-slate-400 ml-3 italic uppercase leading-none tracking-tighter">
+                                            {exam.descripcion}
+                                        </p>
+                                    )}
                                 </div>
                             ))}
                         </div>
                     </section>
-                    <footer className="pt-32">
-                        <div className="border-t-2 border-slate-200 pt-6 flex justify-between items-center opacity-70">
-                            <div className="text-left text-[9px] text-slate-500 uppercase font-black tracking-widest space-y-1"><p>Fecha emisión: {fechaCotizacion}</p><p>Documento Araval B2B</p></div>
-                            <p className="text-[9px] font-black text-slate-900 uppercase tracking-tighter">Válido para atención en Centros Araval</p>
+
+                    <footer className="pt-6 border-t border-slate-100">
+                        <div className="flex justify-between items-end opacity-50">
+                            <div className="text-left text-[7px] text-slate-400 uppercase font-black tracking-widest space-y-0"><p>Emisión: {fechaCotizacion}</p><p>Gestión Araval B2B</p></div>
+                            <div className="text-right"><p className="text-[7px] font-black text-slate-900 uppercase italic">Válido para atención en sucursales Araval</p></div>
                         </div>
                     </footer>
                 </main>
@@ -80,43 +91,71 @@ export class GeneradorPDF {
     container.style.position = 'absolute'; container.style.left = '-9999px'; container.style.width = '800px'; 
     document.body.appendChild(container);
     const root = ReactDOM.createRoot(container);
-    let fechaStr = format(new Date(), 'dd/MM/yyyy');
-    try { const fc = quote.fechaCreacion as any; if (fc?.seconds) fechaStr = format(new Date(fc.seconds * 1000), 'dd/MM/yyyy'); } catch (e) {}
+    
+    const quotePages: any[] = [];
+    const EXAMS_PER_PAGE = 8; 
+    let currentExamsCount = 0;
+    let currentSolicitudes: any[] = [];
 
-    const content = (
-        <React.Fragment>
-            {!soloOrdenes && <div id="pdf-main-content"><DetalleCotizacion quote={quote} /></div>}
-            {includeAnnexes && (quote.solicitudesData || []).map((sol: any, i: number) => (
-                <OrdenDeExamen key={i} solicitud={sol} empresa={quote.empresaData || {}} fechaCotizacion={fechaStr} />
-            ))}
-        </React.Fragment>
-    );
+    (quote.solicitudesData || []).forEach((sol: any) => {
+        let examsRemaining = [...sol.examenes];
+        let isFirstPart = true;
+
+        while (examsRemaining.length > 0) {
+            const spaceLeft = EXAMS_PER_PAGE - currentExamsCount;
+            const examsForThisPage = examsRemaining.slice(0, spaceLeft);
+            examsRemaining = examsRemaining.slice(spaceLeft);
+
+            currentSolicitudes.push({ ...sol, examenes: examsForThisPage, isContinuation: !isFirstPart });
+            currentExamsCount += examsForThisPage.length;
+            isFirstPart = false;
+
+            if (currentExamsCount >= EXAMS_PER_PAGE) {
+                quotePages.push({ solicitudes: currentSolicitudes, isLast: false });
+                currentSolicitudes = [];
+                currentExamsCount = 0;
+            }
+        }
+    });
+    if (currentSolicitudes.length > 0) quotePages.push({ solicitudes: currentSolicitudes, isLast: true });
 
     try {
-        root.render(content);
-        await new Promise(r => setTimeout(r, 1000));
         const pdf = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
         const pdfWidth = pdf.internal.pageSize.getWidth();
-        
-        const process = async (el: HTMLElement, isNext = false) => {
-            if (isNext) pdf.addPage();
-            const canvas = await html2canvas(el, { scale: 2, useCORS: true });
-            const data = canvas.toDataURL('image/jpeg', 0.8);
-            const height = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(data, 'JPEG', 0, 0, pdfWidth, height, undefined, 'FAST');
-        };
 
-        const main = container.querySelector<HTMLElement>('#pdf-main-content');
-        if (!soloOrdenes && main) await process(main);
+        if (!soloOrdenes) {
+            for (let i = 0; i < quotePages.length; i++) {
+                if (i > 0) pdf.addPage();
+                root.render(<DetalleCotizacion quote={quote} solicitudesSlice={quotePages[i].solicitudes} isLastPage={quotePages[i].isLast} showNextPageLabel={!quotePages[i].isLast} />);
+                await new Promise(r => setTimeout(r, 1200));
+                const canvas = await html2canvas(container, { scale: 3, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+                pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, (canvas.height * pdfWidth) / canvas.width, undefined, 'FAST');
+            }
+        }
 
         if (includeAnnexes) {
-            const annexes = container.querySelectorAll<HTMLElement>('.order-page-container');
-            for (let i = 0; i < annexes.length; i++) {
-                const needsNewPage = soloOrdenes ? (i > 0) : true;
-                await process(annexes[i] as HTMLElement, needsNewPage);
+            for (const sol of (quote.solicitudesData || [])) {
+                let annexExams = [...sol.examenes];
+                while (annexExams.length > 0) {
+                    pdf.addPage();
+                    // CAPACIDAD AUMENTADA A 14 POR EL DISEÑO COMPACTO
+                    const examsForThisOrderPage = annexExams.slice(0, 14); 
+                    annexExams = annexExams.slice(14);
+
+                    let fechaStr = format(new Date(), 'dd/MM/yyyy');
+                    try { const fc = quote.fechaCreacion as any; if (fc?.seconds) fechaStr = format(new Date(fc.seconds * 1000), 'dd/MM/yyyy'); } catch (e) {}
+
+                    root.render(<OrdenDeExamen solicitud={{...sol, examenes: examsForThisOrderPage}} empresa={quote.empresaData || {}} fechaCotizacion={fechaStr} />);
+                    await new Promise(r => setTimeout(r, 1000));
+                    const canvas = await html2canvas(container, { scale: 3, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, (canvas.height * pdfWidth) / canvas.width, undefined, 'FAST');
+                }
             }
         }
         return pdf.output('blob');
-    } finally { root.unmount(); document.body.removeChild(container); }
+    } finally { 
+        root.unmount(); 
+        if (document.body.contains(container)) document.body.removeChild(container); 
+    }
   }
 }
