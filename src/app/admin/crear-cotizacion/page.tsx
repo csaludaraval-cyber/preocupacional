@@ -13,7 +13,10 @@ import { Progress } from '@/components/ui/progress';
 import Paso1DatosGenerales from '@/components/cotizacion/Paso1DatosGenerales';
 import Paso2SeleccionExamenes from '@/components/cotizacion/Paso2SeleccionExamenes';
 
-import type { Empresa, Solicitante, Examen } from '@/lib/types';
+// IMPORTACIÓN DE LA ACCIÓN DE EMAIL
+import { enviarConfirmacionPago } from '@/server/actions/emailActions';
+
+import type { Empresa, Solicitante } from '@/lib/types';
 import type { SolicitudTrabajador } from '@/types/models';
 
 function CrearCotizacionContent() {
@@ -57,11 +60,7 @@ function CrearCotizacionContent() {
     try {
       const total = solicitudes.reduce((acc, s) => acc + s.examenes.reduce((sum, e) => sum + (Number(e.valor) || 0), 0), 0);
       
-      // ------------------------------------------------------------------
-      // REGLA DE NEGOCIO CORREGIDA: Bypass robusto para Clientes Frecuentes
-      // ------------------------------------------------------------------
       const modalidad = (empresa.modalidadFacturacion || '').toLowerCase();
-      // Detecta si dice frecuente sin importar mayúsculas/minúsculas, o si tiene un boolean true
       const isFrecuente = modalidad === 'frecuente' || (empresa as any).isFrecuente === true;
       const finalStatus = isFrecuente ? 'PAGADO' : 'CONFIRMADA';
 
@@ -75,15 +74,24 @@ function CrearCotizacionContent() {
         originalRequestId 
       };
 
-      await addDoc(collection(firestore, 'cotizaciones'), docData);
+      const docRef = await addDoc(collection(firestore, 'cotizaciones'), docData);
       
       if (originalRequestId) {
         await updateDoc(doc(firestore, 'solicitudes_publicas', originalRequestId), { estado: 'procesada' });
       }
+
+      // --- DISPARADOR DE EMAIL PARA FRECUENTES ---
+      if (isFrecuente) {
+        try {
+          await enviarConfirmacionPago({ id: docRef.id, ...docData });
+        } catch (mailErr) {
+          console.error("Error enviando notificación automática:", mailErr);
+        }
+      }
       
       toast({ 
-        title: isFrecuente ? "Orden Enviada a Consolidación" : "Cotización Creada",
-        description: isFrecuente ? "Bypass aplicado. Movido a Pagados." : "Esperando envío de correo."
+        title: isFrecuente ? "Cita Confirmada y Notificada" : "Cotización Creada",
+        description: isFrecuente ? "Se envió el correo de cita confirmada al cliente." : "Esperando envío manual de correo."
       });
       
       router.push('/cotizaciones-guardadas');
@@ -110,7 +118,7 @@ function CrearCotizacionContent() {
   return (
     <div className="space-y-8 pb-20 font-sans text-left">
       <div>
-        <h1 className="text-2xl font-black uppercase text-slate-800 tracking-tighter italic">Generar Cotización</h1>
+        <h1 className="text-2xl font-black uppercase text-slate-800 tracking-tighter italic leading-none">Generar Cotización</h1>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Portal Administrativo Araval</p>
       </div>
 
@@ -120,7 +128,14 @@ function CrearCotizacionContent() {
             <Progress value={(step / 2) * 100} className="h-1.5 rounded-none bg-slate-100" />
             <div className="p-8">
               {step === 1 ? (
-                <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} trabajador={currentSol.trabajador} setTrabajador={(val: any) => { const news = [...solicitudes]; news[currentIndex].trabajador = typeof val === 'function' ? val(news[currentIndex].trabajador) : val; setSolicitudes(news); }} solicitante={solicitante} setSolicitante={setSolicitante} />
+                <Paso1DatosGenerales empresa={empresa} setEmpresa={setEmpresa} trabajador={currentSol.trabajador} setTrabajador={(val: any) => { 
+                    setSolicitudes(prev => {
+                        const newSols = [...prev];
+                        const updatedWorker = typeof val === 'function' ? val(newSols[currentIndex].trabajador) : val;
+                        newSols[currentIndex] = { ...newSols[currentIndex], trabajador: updatedWorker };
+                        return newSols;
+                    });
+                }} solicitante={solicitante} setSolicitante={setSolicitante} />
               ) : (
                 <Paso2SeleccionExamenes selectedExams={currentSol.examenes} onExamToggle={(exam, checked) => {
                     setSolicitudes(prev => {
@@ -135,7 +150,7 @@ function CrearCotizacionContent() {
 
               <div className="mt-12 flex justify-between items-center border-t pt-8">
                 <Button variant="ghost" onClick={() => setStep(1)} disabled={step === 1} className="font-black uppercase text-[10px]">Atrás</Button>
-                <Button onClick={step === 1 ? () => setStep(2) : handleSaveCotizacion} disabled={isSubmitting} className={`px-10 h-12 font-black uppercase text-[11px] ${step === 1 ? "bg-blue-600 hover:bg-blue-700" : "bg-emerald-600 hover:bg-emerald-700"}`}>
+                <Button onClick={step === 1 ? () => setStep(2) : handleSaveCotizacion} disabled={isSubmitting} className={`px-10 h-12 font-black uppercase text-[11px] ${step === 1 ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
                   {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                   {step === 1 ? "Siguiente Paso" : "Generar Cotización"}
                 </Button>

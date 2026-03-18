@@ -56,6 +56,28 @@ export default function AdminCotizaciones() {
     });
   };
 
+  const handleCreateCotizacion = async (quote: any) => {
+    setIsProcessing("creating");
+    try {
+      const modalidad = (quote.empresaData?.modalidadFacturacion || '').toLowerCase();
+      const isFrecuente = modalidad === 'frecuente' || quote.empresaData?.isFrecuente === true;
+      const nextStatus = isFrecuente ? 'PAGADO' : 'CORREO_ENVIADO';
+      
+      await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: nextStatus });
+      
+      // Si el bypass lo mueve a PAGADO, enviamos el correo de Cita Confirmada
+      if (isFrecuente) {
+        await enviarConfirmacionPago(quote);
+      }
+      
+      toast({ title: isFrecuente ? "Bypass Frecuente Notificado" : "Cotización Creada" });
+      await refetchQuotes();
+      setQuoteToManage(null);
+    } catch (err) {
+      toast({ title: "Error", variant: "destructive" });
+    } finally { setIsProcessing(null); }
+  };
+
   const handleSendQuoteEmail = async (quote: any) => {
     setIsProcessing("sending");
     try {
@@ -85,8 +107,10 @@ export default function AdminCotizaciones() {
       await uploadBytes(fileRef, event.target.files[0]);
       const url = await getDownloadURL(fileRef);
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO', fechaPago: serverTimestamp() } as any);
-      // Dispara la nueva lógica de email diferenciado (Frecuente vs Normal)
+      
+      // ENVÍO DE EMAIL DE PAGO RECIBIDO (NORMAL)
       await enviarConfirmacionPago({ ...quoteToManage, status: 'PAGADO' });
+
       toast({ title: "Pago confirmado y notificado" });
       await refetchQuotes();
       setQuoteToManage(null);
@@ -95,14 +119,14 @@ export default function AdminCotizaciones() {
   };
 
   const RenderTable = ({ data, allowDelete }: { data: any[], allowDelete: boolean }) => (
-    <div className="bg-white border shadow-2xl rounded-xl overflow-hidden">
+    <div className="bg-white border shadow-2xl rounded-xl overflow-hidden text-left">
       <Table>
         <TableHeader className="bg-slate-900">
           <TableRow>
-            <TableHead className="py-4 px-6 text-[10px] uppercase font-black text-white tracking-widest text-left">ID / Atención</TableHead>
-            <TableHead className="text-[10px] font-black uppercase text-white tracking-widest text-left">Empresa Cliente</TableHead>
-            <TableHead className="text-center text-[10px] uppercase font-black text-white tracking-widest">Estado</TableHead>
-            <TableHead className="text-right px-6 text-[10px] uppercase font-black text-white tracking-widest">Acción</TableHead>
+            <TableHead className="py-4 px-6 text-[10px] font-black uppercase text-white tracking-widest">ID / Atención</TableHead>
+            <TableHead className="text-[10px] font-black uppercase text-white tracking-widest">Empresa Cliente</TableHead>
+            <TableHead className="text-center text-[10px] font-black uppercase text-white tracking-widest">Estado</TableHead>
+            <TableHead className="text-right px-6 text-[10px] font-black uppercase text-white tracking-widest">Acción</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -110,22 +134,23 @@ export default function AdminCotizaciones() {
             const status = mapLegacyStatus(quote.status).toUpperCase();
             const esFrecuente = (quote.empresaData?.modalidadFacturacion || '').toLowerCase() === 'frecuente';
             return (
-              <TableRow key={quote.id} className="text-xs hover:bg-slate-50 border-slate-100 transition-colors">
+              <TableRow key={quote.id} className="text-xs hover:bg-slate-50 border-slate-100">
                 <TableCell className="px-6 text-left">
-                    <div className="flex flex-col text-left">
-                        <span className="font-mono font-black text-blue-600 uppercase italic">#{quote.id.slice(-6).toUpperCase()}</span>
-                        <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mt-0.5">
-                            <Clock className="h-2.5 w-2.5 text-slate-300"/> {getAtencionDate(quote)}
+                    <div className="flex flex-col">
+                        <span className="font-mono font-black text-blue-600 uppercase">#{quote.id.slice(-6).toUpperCase()}</span>
+                        {/* VISIBILIDAD DE FECHA DE ATENCIÓN RESTAURADA */}
+                        <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mt-0.5 italic">
+                            <Clock className="h-2.5 w-2.5"/> {getAtencionDate(quote)}
                         </span>
                     </div>
                 </TableCell>
                 <TableCell className="text-left">
-                    <div className="flex flex-col text-left">
+                    <div className="flex flex-col">
                         <div className="flex items-center gap-2">
-                            <span className="font-black text-slate-700 uppercase leading-tight">{quote.empresaData?.razonSocial}</span>
+                            <span className="font-black text-slate-700 uppercase">{quote.empresaData?.razonSocial}</span>
                             {esFrecuente ? <Badge className="bg-emerald-500 text-white text-[8px] font-black h-4 px-1.5 border-none rounded-sm">FRECUENTE</Badge> : <Badge variant="outline" className="text-slate-400 text-[8px] font-bold h-4 px-1.5 rounded-sm">NORMAL</Badge>}
                         </div>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase">{quote.empresaData?.rut}</span>
+                        <span className="text-[9px] text-slate-400 font-bold">{quote.empresaData?.rut}</span>
                     </div>
                 </TableCell>
                 <TableCell className="text-center">
@@ -154,13 +179,13 @@ export default function AdminCotizaciones() {
         </div>
         <div className="flex items-center gap-3">
           <Button onClick={async () => { const res = await probarConexionLioren(); alert(res.message || res.error); }} className="bg-[#0a0a4d] hover:bg-slate-800 text-white font-black h-10 text-[10px] tracking-widest px-6 italic shadow-lg">TEST SII</Button>
-          <Button onClick={() => refetchQuotes()} variant="outline" size="sm" className="h-10 w-10 border-slate-200 bg-white shadow-sm"><RefreshCw className="h-4 w-4 text-slate-400" /></Button>
-          <Input placeholder="Buscar..." className="w-64 h-10 text-xs font-bold bg-white border-slate-200" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <Button onClick={() => refetchQuotes()} variant="outline" size="sm" className="h-10 w-10 border-slate-200 bg-white"><RefreshCw className="h-4 w-4 text-slate-400" /></Button>
+          <Input placeholder="Buscar..." className="w-64 h-10 text-xs font-bold bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
       <Tabs defaultValue="CONFIRMADA" className="w-full">
-        <TabsList className="flex flex-col md:grid md:grid-cols-4 mb-6 bg-[#0a0a4d] p-0 h-auto md:h-12 rounded-lg border-none shadow-md overflow-hidden">
+        <TabsList className="flex flex-col md:grid md:grid-cols-4 mb-6 bg-[#0a0a4d] p-0 h-auto md:h-12 rounded-lg overflow-hidden border-none">
           <TabsTrigger value="CONFIRMADA" className="h-12 md:h-full rounded-none text-[11px] font-black uppercase border-b border-white/5 md:border-none text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">Confirmadas</TabsTrigger>
           <TabsTrigger value="CORREO_ENVIADO" className="h-12 md:h-full rounded-none text-[11px] font-black uppercase border-b border-white/5 md:border-none text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">Enviadas</TabsTrigger>
           <TabsTrigger value="PAGADO" className="h-12 md:h-full rounded-none text-[11px] font-black uppercase border-b border-white/5 md:border-none text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white">Pagadas</TabsTrigger>
@@ -182,8 +207,11 @@ export default function AdminCotizaciones() {
                 <div className="flex gap-3">
                   {(() => {
                     const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
-                    if (status === 'CONFIRMADA') return <Button onClick={() => handleSendQuoteEmail(quoteToManage)} disabled={isProcessing === "sending"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest text-white shadow-md">Enviar Correo</Button>;
+                    
+                    if (status === 'CONFIRMADA') return <Button onClick={() => handleCreateCotizacion(quoteToManage)} disabled={isProcessing === "creating"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest text-white shadow-md">{isProcessing === "creating" ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Cotización"}</Button>;
+                    
                     if (status === 'CORREO_ENVIADO') return <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest text-white shadow-md">Subir Voucher</Button>;
+                    
                     if (status === 'PAGADO' || status === 'FACTURADO') return (
                         <div className="flex gap-3">
                             <Button 
@@ -201,7 +229,7 @@ export default function AdminCotizaciones() {
                                     onClick={async () => { 
                                         setIsProcessing("inv"); 
                                         const res = await ejecutarFacturacionSiiV2(quoteToManage.id); 
-                                        if (res.success) { toast({ title: "Factura Exitosa", description: `Folio: ${res.folio}` }); await refetchQuotes(); setQuoteToManage(null); }
+                                        if (res.success) { toast({ title: "Factura Emitida", description: `Folio: ${res.folio}` }); await refetchQuotes(); setQuoteToManage(null); }
                                         else { toast({ variant: "destructive", title: "Error Facturación", description: res.error }); }
                                         setIsProcessing(null); 
                                     }} 
