@@ -15,9 +15,11 @@ import { updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { mapLegacyStatus } from '@/lib/status-mapper';
+
+// RECONEXIÓN DE ACCIONES UNIFICADAS (SMTP DIRECTO)
 import { ejecutarFacturacionSiiV2, probarConexionLioren } from '@/server/actions/facturacionActions';
-import { enviarCotizacion } from '@/ai/flows/enviar-cotizacion-flow';
-import { enviarConfirmacionPago } from '@/server/actions/emailActions';
+import { enviarConfirmacionPago, enviarCotizacionFormal } from '@/server/actions/emailActions';
+
 import { Input } from '@/components/ui/input';
 import { format, parseISO } from 'date-fns';
 
@@ -50,8 +52,8 @@ export default function AdminCotizaciones() {
       const status = mapLegacyStatus(q.status).toUpperCase();
       return status === statusKey && (q.empresaData?.razonSocial?.toLowerCase().includes(searchTerm.toLowerCase()) || q.id.toLowerCase().includes(searchTerm.toLowerCase()));
     }).sort((a:any, b:any) => {
-      const tA = a.solicitudesData?.[0]?.trabajador?.fechaAtencion ? new Date(a.solicitudesData[0].trabajador.fechaAtencion).getTime() : 0;
-      const tB = b.solicitudesData?.[0]?.trabajador?.fechaAtencion ? new Date(b.solicitudesData[0].trabajador.fechaAtencion).getTime() : 0;
+      const tA = a.fechaCreacion?.seconds || 0;
+      const tB = b.fechaCreacion?.seconds || 0;
       return tB - tA;
     });
   };
@@ -65,7 +67,6 @@ export default function AdminCotizaciones() {
       
       await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: nextStatus });
       
-      // Si el bypass lo mueve a PAGADO, enviamos el correo de Cita Confirmada
       if (isFrecuente) {
         await enviarConfirmacionPago(quote);
       }
@@ -81,16 +82,26 @@ export default function AdminCotizaciones() {
   const handleSendQuoteEmail = async (quote: any) => {
     setIsProcessing("sending");
     try {
+      const emailDestino = quote.solicitanteData?.mail || quote.empresaData?.email;
+      if (!emailDestino) throw new Error("No hay correo de destino registrado.");
+
+      // Generar PDF con la lógica de paginación de alta densidad
       const pdfBlob = await GeneradorPDF.generar(quote);
       const pdfBase64 = await blobToBase64(pdfBlob);
-      const res = await enviarCotizacion({
-        clienteEmail: quote.solicitanteData?.mail || quote.empresaData?.email,
+
+      // LLAMADA UNIFICADA AL SERVIDOR (Evita fallos de Genkit)
+      await enviarCotizacionFormal({
+        clienteEmail: emailDestino,
         cotizacionId: quote.id.slice(-6).toUpperCase(),
         pdfBase64
       });
-      if (res.status === 'error') throw new Error(res.message);
-      await updateDoc(doc(firestore, 'cotizaciones', quote.id), { status: 'CORREO_ENVIADO', fechaEnvio: serverTimestamp() } as any);
-      toast({ title: "Correo enviado correctamente" });
+
+      await updateDoc(doc(firestore, 'cotizaciones', quote.id), { 
+        status: 'CORREO_ENVIADO', 
+        fechaEnvio: serverTimestamp() 
+      } as any);
+
+      toast({ title: "Cotización enviada correctamente" });
       await refetchQuotes();
       setQuoteToManage(null);
     } catch (err: any) {
@@ -108,7 +119,6 @@ export default function AdminCotizaciones() {
       const url = await getDownloadURL(fileRef);
       await updateDoc(doc(firestore, 'cotizaciones', quoteToManage.id), { pagoVoucherUrl: url, status: 'PAGADO', fechaPago: serverTimestamp() } as any);
       
-      // ENVÍO DE EMAIL DE PAGO RECIBIDO (NORMAL)
       await enviarConfirmacionPago({ ...quoteToManage, status: 'PAGADO' });
 
       toast({ title: "Pago confirmado y notificado" });
@@ -138,14 +148,13 @@ export default function AdminCotizaciones() {
                 <TableCell className="px-6 text-left">
                     <div className="flex flex-col">
                         <span className="font-mono font-black text-blue-600 uppercase">#{quote.id.slice(-6).toUpperCase()}</span>
-                        {/* VISIBILIDAD DE FECHA DE ATENCIÓN RESTAURADA */}
                         <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mt-0.5 italic">
                             <Clock className="h-2.5 w-2.5"/> {getAtencionDate(quote)}
                         </span>
                     </div>
                 </TableCell>
                 <TableCell className="text-left">
-                    <div className="flex flex-col">
+                    <div className="flex flex-col text-left">
                         <div className="flex items-center gap-2">
                             <span className="font-black text-slate-700 uppercase">{quote.empresaData?.razonSocial}</span>
                             {esFrecuente ? <Badge className="bg-emerald-500 text-white text-[8px] font-black h-4 px-1.5 border-none rounded-sm">FRECUENTE</Badge> : <Badge variant="outline" className="text-slate-400 text-[8px] font-bold h-4 px-1.5 rounded-sm">NORMAL</Badge>}
@@ -207,11 +216,8 @@ export default function AdminCotizaciones() {
                 <div className="flex gap-3">
                   {(() => {
                     const status = mapLegacyStatus(quoteToManage.status).toUpperCase();
-                    
-                    if (status === 'CONFIRMADA') return <Button onClick={() => handleCreateCotizacion(quoteToManage)} disabled={isProcessing === "creating"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest text-white shadow-md">{isProcessing === "creating" ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Cotización"}</Button>;
-                    
+                    if (status === 'CONFIRMADA') return <Button onClick={() => handleSendQuoteEmail(quoteToManage)} disabled={isProcessing === "sending"} className="bg-blue-600 hover:bg-blue-500 font-black text-[10px] h-10 px-6 uppercase tracking-widest text-white shadow-md">Enviar Correo</Button>;
                     if (status === 'CORREO_ENVIADO') return <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-amber-500 hover:bg-amber-400 font-black text-[10px] h-10 px-6 uppercase tracking-widest text-white shadow-md">Subir Voucher</Button>;
-                    
                     if (status === 'PAGADO' || status === 'FACTURADO') return (
                         <div className="flex gap-3">
                             <Button 
@@ -229,7 +235,7 @@ export default function AdminCotizaciones() {
                                     onClick={async () => { 
                                         setIsProcessing("inv"); 
                                         const res = await ejecutarFacturacionSiiV2(quoteToManage.id); 
-                                        if (res.success) { toast({ title: "Factura Emitida", description: `Folio: ${res.folio}` }); await refetchQuotes(); setQuoteToManage(null); }
+                                        if (res.success) { toast({ title: "Factura Exitosa", description: `Folio: ${res.folio}` }); await refetchQuotes(); setQuoteToManage(null); }
                                         else { toast({ variant: "destructive", title: "Error Facturación", description: res.error }); }
                                         setIsProcessing(null); 
                                     }} 
