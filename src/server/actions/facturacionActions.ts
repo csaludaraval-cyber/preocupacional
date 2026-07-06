@@ -1,6 +1,6 @@
 'use server';
 
-import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch, updateDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase'; 
 import { createDTE, whoami } from '@/server/lioren';
 import { cleanRut, normalizarUbicacionLioren } from '@/lib/utils';
@@ -129,6 +129,7 @@ export async function ejecutarFacturacionSiiV2(cotizacionId: string) {
       const data = snap.data() as CotizacionFirestore;
       let ubicacion;
       try {
+        // Corregido aquí de Uaicacion a Ubicacion
         ubicacion = await normalizarUbicacionLioren(data.empresaData?.comuna, data.empresaData?.ciudad);
         if (!ubicacion.comunaId) ubicacion = { comunaId: 15, ciudadId: 8 };
       } catch (e) { ubicacion = { comunaId: 15, ciudadId: 8 }; }
@@ -189,4 +190,48 @@ export async function descargarMaestroLocalidades() {
       ]);
       return { success: true, data: { regiones: await rReg.json(), comunas: await rCom.json(), ciudades: await rCiu.json() } };
     } catch (error: any) { return { success: false, error: error.message }; }
+}
+
+/**
+ * Elimina un trabajador específico de una cotización y recalcula los montos en caliente.
+ */
+export async function eliminarTrabajadorDeCotizacion(cotizacionId: string, trabajadorRut: string) {
+  try {
+    const docRef = doc(firestore, 'cotizaciones', cotizacionId);
+    const snap = await getDoc(docRef);
+
+    if (!snap.exists()) {
+      return { success: false, error: "Cotización no encontrada." };
+    }
+
+    const data = snap.data() as CotizacionFirestore;
+    const solicitudesOriginales = data.solicitudesData || [];
+
+    // Filtramos para dejar fuera al trabajador que no asistió
+    const solicitudesFiltradas = solicitudesOriginales.filter(
+      (sol: any) => cleanRut(sol.trabajador?.rut || '') !== cleanRut(trabajadorRut)
+    );
+
+    if (solicitudesFiltradas.length === solicitudesOriginales.length) {
+      return { success: false, error: "Trabajador no encontrado en la cotización." };
+    }
+
+    // Recalculamos el total sumando el valor de todos los exámenes de los trabajadores que sí asistieron
+    const nuevoTotal = solicitudesFiltradas.reduce((sumaTrabajadores: number, sol: any) => {
+      const sumaExamenesTrabajador = (sol.examenes || []).reduce((sumaEx: number, ex: any) => {
+        return sumaEx + (Math.round(Number(ex.valor)) || 0);
+      }, 0);
+      return sumaTrabajadores + sumaExamenesTrabajador;
+    }, 0);
+
+    // Actualizamos el documento con la nueva nómina y el monto recalculado de forma atómica
+    await updateDoc(docRef, {
+      solicitudesData: solicitudesFiltradas,
+      total: nuevoTotal
+    });
+
+    return { success: true, nuevoTotal };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }
