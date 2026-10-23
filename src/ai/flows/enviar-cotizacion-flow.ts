@@ -23,14 +23,9 @@ const enviarCotizacionFlow = ai.defineFlow(
     const { host, port, user, pass, from } = SMTP_CONFIG;
 
     if (!host || !user || !pass) {
-      const faltantes = [];
-      if (!host) faltantes.push("HOST");
-      if (!user) faltantes.push("USER");
-      if (!pass) faltantes.push("PASS");
-      
       return {
         status: 'error',
-        message: `Faltan credenciales en el servidor: ${faltantes.join(', ')}`,
+        message: `Faltan credenciales en el servidor (SMTP_CONFIG).`,
       };
     }
 
