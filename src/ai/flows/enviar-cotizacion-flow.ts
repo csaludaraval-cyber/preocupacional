@@ -66,9 +66,7 @@ const enviarCotizacionFlow = ai.defineFlow(
               </li>
           </ol>
 
-          <p>Comprobantes de pago serán recibidos a <strong>contacto@aravalcentrodesalud.cl</strong><br/>
-          El horario de recepción para validar su solicitud de examen sera valido entre:<br/>
-          <strong>08.00 am a 19:00 pm.</strong></p>
+          <p><strong>RECUERDA: EL HORARIO DE RECEPCIÓN PARA VALIDAR SU SOLICITUD DE EXAMEN SERA VALIDO ENTRE: 08.00 AM A 19:00 PM.</strong></p>
 
           <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin-top: 20px;">
               <h3 style="color: #0303b5;">Datos de Transferencia</h3>
@@ -77,7 +75,7 @@ const enviarCotizacionFlow = ai.defineFlow(
                   <li><strong>RUT:</strong> 77.102.661-3</li>
                   <li><strong>Banco:</strong> Banco Estado</li>
                   <li><strong>Cuenta corriente N°:</strong> 027-0-002475-2</li>
-                  <li><strong>Correo para envío del comprobante:</strong> pagos@aravalcsalud.cl</li>
+                  <li><strong>Correo para envío del comprobante:</strong> contacto@aravalcentrodesalud.cl</li>
               </ul>
           </div>
 
