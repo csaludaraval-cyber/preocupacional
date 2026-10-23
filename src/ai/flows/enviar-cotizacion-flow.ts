@@ -75,7 +75,7 @@ const enviarCotizacionFlow = ai.defineFlow(
                   <li><strong>RUT:</strong> 77.102.661-3</li>
                   <li><strong>Banco:</strong> Banco Estado</li>
                   <li><strong>Cuenta corriente N°:</strong> 027-0-002475-2</li>
-                  <li><strong>Correo para envío del comprobante:</strong> contacto@aravalcentrodesalud.cl</li>
+                  <li><strong>CORREO PARA ENVÍO DEL COMPROBANTE: CONTACTO@ARAVALCENTRODESALUD.CL</strong></li>
               </ul>
           </div>
 
