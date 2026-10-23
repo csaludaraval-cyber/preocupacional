@@ -86,7 +86,7 @@ const enviarCotizacionFlow = ai.defineFlow(
               <p><strong>Horario de atención:</strong> 08:00 - 12:00, 15:00 - 17:00 Hrs</p>
           </div>
 
-          <div style="margin-top: 25px; border-top: 1px solid #e2e8f0; pt: 20px;">
+          <div style="margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
               <h3 style="color: #0a0a4d; text-transform: uppercase; font-size: 14px;">Indicaciones para el paciente el día del examen:</h3>
               <ul style="font-size: 13px; color: #475569;">
                   <li><strong>Ayuno obligatorio:</strong> mínimo 8 horas, máximo 12 horas.</li>
