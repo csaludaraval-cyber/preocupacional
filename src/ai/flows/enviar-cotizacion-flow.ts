@@ -66,6 +66,10 @@ const enviarCotizacionFlow = ai.defineFlow(
               </li>
           </ol>
 
+          <p>Comprobantes de pago serán recibidos a <strong>contacto@aravalcentrodesalud.cl</strong><br/>
+          El horario de recepción para validar su solicitud de examen sera valido entre:<br/>
+          <strong>08.00 am a 19:00 pm.</strong></p>
+
           <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin-top: 20px;">
               <h3 style="color: #0303b5;">Datos de Transferencia</h3>
               <ul style="list-style-type: none; padding: 0;">
@@ -81,7 +85,7 @@ const enviarCotizacionFlow = ai.defineFlow(
               <p><strong>Dirección de nuestra sucursal en TALTAL es:</strong><br/>
               Dirección: Juan Martínez Nº 235 - Taltal.<br/>
               (CENTRO DE SALUD ARAVAL)</p>
-              <p><strong>Horario de atención:</strong> 09:00 h</p>
+              <p><strong>Horario de atención:</strong> 08:00 - 12:00, 15:00 - 17:00 Hrs</p>
           </div>
 
           <div style="margin-top: 20px;">
