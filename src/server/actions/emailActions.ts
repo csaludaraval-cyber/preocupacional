@@ -30,7 +30,7 @@ export async function enviarCotizacionFormal(input: { clienteEmail: string, coti
           <h3 style="color: #0a0a4d;">Pasos para concretar la atención:</h3>
           <ol>
             <li>Realizar el pago mediante transferencia bancaria (datos adjuntos abajo).</li>
-            <li>Enviar el comprobante de pago a <strong>pagos@aravalcsalud.cl</strong> indicando el ID de cotización <strong>#${input.cotizacionId}</strong>.</li>
+            <li>Enviar el comprobante de pago a <strong>contacto@aravalcentrodesalud.cl</strong> indicando el ID de cotización <strong>#${input.cotizacionId}</strong>.</li>
             <li>Una vez validado, recibirá un correo de confirmación con las instrucciones finales de la cita.</li>
           </ol>
 
@@ -111,7 +111,6 @@ export async function enviarConfirmacionPago(quote: any) {
             <li>Ayuno obligatorio: Mínimo 8 horas (solo agua).</li>
             <li>Hidratación: Beber abundante agua para el examen de orina.</li>
             <li>Documentación: Presentar Cédula de Identidad física.</li>
-            <li>Restricciones: Sin alcohol ni drogas 48 horas antes.</li>
           </ul>
           <div style="margin-top: 25px; background-color: #f1f5f9; padding: 15px; border-radius: 8px;">
             <p style="margin: 0; font-size: 13px;">📍 Juan Martínez Nº 235, Taltal. ⏰ 09:00 hrs.</p>
