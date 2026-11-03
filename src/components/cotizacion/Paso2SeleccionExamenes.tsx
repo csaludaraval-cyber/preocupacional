@@ -33,7 +33,6 @@ function ListaExamenes({
       <Table>
         <TableBody>
           <TableRow>
-            {/* CORRECCIÓN DEFINITIVA: USANDO "3" COMO STRING PARA EVITAR LLAVES VACÍAS */}
             <TableCell colSpan={3} className="text-center py-20 text-slate-400 text-xs">
               <div className="flex flex-col items-center">
                 <SearchX className="h-8 w-8 mb-2 opacity-20" />
@@ -109,6 +108,13 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
     return allExams.filter(exam => {
       // @ts-ignore
       const matchSubtipo = (exam.subtipo || "examen") === subtipo;
+
+      // REGLA QUIRÚRGICA: Ocultar Ketamina (0013) en formulario público si no hay stock
+      // @ts-ignore
+      if (!showPrice && exam.codigo === '0013' && exam.disponibleEnPublico === false) {
+        return false;
+      }
+
       const lowerSearch = searchTerm.toLowerCase();
       const matchSearch = 
         (exam?.nombre || "").toLowerCase().includes(lowerSearch) || 
@@ -132,7 +138,7 @@ export default function Paso2SeleccionExamenes({ selectedExams, onExamToggle, sh
       </div>
 
       <Tabs defaultValue="empresa" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4 bg-[#0a0a4d] p-0 h-12 rounded-lg border-none shadow-md overflow-hidden">
+        <TabsList className="grid grid-cols-3 mb-4 bg-[#0a0a4d] p-0 h-12 rounded-lg border-none shadow-md overflow-hidden">
           <TabsTrigger 
             value="empresa" 
             className="h-full rounded-none text-[11px] font-bold uppercase transition-all text-white/65 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
