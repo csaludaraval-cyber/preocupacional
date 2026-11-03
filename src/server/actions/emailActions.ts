@@ -34,6 +34,8 @@ export async function enviarCotizacionFormal(input: { clienteEmail: string, coti
             <li>Una vez validado, recibirá un correo de confirmación con las instrucciones finales de la cita.</li>
           </ol>
 
+          <p style="color: #0a0a4d;"><strong>RECUERDA: EL HORARIO DE RECEPCIÓN PARA VALIDAR SU SOLICITUD DE EXAMEN SERA VALIDO ENTRE: 08.00 AM A 19:00 PM.</strong></p>
+
           <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3 style="color: #0a0a4d; margin-top: 0;">Datos de Transferencia</h3>
             <ul style="list-style: none; padding: 0;">
@@ -41,6 +43,7 @@ export async function enviarCotizacionFormal(input: { clienteEmail: string, coti
               <li><strong>RUT:</strong> 77.102.661-3</li>
               <li><strong>Banco:</strong> Banco Estado</li>
               <li><strong>Cuenta corriente N°:</strong> 027-0-002475-2</li>
+              <li style="margin-top: 10px;"><strong>CORREO PARA ENVÍO DEL COMPROBANTE: CONTACTO@ARAVALCENTRODESALUD.CL</strong></li>
             </ul>
           </div>
 
@@ -69,7 +72,7 @@ export async function enviarCotizacionFormal(input: { clienteEmail: string, coti
 
 // FUNCIÓN 2: CONFIRMACIÓN DE PAGO / CITA (Para ambos clientes - Estado PAGADO)
 export async function enviarConfirmacionPago(quote: any) {
-  const { id, empresaData, solicitanteData, solicitudesData, total } = quote;
+  const { id, empresaData, solicitanteData, solicitudesData } = quote;
   const esFrecuente = (empresaData?.modalidadFacturacion || '').toLowerCase() === 'frecuente';
 
   const listaTrabajadores = (solicitudesData || []).map((s: any) => (
