@@ -152,13 +152,16 @@ export function AdminCatalogo() {
                   
                   {/* CONTROL DE STOCK QUIRÚRGICO PARA KETAMINA (CÓDIGO 0013) */}
                   {exam.codigo === '0013' && (
-                    <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-md mr-2 shadow-sm">
-                      <span className="text-[9px] font-black uppercase text-amber-700 leading-none">Visibilidad<br/>Pública</span>
+                    <div 
+                      className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md mr-2 shadow-sm"
+                      onClick={(e) => e.stopPropagation()} // Previene saltos de scroll y eventos de fila
+                    >
+                      <span className="text-[9px] font-black uppercase text-slate-600 leading-none">Visibilidad<br/>Pública</span>
                       <Switch 
                         // @ts-ignore
                         checked={exam.disponibleEnPublico !== false}
                         onCheckedChange={(checked) => handleTogglePublicAvailability(exam.id, checked)}
-                        className="scale-75 data-[state=checked]:bg-amber-600"
+                        className="scale-75 data-[state=checked]:bg-blue-600"
                       />
                     </div>
                   )}

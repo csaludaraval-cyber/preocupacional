@@ -118,15 +118,15 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
             control={form.control}
             name="disponibleEnPublico"
             render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-amber-200 bg-amber-50 p-4 shadow-sm">
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4 shadow-sm">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                    <FormLabel className="text-sm font-black uppercase text-amber-900">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <FormLabel className="text-sm font-black uppercase text-slate-800">
                       Disponibilidad Pública (Stock)
                     </FormLabel>
                   </div>
-                  <FormDescription className="text-[10px] font-bold text-amber-700 uppercase leading-none">
+                  <FormDescription className="text-[10px] font-bold text-slate-400 uppercase leading-none">
                     Control exclusivo para examen con Ketamina
                   </FormDescription>
                 </div>
@@ -134,7 +134,7 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
                   <Switch
                     checked={field.value}
                     onCheckedChange={field.onChange}
-                    className="data-[state=checked]:bg-amber-600"
+                    className="data-[state=checked]:bg-blue-600"
                   />
                 </FormControl>
               </FormItem>
