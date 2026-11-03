@@ -10,10 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import type { Examen } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea'; // Importación necesaria para descripción
+import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 interface ExamenFormProps {
   examen: Examen | null;
@@ -24,12 +25,11 @@ const examenSchema = z.object({
   codigo: z.string().min(1, 'El código es obligatorio.'),
   nombre: z.string().min(3, 'El nombre es obligatorio.'),
   categoria: z.string().min(1, 'La categoría es obligatoria.'),
-  // NUEVO CAMPO: Segmentación para pestañas
   subtipo: z.enum(['empresa', 'bateria', 'examen'], {
     required_error: "Seleccione un tipo de segmentación.",
   }),
-  // NUEVO CAMPO: Descripción para el PDF
   descripcion: z.string().optional(),
+  disponibleEnPublico: z.boolean().default(true),
   valor: z.preprocess(
     (val) => {
         if (typeof val === 'string') {
@@ -54,9 +54,12 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
       categoria: '',
       subtipo: 'examen',
       descripcion: '',
+      disponibleEnPublico: true,
       valor: 0,
     },
   });
+
+  const watchCodigo = form.watch('codigo');
 
   useEffect(() => {
     if (examen) {
@@ -64,10 +67,12 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
         codigo: examen.codigo,
         nombre: examen.nombre,
         categoria: examen.categoria,
-        // @ts-ignore - manejamos la transición de datos viejos a nuevos
+        // @ts-ignore
         subtipo: examen.subtipo || 'examen',
         // @ts-ignore
         descripcion: examen.descripcion || '',
+        // @ts-ignore
+        disponibleEnPublico: examen.disponibleEnPublico !== undefined ? examen.disponibleEnPublico : true,
         valor: examen.valor,
       });
     } else {
@@ -77,6 +82,7 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
         categoria: '',
         subtipo: 'examen',
         descripcion: '',
+        disponibleEnPublico: true,
         valor: 0,
       });
     }
@@ -104,6 +110,37 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        
+        {/* CONTROL DE STOCK EXCLUSIVO PARA KETAMINA */}
+        {watchCodigo === '0302035-20' && (
+          <FormField
+            control={form.control}
+            name="disponibleEnPublico"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-amber-200 bg-amber-50 p-4 shadow-sm">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <FormLabel className="text-sm font-black uppercase text-amber-900">
+                      Disponibilidad Pública (Stock)
+                    </FormLabel>
+                  </div>
+                  <FormDescription className="text-[10px] font-bold text-amber-700 uppercase leading-none">
+                    Control exclusivo para examen con Ketamina
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="data-[state=checked]:bg-amber-600"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
                 control={form.control}
