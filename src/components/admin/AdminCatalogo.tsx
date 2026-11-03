@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
-import { collection, getDocs, writeBatch, doc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { firestore } from '@/lib/firebase';
@@ -12,10 +13,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, Tag, Search, XCircle, Trash2, PlusCircle, Pencil } from 'lucide-react';
+import { Loader2, Shield, Tag, Search, XCircle, Trash2, PlusCircle, Pencil, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +60,19 @@ export function AdminCatalogo() {
     setIsFormOpen(false);
     setEditingExam(null);
     refetchExams();
+  };
+
+  const handleTogglePublicAvailability = async (id: string, checked: boolean) => {
+    try {
+      const examRef = doc(firestore, 'examenes', id);
+      await updateDoc(examRef, { disponibleEnPublico: checked });
+      toast({ 
+        title: checked ? 'Stock Habilitado' : 'Stock Agotado', 
+        description: `El examen de Ketamina ${checked ? 'ahora es visible' : 'ha sido ocultado'} en el formulario público.` 
+      });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al actualizar stock', description: err.message });
+    }
   };
 
   const handlePinSubmit = () => {
@@ -133,7 +148,21 @@ export function AdminCatalogo() {
                 {formatPrice(exam.valor)}
               </TableCell>
               <TableCell className="text-center">
-                <div className="flex justify-center gap-1">
+                <div className="flex justify-center items-center gap-1">
+                  
+                  {/* CONTROL DE STOCK QUIRÚRGICO PARA KETAMINA (CÓDIGO 0013) */}
+                  {exam.codigo === '0013' && (
+                    <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-md mr-2 shadow-sm">
+                      <span className="text-[9px] font-black uppercase text-amber-700 leading-none">Visibilidad<br/>Pública</span>
+                      <Switch 
+                        // @ts-ignore
+                        checked={exam.disponibleEnPublico !== false}
+                        onCheckedChange={(checked) => handleTogglePublicAvailability(exam.id, checked)}
+                        className="scale-75 data-[state=checked]:bg-amber-600"
+                      />
+                    </div>
+                  )}
+
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditingExam(exam); setIsFormOpen(true); }}>
                     <Pencil className="h-3.5 w-3.5 text-blue-600" />
                   </Button>

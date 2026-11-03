@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -111,8 +112,8 @@ export default function ExamenForm({ examen, onSuccess }: ExamenFormProps) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         
-        {/* CONTROL DE STOCK EXCLUSIVO PARA KETAMINA */}
-        {watchCodigo === '0302035-20' && (
+        {/* CONTROL DE STOCK EXCLUSIVO PARA KETAMINA (CÓDIGO 0013) */}
+        {watchCodigo === '0013' && (
           <FormField
             control={form.control}
             name="disponibleEnPublico"
