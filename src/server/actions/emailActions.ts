@@ -30,7 +30,7 @@ export async function enviarCotizacionFormal(input: { clienteEmail: string, coti
           <h3 style="color: #0a0a4d;">Pasos para concretar la atención:</h3>
           <ol>
             <li>Realizar el pago mediante transferencia bancaria (datos adjuntos abajo).</li>
-            <li>Enviar el comprobante de pago a <strong>contacto@aravalcentrodesalud.cl</strong> indicando el ID de cotización <strong>#${input.cotizacionId}</strong>.</li>
+            <li>Enviar el comprobante de pago a <strong>CONTACTO@ARAVALCENTRODESALUD.CL</strong> indicando el ID de cotización <strong>#${input.cotizacionId}</strong>.</li>
             <li>Una vez validado, recibirá un correo de confirmación con las instrucciones finales de la cita.</li>
           </ol>
 
